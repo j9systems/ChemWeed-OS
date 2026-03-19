@@ -138,6 +138,28 @@ export interface FieldCompletion {
   submitted_at: string
 }
 
+export interface SiteWeedProfile {
+  id: string
+  site_id: string
+  weed_name: string
+  notes: string | null
+  added_at: string
+  added_by: string | null
+}
+
+export interface SiteObservationLog {
+  id: string
+  site_id: string
+  work_order_id: string | null
+  observed_at: string
+  observed_by: string | null
+  weed_species: string[]
+  density: string | null
+  conditions: string | null
+  notes: string | null
+  photo_urls: string[]
+}
+
 // Supabase Database type for the client generic
 export interface Database {
   public: {
@@ -152,6 +174,8 @@ export interface Database {
       service_types: { Row: ServiceType; Insert: Omit<ServiceType, 'id'>; Update: Partial<Omit<ServiceType, 'id'>> }
       team: { Row: TeamMember; Insert: Omit<TeamMember, 'id'>; Update: Partial<Omit<TeamMember, 'id'>> }
       field_completions: { Row: FieldCompletion; Insert: Omit<FieldCompletion, 'id'>; Update: Partial<Omit<FieldCompletion, 'id'>> }
+      site_weed_profile: { Row: SiteWeedProfile; Insert: Omit<SiteWeedProfile, 'id' | 'added_at'>; Update: Partial<Omit<SiteWeedProfile, 'id'>> }
+      site_observation_logs: { Row: SiteObservationLog; Insert: Omit<SiteObservationLog, 'id'>; Update: Partial<Omit<SiteObservationLog, 'id'>> }
     }
   }
 }
