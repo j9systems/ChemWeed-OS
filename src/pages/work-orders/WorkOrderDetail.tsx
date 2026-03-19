@@ -6,6 +6,7 @@ import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { useWorkOrderMaterials } from '@/hooks/useWorkOrderMaterials'
 import { useWorkOrderCharges } from '@/hooks/useWorkOrderCharges'
 import { useSiteProfile } from '@/hooks/useSiteProfile'
+import { useSitePhotos } from '@/hooks/useSitePhotos'
 import { canEdit, canCompleteField } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
@@ -21,6 +22,7 @@ import { ScheduleTab } from './tabs/ScheduleTab'
 import { FieldTab } from './tabs/FieldTab'
 import { NotesTab } from './tabs/NotesTab'
 import { InvoiceTab } from './tabs/InvoiceTab'
+import { EditWorkOrderModal } from './components/EditWorkOrderModal'
 
 const TABS = [
   { key: 'details', label: 'Details' },
@@ -35,12 +37,14 @@ export function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>()
   const { role, user } = useAuth()
   const { workOrder, isLoading, error, refetch } = useWorkOrder(id)
-  const { materials } = useWorkOrderMaterials(id)
-  const { charges } = useWorkOrderCharges(id)
-  const { weedProfile, observationLogs, isLoading: profileLoading, refetch: refetchSiteProfile } = useSiteProfile(workOrder?.site_id)
+  const { materials, refetch: refetchMaterials } = useWorkOrderMaterials(id)
+  const { charges, refetch: refetchCharges } = useWorkOrderCharges(id)
+  const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(workOrder?.site_id)
+  const { photos: sitePhotos, uploading: uploadingPhoto, uploadPhoto } = useSitePhotos(workOrder?.site_id)
   const [updating, setUpdating] = useState(false)
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
 
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
@@ -85,7 +89,7 @@ export function WorkOrderDetail() {
       {/* Actions */}
       <div className="flex flex-wrap gap-2 mb-4">
         {canEdit(role) && (
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
             <Edit size={16} />
             Edit
           </Button>
@@ -112,6 +116,9 @@ export function WorkOrderDetail() {
           site={workOrder.site}
           weedProfile={weedProfile}
           observationLogs={observationLogs}
+          sitePhotos={sitePhotos}
+          uploadingPhoto={uploadingPhoto}
+          onUploadPhoto={(file) => uploadPhoto(file, user?.id)}
           isOpen={siteInfoOpen}
           onToggle={() => setSiteInfoOpen(!siteInfoOpen)}
           role={role}
@@ -125,7 +132,17 @@ export function WorkOrderDetail() {
 
       {/* Tab Content */}
       {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
-      {activeTab === 'estimate' && <EstimateTab materials={materials} charges={charges} weedProfile={weedProfile} />}
+      {activeTab === 'estimate' && (
+        <EstimateTab
+          workOrderId={workOrder.id}
+          materials={materials}
+          charges={charges}
+          weedProfile={weedProfile}
+          role={role}
+          refetchMaterials={refetchMaterials}
+          refetchCharges={refetchCharges}
+        />
+      )}
       {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
       {activeTab === 'field' && (
         <FieldTab
@@ -139,6 +156,19 @@ export function WorkOrderDetail() {
       )}
       {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
       {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+
+      {/* Edit Work Order Modal */}
+      {showEditModal && (
+        <EditWorkOrderModal
+          open={showEditModal}
+          workOrder={workOrder}
+          onClose={() => setShowEditModal(false)}
+          onSaved={() => {
+            setShowEditModal(false)
+            refetch()
+          }}
+        />
+      )}
     </div>
   )
 }

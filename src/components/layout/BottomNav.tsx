@@ -19,7 +19,7 @@ export function BottomNav() {
               cn(
                 'flex flex-col items-center justify-center gap-0.5 py-2 px-3 min-h-[56px] min-w-[56px] text-xs font-medium transition-colors',
                 isActive
-                  ? 'text-brand-green'
+                  ? 'font-bold text-brand-green'
                   : 'text-[var(--color-text-muted)]',
               )
             }

@@ -160,6 +160,14 @@ export interface SiteObservationLog {
   photo_urls: string[]
 }
 
+export interface SitePhoto {
+  id: string
+  site_id: string
+  url: string
+  uploaded_at: string
+  uploaded_by: string | null
+}
+
 // Supabase Database type for the client generic
 export interface Database {
   public: {
@@ -176,6 +184,7 @@ export interface Database {
       field_completions: { Row: FieldCompletion; Insert: Omit<FieldCompletion, 'id'>; Update: Partial<Omit<FieldCompletion, 'id'>> }
       site_weed_profile: { Row: SiteWeedProfile; Insert: Omit<SiteWeedProfile, 'id' | 'added_at'>; Update: Partial<Omit<SiteWeedProfile, 'id'>> }
       site_observation_logs: { Row: SiteObservationLog; Insert: Omit<SiteObservationLog, 'id'>; Update: Partial<Omit<SiteObservationLog, 'id'>> }
+      site_photos: { Row: SitePhoto; Insert: Omit<SitePhoto, 'id' | 'uploaded_at'>; Update: Partial<Omit<SitePhoto, 'id'>> }
     }
   }
 }
