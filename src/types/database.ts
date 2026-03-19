@@ -107,16 +107,14 @@ export interface ServiceType {
 
 export interface TeamMember {
   id: string
-  user_id: string
   first_name: string
   last_name: string
-  role: Role
-  pesticide_license_number: string | null
-  license_expiry_date: string | null
-  phone: string | null
   email: string | null
-  is_active: boolean
-  notes: string | null
+  personal_email: string | null
+  photo: string | null
+  role: Role
+  phone: number | null
+  active: string | null
 }
 
 export interface FieldCompletion {

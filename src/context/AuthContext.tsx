@@ -9,6 +9,7 @@ export interface AuthContextValue {
   teamMember: TeamMember | null
   role: Role | null
   isLoading: boolean
+  teamError: string | null
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -20,15 +21,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [teamMember, setTeamMember] = useState<TeamMember | null>(null)
   const [role, setRole] = useState<Role | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [teamError, setTeamError] = useState<string | null>(null)
 
-  const resolveTeamMember = useCallback(async (userId: string) => {
+  const resolveTeamMember = useCallback(async (email: string) => {
+    setTeamError(null)
     const { data, error } = await supabase
       .from('team')
       .select('*')
-      .eq('user_id', userId)
+      .eq('email', email)
       .single()
 
-    if (error || !data) {
+    if (error) {
+      const msg = error.code === 'PGRST116'
+        ? `No team record found for email: ${email}. Check that the team table has a row where email matches this auth user's email.`
+        : `Team lookup failed: ${error.message} (code: ${error.code})`
+      console.error(msg, error)
+      setTeamError(msg)
+      setTeamMember(null)
+      setRole(null)
+      return
+    }
+
+    if (!data) {
+      setTeamError(`Query returned no data for email: ${email}`)
       setTeamMember(null)
       setRole(null)
       return
@@ -42,8 +57,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
-      if (currentUser) {
-        resolveTeamMember(currentUser.id).finally(() => setIsLoading(false))
+      if (currentUser?.email) {
+        resolveTeamMember(currentUser.email).finally(() => setIsLoading(false))
       } else {
         setIsLoading(false)
       }
@@ -54,8 +69,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       const currentUser = session?.user ?? null
       setUser(currentUser)
-      if (currentUser) {
-        resolveTeamMember(currentUser.id)
+      if (currentUser?.email) {
+        resolveTeamMember(currentUser.email)
       } else {
         setTeamMember(null)
         setRole(null)
@@ -81,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, teamMember, role, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, teamMember, role, isLoading, teamError, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )

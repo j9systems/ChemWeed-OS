@@ -14,7 +14,7 @@ export function useTeamMembers() {
     const { data, error: err } = await supabase
       .from('team')
       .select('*')
-      .eq('is_active', true)
+      .eq('active', 'true')
       .order('last_name')
 
     if (err) {
