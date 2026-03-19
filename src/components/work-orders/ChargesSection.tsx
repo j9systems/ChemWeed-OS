@@ -33,7 +33,7 @@ export function ChargesSection({ rows, onChange, readOnly = false }: ChargesSect
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold">Charges</h3>
         {!readOnly && (
-          <Button variant="ghost" size="sm" onClick={addRow}>
+          <Button type="button" variant="ghost" size="sm" onClick={addRow}>
             <Plus size={16} />
             Add Charge
           </Button>
@@ -75,6 +75,7 @@ export function ChargesSection({ rows, onChange, readOnly = false }: ChargesSect
           </div>
           {!readOnly && (
             <button
+              type="button"
               onClick={() => removeRow(i)}
               className="rounded-lg p-2 text-red-500 hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
             >
