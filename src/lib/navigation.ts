@@ -1,0 +1,16 @@
+import { ClipboardList, Calendar, Building2, Users, type LucideIcon } from 'lucide-react'
+import type { Role } from '@/types/database'
+
+export interface NavItem {
+  label: string
+  path: string
+  icon: LucideIcon
+  roles: Role[]
+}
+
+export const NAV_ITEMS: NavItem[] = [
+  { label: 'Work Orders', path: '/work-orders', icon: ClipboardList, roles: ['admin', 'manager', 'tech', 'pca'] },
+  { label: 'Schedule', path: '/schedule', icon: Calendar, roles: ['admin', 'manager', 'tech', 'pca'] },
+  { label: 'Clients', path: '/clients', icon: Building2, roles: ['admin', 'manager'] },
+  { label: 'Team', path: '/team', icon: Users, roles: ['admin', 'manager'] },
+]
