@@ -16,11 +16,19 @@ export const WORK_ORDER_STATUSES: Record<WorkOrderStatus, string> = {
 }
 
 export const STATUS_COLORS: Record<WorkOrderStatus, { bg: string; text: string }> = {
-  draft: { bg: 'bg-zinc-100', text: 'text-zinc-700' },
-  scheduled: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  in_progress: { bg: 'bg-amber-100', text: 'text-amber-700' },
-  completed: { bg: 'bg-green-100', text: 'text-green-700' },
-  invoiced: { bg: 'bg-[#2a6b2a]/10', text: 'text-[#2a6b2a]' },
+  draft: { bg: 'bg-[#8fbc8f]/20', text: 'text-[#2d5a2d]' },
+  scheduled: { bg: 'bg-amber-100', text: 'text-amber-800' },
+  in_progress: { bg: 'bg-brand-green-light/20', text: 'text-brand-green-dark' },
+  completed: { bg: 'bg-brand-green/15', text: 'text-brand-green-dark' },
+  invoiced: { bg: 'bg-brand-green-dark/15', text: 'text-brand-green-dark' },
+}
+
+export const STATUS_BORDER_COLORS: Record<WorkOrderStatus, string> = {
+  draft: 'border-l-[#8fbc8f]',
+  scheduled: 'border-l-amber-500',
+  in_progress: 'border-l-brand-green-light',
+  completed: 'border-l-brand-green',
+  invoiced: 'border-l-brand-green-dark',
 }
 
 export const WIND_DIRECTIONS: WindDirection[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']
