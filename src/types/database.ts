@@ -1,0 +1,153 @@
+export type Role = 'admin' | 'manager' | 'tech' | 'pca'
+
+export type WorkOrderStatus = 'draft' | 'scheduled' | 'in_progress' | 'completed' | 'invoiced'
+
+export type PropertyType = 'commercial' | 'government' | 'residential'
+
+export type WindDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW'
+
+export interface Client {
+  id: string
+  name: string
+  billing_contact: string | null
+  billing_email: string | null
+  billing_phone: string | null
+  po_required: boolean
+  payment_method: string | null
+  notes: string | null
+  is_active: boolean
+  created_at: string
+}
+
+export interface Site {
+  id: string
+  client_id: string
+  name: string
+  address: string
+  city: string
+  county_id: string
+  state: string
+  zip: string
+  acreage: number | null
+  property_type: PropertyType
+  site_notes: string | null
+  is_active: boolean
+  county?: County
+}
+
+export interface County {
+  id: string
+  name: string
+  state: string
+  is_licensed: boolean
+  notes: string | null
+}
+
+export interface WorkOrder {
+  id: string
+  client_id: string
+  site_id: string
+  service_type_id: string
+  frequency_type: string | null
+  status: WorkOrderStatus
+  proposed_start_date: string | null
+  completed_at: string | null
+  pca_id: string | null
+  po_number: string | null
+  reason: string | null
+  comment_client: string | null
+  comment_internal: string | null
+  comment_tech: string | null
+  created_by: string
+  created_at: string
+  client?: Client
+  site?: Site
+  service_type?: ServiceType
+  pca?: TeamMember
+}
+
+export interface WorkOrderMaterial {
+  id: string
+  work_order_id: string
+  chemical_id: string
+  recommended_amount: number | null
+  recommended_unit: string | null
+  actual_amount_used: number | null
+  tanks_used: number | null
+  chemical?: Chemical
+}
+
+export interface WorkOrderCharge {
+  id: string
+  work_order_id: string
+  description: string
+  amount: number
+}
+
+export interface Chemical {
+  id: string
+  name: string
+  manufacturer: string | null
+  active_ingredient: string | null
+  default_unit: string | null
+  default_rate_per_100gal: number | null
+  max_rate_per_100gal: number | null
+  reapplication_interval_days: number | null
+  use_types: string[]
+  notes: string | null
+  is_active: boolean
+}
+
+export interface ServiceType {
+  id: string
+  name: string
+  description: string | null
+  is_active: boolean
+}
+
+export interface TeamMember {
+  id: string
+  user_id: string
+  first_name: string
+  last_name: string
+  role: Role
+  pesticide_license_number: string | null
+  license_expiry_date: string | null
+  phone: string | null
+  email: string | null
+  is_active: boolean
+  notes: string | null
+}
+
+export interface FieldCompletion {
+  id: string
+  work_order_id: string
+  completed_by: string
+  actual_start_at: string
+  temperature_f: number | null
+  wind_speed_mph: number | null
+  wind_direction: WindDirection | null
+  crew_ids: string[]
+  notes: string | null
+  signature_data_url: string | null
+  photo_urls: string[]
+  submitted_at: string
+}
+
+// Supabase Database type for the client generic
+export interface Database {
+  public: {
+    Tables: {
+      clients: { Row: Client; Insert: Omit<Client, 'id' | 'created_at'>; Update: Partial<Omit<Client, 'id'>> }
+      sites: { Row: Site; Insert: Omit<Site, 'id'>; Update: Partial<Omit<Site, 'id'>> }
+      counties: { Row: County; Insert: Omit<County, 'id'>; Update: Partial<Omit<County, 'id'>> }
+      work_orders: { Row: WorkOrder; Insert: Omit<WorkOrder, 'id' | 'created_at'>; Update: Partial<Omit<WorkOrder, 'id'>> }
+      work_order_materials: { Row: WorkOrderMaterial; Insert: Omit<WorkOrderMaterial, 'id'>; Update: Partial<Omit<WorkOrderMaterial, 'id'>> }
+      work_order_charges: { Row: WorkOrderCharge; Insert: Omit<WorkOrderCharge, 'id'>; Update: Partial<Omit<WorkOrderCharge, 'id'>> }
+      chemicals: { Row: Chemical; Insert: Omit<Chemical, 'id'>; Update: Partial<Omit<Chemical, 'id'>> }
+      service_types: { Row: ServiceType; Insert: Omit<ServiceType, 'id'>; Update: Partial<Omit<ServiceType, 'id'>> }
+      team: { Row: TeamMember; Insert: Omit<TeamMember, 'id'>; Update: Partial<Omit<TeamMember, 'id'>> }
+      field_completions: { Row: FieldCompletion; Insert: Omit<FieldCompletion, 'id'>; Update: Partial<Omit<FieldCompletion, 'id'>> }
+    }
+  }
+}
