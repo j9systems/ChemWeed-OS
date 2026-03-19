@@ -47,7 +47,7 @@ export function WorkOrderNew() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { sites, refetch: refetchSites } = useSites(clientId || undefined)
+  const { sites } = useSites(clientId || undefined)
 
   // Close client dropdown on outside click
   useEffect(() => {
