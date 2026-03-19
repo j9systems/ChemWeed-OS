@@ -11,6 +11,7 @@ import { canEdit, canCompleteField } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
+import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
@@ -127,35 +128,39 @@ export function WorkOrderDetail() {
         />
       )}
 
-      {/* Tab Bar */}
-      <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      {/* Tabs Card */}
+      <Card>
+        <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
 
-      {/* Tab Content */}
-      {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
-      {activeTab === 'estimate' && (
-        <EstimateTab
-          workOrderId={workOrder.id}
-          materials={materials}
-          charges={charges}
-          weedProfile={weedProfile}
-          role={role}
-          refetchMaterials={refetchMaterials}
-          refetchCharges={refetchCharges}
-        />
-      )}
-      {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
-      {activeTab === 'field' && (
-        <FieldTab
-          workOrder={workOrder}
-          materials={materials}
-          role={role}
-          siteId={workOrder.site_id}
-          userId={user?.id}
-          refetchSiteProfile={refetchSiteProfile}
-        />
-      )}
-      {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
-      {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+        {/* Tab Content */}
+        <div className="mt-4">
+          {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
+          {activeTab === 'estimate' && (
+            <EstimateTab
+              workOrderId={workOrder.id}
+              materials={materials}
+              charges={charges}
+              weedProfile={weedProfile}
+              role={role}
+              refetchMaterials={refetchMaterials}
+              refetchCharges={refetchCharges}
+            />
+          )}
+          {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
+          {activeTab === 'field' && (
+            <FieldTab
+              workOrder={workOrder}
+              materials={materials}
+              role={role}
+              siteId={workOrder.site_id}
+              userId={user?.id}
+              refetchSiteProfile={refetchSiteProfile}
+            />
+          )}
+          {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
+          {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+        </div>
+      </Card>
 
       {/* Edit Work Order Modal */}
       {showEditModal && (

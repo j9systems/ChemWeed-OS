@@ -1,6 +1,5 @@
 import { formatDate } from '@/lib/utils'
 import { WORK_ORDER_STATUSES } from '@/lib/constants'
-import { Card } from '@/components/ui/Card'
 import type { WorkOrder } from '@/types/database'
 
 interface DetailsTabProps {
@@ -9,8 +8,7 @@ interface DetailsTabProps {
 
 export function DetailsTab({ workOrder }: DetailsTabProps) {
   return (
-    <Card>
-      <h2 className="text-sm font-semibold mb-3">Details</h2>
+    <div>
       <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-3 text-sm">
         <div>
           <dt className="text-[var(--color-text-muted)]">Client</dt>
@@ -55,6 +53,6 @@ export function DetailsTab({ workOrder }: DetailsTabProps) {
           <dd className="whitespace-pre-wrap">{workOrder.reason ?? '—'}</dd>
         </div>
       </dl>
-    </Card>
+    </div>
   )
 }

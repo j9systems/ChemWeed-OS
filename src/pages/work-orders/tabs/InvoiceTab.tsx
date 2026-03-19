@@ -1,5 +1,4 @@
 import { formatCurrency } from '@/lib/utils'
-import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import type { WorkOrder, WorkOrderCharge } from '@/types/database'
 
@@ -14,19 +13,17 @@ export function InvoiceTab({ workOrder, charges }: InvoiceTabProps) {
   return (
     <div className="space-y-4">
       {/* Invoice status */}
-      <Card>
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-sm font-semibold">Invoice Status</h2>
-          {workOrder.status === 'invoiced' ? (
-            <Badge status="invoiced" />
-          ) : (
-            <span className="text-sm text-[var(--color-text-muted)]">Not yet invoiced</span>
-          )}
-        </div>
-      </Card>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold">Invoice Status</h2>
+        {workOrder.status === 'invoiced' ? (
+          <Badge status="invoiced" />
+        ) : (
+          <span className="text-sm text-[var(--color-text-muted)]">Not yet invoiced</span>
+        )}
+      </div>
 
       {/* Charges summary */}
-      <Card>
+      <div className="border-t border-surface-border pt-4">
         <h2 className="text-sm font-semibold mb-3">Charges Summary</h2>
         {charges.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted)]">No charges.</p>
@@ -45,12 +42,12 @@ export function InvoiceTab({ workOrder, charges }: InvoiceTabProps) {
             </div>
           </>
         )}
-      </Card>
+      </div>
 
       {/* Placeholder */}
-      <Card>
+      <div className="border-t border-surface-border pt-4">
         <p className="text-sm text-[var(--color-text-muted)]">Billing actions coming soon.</p>
-      </Card>
+      </div>
     </div>
   )
 }

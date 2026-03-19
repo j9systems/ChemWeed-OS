@@ -3,7 +3,6 @@ import { Edit, Save, X } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, getSupabaseErrorMessage } from '@/lib/utils'
 import { canEdit } from '@/lib/roles'
-import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
 import { ChargesSection, type ChargeRow } from '@/components/work-orders/ChargesSection'
@@ -137,7 +136,7 @@ export function EstimateTab({
     <div className="space-y-4">
       {/* Weed Profile context note */}
       {weedProfile.length > 0 && (
-        <div className="bg-white rounded-[20px] shadow-[0px_8px_24px_0px_#7090B00A] p-3 text-sm text-[var(--color-text-muted)]">
+        <div className="rounded-lg bg-[#F5F8FE] p-3 text-sm text-[var(--color-text-muted)]">
           Known species at this site: {weedProfile.map((w) => w.weed_name).join(', ')}
         </div>
       )}
@@ -174,17 +173,17 @@ export function EstimateTab({
       {isEditing ? (
         /* Edit mode — reuse form components */
         <>
-          <Card>
+          <div>
             <MaterialsSection rows={materialRows} onChange={setMaterialRows} />
-          </Card>
-          <Card>
+          </div>
+          <div className="border-t border-surface-border pt-4">
             <ChargesSection rows={chargeRows} onChange={setChargeRows} />
-          </Card>
+          </div>
         </>
       ) : (
         /* Read mode — display tables */
         <>
-          <Card>
+          <div>
             <h2 className="text-sm font-semibold mb-3">Materials</h2>
             {materials.length === 0 ? (
               <p className="text-sm text-[var(--color-text-muted)]">No materials.</p>
@@ -210,9 +209,9 @@ export function EstimateTab({
                 </table>
               </div>
             )}
-          </Card>
+          </div>
 
-          <Card>
+          <div className="border-t border-surface-border pt-4">
             <h2 className="text-sm font-semibold mb-3">Charges</h2>
             {charges.length === 0 ? (
               <p className="text-sm text-[var(--color-text-muted)]">No charges.</p>
@@ -231,7 +230,7 @@ export function EstimateTab({
                 </div>
               </>
             )}
-          </Card>
+          </div>
         </>
       )}
     </div>

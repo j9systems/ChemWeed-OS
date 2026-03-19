@@ -86,36 +86,59 @@ export function SiteInfoCard({
   const visibleLogs = showAllLogs ? observationLogs : observationLogs.slice(0, 5)
 
   return (
-    <Card className="mb-4">
-      <button
-        onClick={onToggle}
-        className="flex items-center justify-between w-full min-h-[44px] text-left"
-      >
-        <span className="text-sm font-semibold">Site Info</span>
-        {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-      </button>
+    <Card className="mb-4" padding={false}>
+      {/* Hero: Map/Street View + Address */}
+      <div className="flex flex-col sm:flex-row">
+        <div className="sm:w-1/2 rounded-tl-[20px] overflow-hidden">
+          {mapSrc ? (
+            <iframe
+              src={mapSrc}
+              width="100%"
+              height="180"
+              style={{ border: 0 }}
+              allowFullScreen
+              loading="lazy"
+              referrerPolicy="no-referrer-when-downgrade"
+              title="Site location"
+            />
+          ) : (
+            <div className="flex items-center justify-center h-[180px] bg-[#F5F8FE] text-sm text-[var(--color-text-muted)]">
+              No address available
+            </div>
+          )}
+        </div>
+        <div className="sm:w-1/2 flex flex-col justify-center gap-1 p-4 text-sm">
+          <p className="font-semibold">{site.address_line}</p>
+          <p className="text-[var(--color-text-muted)]">{site.city}, {site.state} {site.zip}</p>
+          {site.county && <p className="text-[var(--color-text-muted)]">{site.county.name} County</p>}
+          {site.property_type && <p className="text-[var(--color-text-muted)] capitalize">{site.property_type}</p>}
+          {site.total_acres != null && <p className="text-[var(--color-text-muted)]">{site.total_acres} acres</p>}
+        </div>
+      </div>
+
+      <div className="px-4 pb-4">
+        <button
+          onClick={onToggle}
+          className="flex items-center justify-between w-full min-h-[44px] text-left"
+        >
+          <span className="text-sm font-semibold">Site Info</span>
+          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
 
       {isOpen && (
         <div className="mt-3">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Left Column — Site Details, Weed Profile, Observation Log */}
             <div className="space-y-6">
-              {/* Section 1 — Site Details */}
-              <div>
-                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Site Details</h3>
-                <dl className="space-y-1 text-sm">
-                  <div><dt className="text-[var(--color-text-muted)] inline">Address: </dt><dd className="inline">{site.address_line}</dd></div>
-                  <div><dt className="text-[var(--color-text-muted)] inline">City: </dt><dd className="inline">{site.city}</dd></div>
-                  {site.county && <div><dt className="text-[var(--color-text-muted)] inline">County: </dt><dd className="inline">{site.county.name}</dd></div>}
-                  <div><dt className="text-[var(--color-text-muted)] inline">State: </dt><dd className="inline">{site.state}</dd></div>
-                  <div><dt className="text-[var(--color-text-muted)] inline">Zip: </dt><dd className="inline">{site.zip}</dd></div>
-                  {site.total_acres != null && <div><dt className="text-[var(--color-text-muted)] inline">Acreage: </dt><dd className="inline">{site.total_acres}</dd></div>}
-                  {site.property_type && <div><dt className="text-[var(--color-text-muted)] inline">Property Type: </dt><dd className="inline capitalize">{site.property_type}</dd></div>}
-                  {site.notes && <div><dt className="text-[var(--color-text-muted)] inline">Notes: </dt><dd className="inline">{site.notes}</dd></div>}
-                </dl>
-              </div>
+              {/* Site Notes (if any — address/property shown in hero above) */}
+              {site.notes && (
+                <div>
+                  <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Site Notes</h3>
+                  <p className="text-sm">{site.notes}</p>
+                </div>
+              )}
 
-              {/* Section 2 — Weed Profile */}
+              {/* Weed Profile */}
               <div>
                 <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Weed Profile</h3>
                 {weedProfile.length === 0 ? (
@@ -191,32 +214,8 @@ export function SiteInfoCard({
               </div>
             </div>
 
-            {/* Right Column — Map + Photo Grid */}
-            <div className="space-y-4">
-              {/* Map */}
-              <div>
-                <h4 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Location</h4>
-                {mapSrc ? (
-                  <div className="rounded-lg overflow-hidden">
-                    <iframe
-                      src={mapSrc}
-                      width="100%"
-                      height="200"
-                      style={{ border: 0 }}
-                      allowFullScreen
-                      loading="lazy"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      title="Site location"
-                    />
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center h-[200px] rounded-lg bg-[#F5F8FE] text-sm text-[var(--color-text-muted)]">
-                    No address available for map
-                  </div>
-                )}
-              </div>
-
-              {/* Photo Grid */}
+            {/* Right Column — Photo Grid */}
+            <div>
               <SitePhotoGrid
                 photos={sitePhotos}
                 uploading={uploadingPhoto}
@@ -227,6 +226,7 @@ export function SiteInfoCard({
           </div>
         </div>
       )}
+      </div>
     </Card>
   )
 }
