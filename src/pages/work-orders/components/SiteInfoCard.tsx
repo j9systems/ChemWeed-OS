@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Upload, MapPin, ImageIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage, formatDateTime } from '@/lib/utils'
@@ -22,6 +22,28 @@ interface SiteInfoCardProps {
 }
 
 const PHOTOS_PER_PAGE = 6
+
+function useGeocode(address: string) {
+  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
+
+  useEffect(() => {
+    if (!address) return
+    let cancelled = false
+
+    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data && data.length > 0) {
+          setCoords({ lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) })
+        }
+      })
+      .catch(() => {})
+
+    return () => { cancelled = true }
+  }, [address])
+
+  return coords
+}
 
 export function SiteInfoCard({
   site,
@@ -122,6 +144,11 @@ export function SiteInfoCard({
 
   const siteAddress = [site.address_line, site.city, site.state, site.zip].filter(Boolean).join(', ')
   const hasAddress = Boolean(site.address_line && site.city)
+  const coords = useGeocode(hasAddress ? siteAddress : '')
+
+  const mapSrc = coords
+    ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lon - 0.005},${coords.lat - 0.003},${coords.lon + 0.005},${coords.lat + 0.003}&layer=mapnik&marker=${coords.lat},${coords.lon}`
+    : null
 
   return (
     <Card className="mb-4">
@@ -233,7 +260,7 @@ export function SiteInfoCard({
             {/* Map */}
             <div>
               <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Location</h3>
-              {hasAddress ? (
+              {mapSrc ? (
                 <div className="rounded-lg overflow-hidden border border-surface-border">
                   <iframe
                     title="Site location"
@@ -241,8 +268,15 @@ export function SiteInfoCard({
                     height="200"
                     style={{ border: 0 }}
                     loading="lazy"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=&layer=mapnik&marker=&query=${encodeURIComponent(siteAddress)}`}
+                    src={mapSrc}
                   />
+                </div>
+              ) : hasAddress ? (
+                <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[200px] text-sm text-[var(--color-text-muted)]">
+                  <div className="flex flex-col items-center gap-1">
+                    <MapPin size={24} />
+                    <span>Loading map...</span>
+                  </div>
                 </div>
               ) : (
                 <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[200px] text-sm text-[var(--color-text-muted)]">

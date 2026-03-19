@@ -38,8 +38,8 @@ export function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>()
   const { role, user } = useAuth()
   const { workOrder, isLoading, error, refetch } = useWorkOrder(id)
-  const { materials } = useWorkOrderMaterials(id)
-  const { charges } = useWorkOrderCharges(id)
+  const { materials, refetch: refetchMaterials } = useWorkOrderMaterials(id)
+  const { charges, refetch: refetchCharges } = useWorkOrderCharges(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(workOrder?.site_id)
   const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(workOrder?.site_id)
   const [updating, setUpdating] = useState(false)
@@ -81,34 +81,38 @@ export function WorkOrderDetail() {
 
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold">{workOrder.client?.name} — {workOrder.site?.name}</h1>
-        </div>
-        <Badge status={workOrder.status} />
-      </div>
-
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {canEdit(role) && (
-          <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
-            <Edit size={16} />
-            Edit
-          </Button>
-        )}
-        {workOrder.status === 'scheduled' && canCompleteField(role) && (
-          <Button size="sm" onClick={() => updateStatus('in_progress')} disabled={updating}>
-            <Play size={16} />
-            Start Job
-          </Button>
-        )}
-        {workOrder.status === 'in_progress' && canCompleteField(role) && (
-          <Link to={`/work-orders/${workOrder.id}/complete`}>
-            <Button size="sm">
-              <CheckCircle size={16} />
-              Complete Job
+        <div className="flex items-start gap-3">
+          {canEdit(role) && (
+            <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
+              <Edit size={16} />
+              Edit
             </Button>
-          </Link>
-        )}
+          )}
+          <div>
+            <h1 className="text-2xl font-bold">{workOrder.client?.name} — {workOrder.site?.name}</h1>
+            <div className="mt-1">
+              <Badge status={workOrder.status} />
+            </div>
+          </div>
+        </div>
+
+        {/* Actions */}
+        <div className="flex flex-wrap gap-2">
+          {workOrder.status === 'scheduled' && canCompleteField(role) && (
+            <Button size="sm" onClick={() => updateStatus('in_progress')} disabled={updating}>
+              <Play size={16} />
+              Start Job
+            </Button>
+          )}
+          {workOrder.status === 'in_progress' && canCompleteField(role) && (
+            <Link to={`/work-orders/${workOrder.id}/complete`}>
+              <Button size="sm">
+                <CheckCircle size={16} />
+                Complete Job
+              </Button>
+            </Link>
+          )}
+        </div>
       </div>
 
       {/* Site Info Card (collapsible) */}
@@ -132,7 +136,7 @@ export function WorkOrderDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-4">
           {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
-          {activeTab === 'estimate' && <EstimateTab materials={materials} charges={charges} weedProfile={weedProfile} />}
+          {activeTab === 'estimate' && <EstimateTab materials={materials} charges={charges} weedProfile={weedProfile} workOrderId={workOrder.id} refetchMaterials={refetchMaterials} refetchCharges={refetchCharges} />}
           {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
           {activeTab === 'field' && (
             <FieldTab
