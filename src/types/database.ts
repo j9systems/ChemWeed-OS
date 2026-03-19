@@ -49,6 +49,7 @@ export interface County {
 export interface WorkOrder {
   id: string
   work_order_number: string | null
+  service_agreement_id?: string | null
   client_id: string
   site_id: string
   service_type_id: string
