@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router'
-import { ArrowLeft, Edit, Play, CheckCircle } from 'lucide-react'
+import { ArrowLeft, Edit, Play, CheckCircle, MapPin } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { useWorkOrderMaterials } from '@/hooks/useWorkOrderMaterials'
@@ -107,7 +107,7 @@ export function WorkOrderDetail() {
       </div>
 
       {/* Site Info Card (collapsible) */}
-      {workOrder.site && (
+      {workOrder.site ? (
         <SiteInfoCard
           site={workOrder.site}
           weedProfile={weedProfile}
@@ -118,6 +118,11 @@ export function WorkOrderDetail() {
           userId={user?.id}
           refetchSiteProfile={refetchSiteProfile}
         />
+      ) : (
+        <div className="mb-4 rounded-lg border border-surface-border bg-surface-raised p-4 flex items-center gap-3 text-[var(--color-text-muted)]">
+          <MapPin size={20} />
+          <span className="text-sm">No site address available</span>
+        </div>
       )}
 
       {/* Tab Bar */}
