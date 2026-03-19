@@ -60,7 +60,7 @@ export function WorkOrderDetail() {
       <div className="flex items-start justify-between mb-6">
         <div>
           <h1 className="text-2xl font-bold">{workOrder.client?.name}</h1>
-          <p className="text-[var(--color-text-muted)]">{workOrder.site?.name} — {workOrder.site?.address}</p>
+          <p className="text-[var(--color-text-muted)]">{workOrder.site?.name} — {workOrder.site?.address_line}</p>
         </div>
         <Badge status={workOrder.status} />
       </div>

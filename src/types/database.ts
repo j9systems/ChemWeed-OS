@@ -23,15 +23,18 @@ export interface Site {
   id: string
   client_id: string
   name: string
-  address: string
+  address_line: string
   city: string
   county_id: string
   state: string
   zip: string
-  acreage: number | null
-  property_type: PropertyType
-  site_notes: string | null
+  total_acres: number | null
+  property_type: PropertyType | null
+  notes: string | null
   is_active: boolean
+  created_at: string
+  latitude: number | null
+  longitude: number | null
   county?: County
 }
 

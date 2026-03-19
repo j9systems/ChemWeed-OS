@@ -15,7 +15,7 @@ export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
         <div className="flex items-start justify-between">
           <div className="space-y-1">
             <p className="font-medium">{workOrder.client?.name ?? 'Unknown Client'}</p>
-            <p className="text-sm text-[var(--color-text-muted)]">{workOrder.site?.address ?? 'No address'}</p>
+            <p className="text-sm text-[var(--color-text-muted)]">{workOrder.site?.address_line ?? 'No address'}</p>
             <p className="text-sm text-[var(--color-text-muted)]">{workOrder.service_type?.name}</p>
           </div>
           <Badge status={workOrder.status} />

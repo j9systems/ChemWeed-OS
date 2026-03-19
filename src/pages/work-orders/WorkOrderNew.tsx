@@ -234,7 +234,7 @@ export function WorkOrderNew() {
               >
                 <option value="">{clientId ? 'Select site...' : 'Select a client first'}</option>
                 {sites.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name} — {s.address}</option>
+                  <option key={s.id} value={s.id}>{s.name} — {s.address_line}</option>
                 ))}
               </select>
             </div>

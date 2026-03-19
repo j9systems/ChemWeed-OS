@@ -172,13 +172,13 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
         client_id: createdClient!.id,
         name: siteName.trim(),
         property_type: propertyType as PropertyType,
-        address: address || '',
+        address_line: address || '',
         city: city || '',
         state: state || 'CA',
         zip: zip || '',
         county_id: countyId,
-        acreage: acreage ? parseFloat(acreage) : null,
-        site_notes: siteNotes || null,
+        total_acres: acreage ? parseFloat(acreage) : null,
+        notes: siteNotes || null,
         is_active: true,
       })
       .select('*, county:counties(*)')
