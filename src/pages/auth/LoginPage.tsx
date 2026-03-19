@@ -40,10 +40,11 @@ export function LoginPage() {
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 h-14 w-14 rounded-xl bg-brand-green flex items-center justify-center">
-            <span className="text-white font-bold text-xl">CW</span>
-          </div>
-          <h1 className="text-2xl font-bold">ChemWeed</h1>
+          <img
+            src="https://res.cloudinary.com/duy32f0q4/image/upload/v1773909562/ChemWeed_Logo_transparent_te3i86.png"
+            alt="ChemWeed"
+            className="mx-auto mb-4 h-16 w-auto"
+          />
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">Vegetation Management Operations</p>
         </div>
 

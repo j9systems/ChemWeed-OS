@@ -12,10 +12,11 @@ export function Sidebar() {
   return (
     <aside className="hidden md:flex md:flex-col md:w-64 border-r border-surface-border bg-white">
       <div className="flex items-center gap-2 px-6 py-5 border-b border-surface-border">
-        <div className="h-8 w-8 rounded-lg bg-brand-green flex items-center justify-center">
-          <span className="text-white font-bold text-sm">CW</span>
-        </div>
-        <span className="font-semibold text-lg">ChemWeed</span>
+        <img
+          src="https://res.cloudinary.com/duy32f0q4/image/upload/v1773909562/ChemWeed_Logo_transparent_te3i86.png"
+          alt="ChemWeed"
+          className="h-8 w-auto"
+        />
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">

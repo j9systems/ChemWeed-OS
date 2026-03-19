@@ -120,10 +120,8 @@ export function SiteInfoCard({
   const totalPages = Math.ceil(sitePhotos.length / PHOTOS_PER_PAGE)
   const pagedPhotos = sitePhotos.slice(photoPage * PHOTOS_PER_PAGE, (photoPage + 1) * PHOTOS_PER_PAGE)
 
-  const hasLatLng = site.latitude != null && site.longitude != null
-  const mapBbox = hasLatLng
-    ? `${site.longitude! - 0.005},${site.latitude! - 0.003},${site.longitude! + 0.005},${site.latitude! + 0.003}`
-    : null
+  const siteAddress = [site.address_line, site.city, site.state, site.zip].filter(Boolean).join(', ')
+  const hasAddress = Boolean(site.address_line && site.city)
 
   return (
     <Card className="mb-4">
@@ -235,7 +233,7 @@ export function SiteInfoCard({
             {/* Map */}
             <div>
               <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Location</h3>
-              {hasLatLng ? (
+              {hasAddress ? (
                 <div className="rounded-lg overflow-hidden border border-surface-border">
                   <iframe
                     title="Site location"
@@ -243,15 +241,14 @@ export function SiteInfoCard({
                     height="200"
                     style={{ border: 0 }}
                     loading="lazy"
-                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${mapBbox}&layer=mapnik&marker=${site.latitude},${site.longitude}`}
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=&layer=mapnik&marker=&query=${encodeURIComponent(siteAddress)}`}
                   />
                 </div>
               ) : (
                 <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[200px] text-sm text-[var(--color-text-muted)]">
                   <div className="flex flex-col items-center gap-1">
                     <MapPin size={24} />
-                    <span>No coordinates available</span>
-                    <span className="text-xs">{site.address_line}, {site.city}, {site.state} {site.zip}</span>
+                    <span>No address available</span>
                   </div>
                 </div>
               )}

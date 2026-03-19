@@ -79,7 +79,7 @@ export function TabBar({ tabs, activeTab, onChange }: TabBarProps) {
     }`
 
   return (
-    <nav ref={containerRef} className="relative flex items-center border-b border-surface-border">
+    <nav ref={containerRef} className="relative flex items-center border-b border-surface-border px-4 pt-2">
       {/* Hidden measurement row */}
       <div ref={measureRef} className="absolute invisible flex pointer-events-none" aria-hidden="true">
         {tabs.map((tab) => (
