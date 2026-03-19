@@ -25,10 +25,10 @@ export function Sidebar() {
             to={item.path}
             className={({ isActive }) =>
               cn(
-                'flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
+                'flex items-center gap-3 px-3 py-2.5 text-sm transition-colors',
                 isActive
-                  ? 'bg-brand-green/10 text-brand-green'
-                  : 'text-[var(--color-text-muted)] hover:bg-surface-raised hover:text-[var(--color-text-primary)]',
+                  ? 'font-bold text-brand-green border-r-[3px] border-brand-green'
+                  : 'font-medium text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]',
               )
             }
           >

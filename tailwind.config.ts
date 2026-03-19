@@ -8,8 +8,8 @@ export default {
           'green-dark': '#1a4a1a',
         },
         surface: {
-          DEFAULT: '#ffffff',
-          raised: '#f5f7f5',
+          DEFAULT: '#F5F8FE',
+          raised: '#ffffff',
           border: '#dde8dd',
         },
       },

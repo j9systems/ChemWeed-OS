@@ -9,7 +9,7 @@ export function Card({ padding = true, className, children, ...props }: CardProp
   return (
     <div
       className={cn(
-        'rounded-lg border border-surface-border bg-surface-raised',
+        'rounded-[20px] bg-surface-raised shadow-card',
         padding && 'p-4',
         className,
       )}
