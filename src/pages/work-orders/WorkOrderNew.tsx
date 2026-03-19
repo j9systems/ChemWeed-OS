@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useRef, useEffect, type FormEvent } from 'react'
 import { Navigate, useNavigate } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 import { Link } from 'react-router'
@@ -16,18 +16,23 @@ import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
 import { ChargesSection, type ChargeRow } from '@/components/work-orders/ChargesSection'
+import { NewClientModal } from '@/components/work-orders/NewClientModal'
 import type { WorkOrderStatus } from '@/types/database'
 
 export function WorkOrderNew() {
   const { role, user } = useAuth()
   const navigate = useNavigate()
 
-  const { clients } = useClients()
+  const { clients, refetch: refetchClients } = useClients()
   const { serviceTypes } = useServiceTypes()
   const { members } = useTeamMembers()
 
   const [clientId, setClientId] = useState('')
   const [siteId, setSiteId] = useState('')
+  const [clientSearch, setClientSearch] = useState('')
+  const [showClientDropdown, setShowClientDropdown] = useState(false)
+  const [showNewClientModal, setShowNewClientModal] = useState(false)
+  const clientDropdownRef = useRef<HTMLDivElement>(null)
   const [serviceTypeId, setServiceTypeId] = useState('')
   const [frequencyType, setFrequencyType] = useState('')
   const [proposedStartDate, setProposedStartDate] = useState('')
@@ -42,7 +47,24 @@ export function WorkOrderNew() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { sites } = useSites(clientId || undefined)
+  const { sites, refetch: refetchSites } = useSites(clientId || undefined)
+
+  // Close client dropdown on outside click
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
+        setShowClientDropdown(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [])
+
+  const filteredClients = clientSearch
+    ? clients.filter((c) => c.name.toLowerCase().includes(clientSearch.toLowerCase()))
+    : clients
+
+  const selectedClientName = clients.find((c) => c.id === clientId)?.name ?? ''
 
   // Default PCA to Rick Foell if available
   const rickFoell = members.find((m) => m.role === 'pca')
@@ -144,19 +166,61 @@ export function WorkOrderNew() {
         {/* Client & Site */}
         <Card>
           <div className="space-y-4">
-            <div>
+            {/* Searchable client dropdown */}
+            <div ref={clientDropdownRef}>
               <label className="block text-sm font-medium mb-1">Client *</label>
-              <select
-                value={clientId}
-                onChange={(e) => { setClientId(e.target.value); setSiteId('') }}
-                className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px]"
-                required
-              >
-                <option value="">Select client...</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
+              <div className="relative">
+                <input
+                  type="text"
+                  value={clientId ? selectedClientName : clientSearch}
+                  onChange={(e) => {
+                    setClientSearch(e.target.value)
+                    setShowClientDropdown(true)
+                    if (clientId) {
+                      setClientId('')
+                      setSiteId('')
+                    }
+                  }}
+                  onFocus={() => setShowClientDropdown(true)}
+                  placeholder="Search clients..."
+                  className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+                />
+                {/* Hidden input for form required validation */}
+                <input type="hidden" value={clientId} required />
+                {showClientDropdown && (
+                  <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-surface-border bg-white shadow-lg">
+                    {filteredClients.map((c) => (
+                      <li key={c.id}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setClientId(c.id)
+                            setSiteId('')
+                            setClientSearch('')
+                            setShowClientDropdown(false)
+                          }}
+                          className="w-full px-3 py-2 text-left text-sm hover:bg-surface-raised"
+                        >
+                          {c.name}
+                        </button>
+                      </li>
+                    ))}
+                    {/* + Add New Client option */}
+                    <li className="border-t border-surface-border">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowClientDropdown(false)
+                          setShowNewClientModal(true)
+                        }}
+                        className="w-full px-3 py-2 text-left text-sm font-medium text-brand-green hover:bg-surface-raised"
+                      >
+                        + Add New Client
+                      </button>
+                    </li>
+                  </ul>
+                )}
+              </div>
             </div>
 
             <div>
@@ -176,6 +240,22 @@ export function WorkOrderNew() {
             </div>
           </div>
         </Card>
+
+        {/* New Client Modal */}
+        <NewClientModal
+          open={showNewClientModal}
+          initialClientName={clientSearch}
+          onSuccess={(client, site) => {
+            setShowNewClientModal(false)
+            setClientId(client.id)
+            setSiteId(site.id)
+            setClientSearch('')
+            refetchClients()
+          }}
+          onCancel={() => {
+            setShowNewClientModal(false)
+          }}
+        />
 
         {/* Service Details */}
         <Card>
