@@ -120,12 +120,12 @@ export function WorkOrderNew() {
       .map((m) => ({
         work_order_id: wo.id,
         chemical_id: m.chemical_id,
-        recommended_amount: parseFloat(m.recommended_amount) || null,
-        recommended_unit: m.recommended_unit || null,
+        planned_amount: parseFloat(m.recommended_amount) || null,
+        unit: m.recommended_unit || 'oz',
       }))
 
     if (materialInserts.length > 0) {
-      const { error: matErr } = await supabase.from('work_order_materials').insert(materialInserts)
+      const { error: matErr } = await supabase.from('work_order_chemicals').insert(materialInserts)
       if (matErr) {
         setError(getSupabaseErrorMessage(matErr))
         setSubmitting(false)

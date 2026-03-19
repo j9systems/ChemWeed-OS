@@ -76,10 +76,10 @@ export interface WorkOrderMaterial {
   id: string
   work_order_id: string
   chemical_id: string
-  recommended_amount: number | null
-  recommended_unit: string | null
-  actual_amount_used: number | null
-  tanks_used: number | null
+  planned_amount: number | null
+  unit: string
+  actual_amount: number | null
+  tank_number: number | null
   chemical?: Chemical
 }
 
@@ -146,7 +146,7 @@ export interface Database {
       sites: { Row: Site; Insert: Omit<Site, 'id'>; Update: Partial<Omit<Site, 'id'>> }
       counties: { Row: County; Insert: Omit<County, 'id'>; Update: Partial<Omit<County, 'id'>> }
       work_orders: { Row: WorkOrder; Insert: Omit<WorkOrder, 'id' | 'created_at'>; Update: Partial<Omit<WorkOrder, 'id'>> }
-      work_order_materials: { Row: WorkOrderMaterial; Insert: Omit<WorkOrderMaterial, 'id'>; Update: Partial<Omit<WorkOrderMaterial, 'id'>> }
+      work_order_chemicals: { Row: WorkOrderMaterial; Insert: Omit<WorkOrderMaterial, 'id'>; Update: Partial<Omit<WorkOrderMaterial, 'id'>> }
       work_order_charges: { Row: WorkOrderCharge; Insert: Omit<WorkOrderCharge, 'id'>; Update: Partial<Omit<WorkOrderCharge, 'id'>> }
       chemicals: { Row: Chemical; Insert: Omit<Chemical, 'id'>; Update: Partial<Omit<Chemical, 'id'>> }
       service_types: { Row: ServiceType; Insert: Omit<ServiceType, 'id'>; Update: Partial<Omit<ServiceType, 'id'>> }

@@ -53,8 +53,8 @@ export function FieldCompletionForm() {
       woMaterials.map((m) => ({
         materialId: m.id,
         chemicalName: m.chemical?.name ?? 'Unknown',
-        recommendedAmount: m.recommended_amount,
-        recommendedUnit: m.recommended_unit,
+        recommendedAmount: m.planned_amount,
+        recommendedUnit: m.unit,
         actualAmountUsed: '',
         tanksUsed: '',
       }))

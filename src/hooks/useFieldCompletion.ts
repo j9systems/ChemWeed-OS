@@ -69,10 +69,10 @@ export function useFieldCompletion() {
       for (const mat of data.materialActuals) {
         if (mat.actualAmountUsed != null || mat.tanksUsed != null) {
           await supabase
-            .from('work_order_materials')
+            .from('work_order_chemicals')
             .update({
-              actual_amount_used: mat.actualAmountUsed,
-              tanks_used: mat.tanksUsed,
+              actual_amount: mat.actualAmountUsed,
+              tank_number: mat.tanksUsed,
             })
             .eq('id', mat.materialId)
         }

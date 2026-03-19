@@ -177,9 +177,9 @@ export function WorkOrderDetail() {
                   <tr key={m.id} className="border-b border-surface-border last:border-0">
                     <td className="py-2 pr-4">{m.chemical?.name ?? '—'}</td>
                     <td className="py-2 pr-4 text-[var(--color-text-muted)]">{m.chemical?.active_ingredient ?? '—'}</td>
-                    <td className="py-2 pr-4">{m.recommended_amount ?? '—'} {m.recommended_unit ?? ''}</td>
+                    <td className="py-2 pr-4">{m.planned_amount ?? '—'} {m.unit ?? ''}</td>
                     <td className="py-2">
-                      {m.actual_amount_used != null ? `${m.actual_amount_used} (${m.tanks_used ?? 0} tanks)` : '—'}
+                      {m.actual_amount != null ? `${m.actual_amount} (${m.tank_number ?? 0} tanks)` : '—'}
                     </td>
                   </tr>
                 ))}

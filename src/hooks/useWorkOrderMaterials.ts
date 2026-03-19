@@ -13,7 +13,7 @@ export function useWorkOrderMaterials(workOrderId: string | undefined) {
     setError(null)
 
     const { data, error: err } = await supabase
-      .from('work_order_materials')
+      .from('work_order_chemicals')
       .select('*, chemical:chemicals(*)')
       .eq('work_order_id', workOrderId)
 
