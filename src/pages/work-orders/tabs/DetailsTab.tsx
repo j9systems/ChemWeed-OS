@@ -11,7 +11,7 @@ export function DetailsTab({ workOrder }: DetailsTabProps) {
   return (
     <Card>
       <h2 className="text-sm font-semibold mb-3">Details</h2>
-      <dl className="space-y-2 text-sm">
+      <dl className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-x-6 gap-y-4 text-sm">
         <div>
           <dt className="text-[var(--color-text-muted)]">Client</dt>
           <dd>{workOrder.client?.name ?? '—'}</dd>
@@ -50,7 +50,7 @@ export function DetailsTab({ workOrder }: DetailsTabProps) {
           <dt className="text-[var(--color-text-muted)]">PO Number</dt>
           <dd>{workOrder.po_number ?? '—'}</dd>
         </div>
-        <div>
+        <div className="col-span-full">
           <dt className="text-[var(--color-text-muted)]">Reason / Scope</dt>
           <dd className="whitespace-pre-wrap">{workOrder.reason ?? '—'}</dd>
         </div>
