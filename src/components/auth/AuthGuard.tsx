@@ -1,9 +1,10 @@
 import { Navigate, Outlet, useLocation } from 'react-router'
 import { useAuth } from '@/hooks/useAuth'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { Button } from '@/components/ui/Button'
 
 export function AuthGuard() {
-  const { user, teamMember, isLoading, role } = useAuth()
+  const { user, teamMember, isLoading, role, signOut } = useAuth()
   const location = useLocation()
 
   if (isLoading) {
@@ -26,6 +27,15 @@ export function AuthGuard() {
           <p className="mt-2 text-[var(--color-text-muted)]">
             Your account is not associated with a team member. Contact an administrator.
           </p>
+          <Button
+            variant="secondary"
+            className="mt-4"
+            onClick={async () => {
+              await signOut()
+            }}
+          >
+            Return to Login
+          </Button>
         </div>
       </div>
     )
