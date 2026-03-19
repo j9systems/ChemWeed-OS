@@ -64,10 +64,10 @@ export function ClientDetail() {
           {sites.map((site) => (
             <Card key={site.id}>
               <p className="font-medium">{site.name}</p>
-              <p className="text-sm text-[var(--color-text-muted)]">{site.address}, {site.city}, {site.state} {site.zip}</p>
+              <p className="text-sm text-[var(--color-text-muted)]">{site.address_line}, {site.city}, {site.state} {site.zip}</p>
               <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                {site.acreage != null && (
-                  <span className="text-[var(--color-text-muted)]">{site.acreage} acres</span>
+                {site.total_acres != null && (
+                  <span className="text-[var(--color-text-muted)]">{site.total_acres} acres</span>
                 )}
                 <span className="rounded-full bg-surface-raised border border-surface-border px-2 py-0.5 capitalize">
                   {site.property_type}
