@@ -17,6 +17,7 @@ import { Card } from '@/components/ui/Card'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
 import { ChargesSection, type ChargeRow } from '@/components/work-orders/ChargesSection'
 import { NewClientModal } from '@/components/work-orders/NewClientModal'
+import { NewSiteModal } from '@/components/work-orders/NewSiteModal'
 import type { WorkOrderStatus } from '@/types/database'
 
 export function WorkOrderNew() {
@@ -32,6 +33,7 @@ export function WorkOrderNew() {
   const [clientSearch, setClientSearch] = useState('')
   const [showClientDropdown, setShowClientDropdown] = useState(false)
   const [showNewClientModal, setShowNewClientModal] = useState(false)
+  const [showNewSiteModal, setShowNewSiteModal] = useState(false)
   const clientDropdownRef = useRef<HTMLDivElement>(null)
   const [serviceTypeId, setServiceTypeId] = useState('')
   const [frequencyType, setFrequencyType] = useState('')
@@ -47,7 +49,7 @@ export function WorkOrderNew() {
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { sites } = useSites(clientId || undefined)
+  const { sites, refetch: refetchSites } = useSites(clientId || undefined)
 
   // Close client dropdown on outside click
   useEffect(() => {
@@ -237,6 +239,15 @@ export function WorkOrderNew() {
                   <option key={s.id} value={s.id}>{s.name} — {s.address_line}</option>
                 ))}
               </select>
+              {clientId && (
+                <button
+                  type="button"
+                  onClick={() => setShowNewSiteModal(true)}
+                  className="mt-1 text-sm font-medium text-brand-green hover:underline"
+                >
+                  + Add New Site
+                </button>
+              )}
             </div>
           </div>
         </Card>
@@ -255,6 +266,19 @@ export function WorkOrderNew() {
           onCancel={() => {
             setShowNewClientModal(false)
           }}
+        />
+
+        {/* New Site Modal */}
+        <NewSiteModal
+          open={showNewSiteModal}
+          clientId={clientId}
+          clientName={selectedClientName}
+          onSuccess={(site) => {
+            setShowNewSiteModal(false)
+            setSiteId(site.id)
+            refetchSites()
+          }}
+          onCancel={() => setShowNewSiteModal(false)}
         />
 
         {/* Service Details */}
