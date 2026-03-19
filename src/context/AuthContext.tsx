@@ -9,6 +9,7 @@ export interface AuthContextValue {
   teamMember: TeamMember | null
   role: Role | null
   isLoading: boolean
+  teamError: string | null
   signIn: (email: string, password: string) => Promise<{ error: string | null }>
   signOut: () => Promise<void>
 }
@@ -20,15 +21,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [teamMember, setTeamMember] = useState<TeamMember | null>(null)
   const [role, setRole] = useState<Role | null>(null)
   const [isLoading, setIsLoading] = useState(true)
+  const [teamError, setTeamError] = useState<string | null>(null)
 
   const resolveTeamMember = useCallback(async (userId: string) => {
+    setTeamError(null)
     const { data, error } = await supabase
       .from('team')
       .select('*')
       .eq('user_id', userId)
       .single()
 
-    if (error || !data) {
+    if (error) {
+      const msg = error.code === 'PGRST116'
+        ? `No team record found for user_id: ${userId}. Check that the team table has a row where user_id matches this auth user's ID.`
+        : `Team lookup failed: ${error.message} (code: ${error.code})`
+      console.error(msg, error)
+      setTeamError(msg)
+      setTeamMember(null)
+      setRole(null)
+      return
+    }
+
+    if (!data) {
+      setTeamError(`Query returned no data for user_id: ${userId}`)
       setTeamMember(null)
       setRole(null)
       return
@@ -81,7 +96,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <AuthContext.Provider value={{ user, teamMember, role, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, teamMember, role, isLoading, teamError, signIn, signOut }}>
       {children}
     </AuthContext.Provider>
   )
