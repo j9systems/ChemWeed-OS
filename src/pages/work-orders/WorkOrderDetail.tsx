@@ -110,10 +110,10 @@ export function WorkOrderDetail() {
               <dt className="text-[var(--color-text-muted)]">Proposed Start</dt>
               <dd>{formatDate(workOrder.proposed_start_date)}</dd>
             </div>
-            {workOrder.completed_at && (
+            {workOrder.completion_date && (
               <div>
                 <dt className="text-[var(--color-text-muted)]">Completed</dt>
-                <dd>{formatDate(workOrder.completed_at)}</dd>
+                <dd>{formatDate(workOrder.completion_date)}</dd>
               </div>
             )}
             <div>
