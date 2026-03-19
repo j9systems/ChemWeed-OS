@@ -37,7 +37,7 @@ export function WorkOrderDetail() {
   const { workOrder, isLoading, error, refetch } = useWorkOrder(id)
   const { materials } = useWorkOrderMaterials(id)
   const { charges } = useWorkOrderCharges(id)
-  const { weedProfile, observationLogs, isLoading: profileLoading, refetch: refetchSiteProfile } = useSiteProfile(workOrder?.site_id)
+  const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(workOrder?.site_id)
   const [updating, setUpdating] = useState(false)
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
