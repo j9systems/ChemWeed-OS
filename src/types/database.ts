@@ -48,21 +48,23 @@ export interface County {
 
 export interface WorkOrder {
   id: string
+  work_order_number: string | null
   client_id: string
   site_id: string
   service_type_id: string
   frequency_type: string | null
   status: WorkOrderStatus
   proposed_start_date: string | null
-  completed_at: string | null
+  completion_date: string | null
   pca_id: string | null
   po_number: string | null
   reason: string | null
-  comment_client: string | null
-  comment_internal: string | null
-  comment_tech: string | null
+  notes_client: string | null
+  notes_internal: string | null
+  notes_technician: string | null
   created_by: string
   created_at: string
+  updated_at: string | null
   client?: Client
   site?: Site
   service_type?: ServiceType

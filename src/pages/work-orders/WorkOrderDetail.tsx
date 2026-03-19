@@ -32,7 +32,7 @@ export function WorkOrderDetail() {
     setUpdating(true)
     const updates: Record<string, unknown> = { status: newStatus }
     if (newStatus === 'completed') {
-      updates.completed_at = new Date().toISOString()
+      updates.completion_date = new Date().toISOString().split('T')[0]
     }
     const { error: err } = await supabase
       .from('work_orders')
@@ -134,22 +134,22 @@ export function WorkOrderDetail() {
               <dt className="text-[var(--color-text-muted)]">Reason / Scope</dt>
               <dd className="whitespace-pre-wrap">{workOrder.reason ?? '—'}</dd>
             </div>
-            {workOrder.comment_client && (
+            {workOrder.notes_client && (
               <div>
                 <dt className="text-[var(--color-text-muted)]">Client Comment</dt>
-                <dd className="whitespace-pre-wrap">{workOrder.comment_client}</dd>
+                <dd className="whitespace-pre-wrap">{workOrder.notes_client}</dd>
               </div>
             )}
-            {workOrder.comment_internal && (
+            {workOrder.notes_internal && (
               <div>
                 <dt className="text-[var(--color-text-muted)]">Internal Comment</dt>
-                <dd className="whitespace-pre-wrap">{workOrder.comment_internal}</dd>
+                <dd className="whitespace-pre-wrap">{workOrder.notes_internal}</dd>
               </div>
             )}
-            {workOrder.comment_tech && (
+            {workOrder.notes_technician && (
               <div>
                 <dt className="text-[var(--color-text-muted)]">Tech Instructions</dt>
-                <dd className="whitespace-pre-wrap">{workOrder.comment_tech}</dd>
+                <dd className="whitespace-pre-wrap">{workOrder.notes_technician}</dd>
               </div>
             )}
           </dl>

@@ -100,9 +100,9 @@ export function WorkOrderNew() {
         pca_id: pcaId || null,
         po_number: poNumber || null,
         reason: reason || null,
-        comment_client: commentClient || null,
-        comment_internal: commentInternal || null,
-        comment_tech: commentTech || null,
+        notes_client: commentClient || null,
+        notes_internal: commentInternal || null,
+        notes_technician: commentTech || null,
         created_by: user?.id ?? '',
       })
       .select('id')

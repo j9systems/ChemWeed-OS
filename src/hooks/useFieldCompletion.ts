@@ -82,7 +82,7 @@ export function useFieldCompletion() {
       setProgress('Updating work order...')
       const { error: statusErr } = await supabase
         .from('work_orders')
-        .update({ status: 'completed', completed_at: new Date().toISOString() })
+        .update({ status: 'completed', completion_date: new Date().toISOString().split('T')[0] })
         .eq('id', data.workOrderId)
 
       if (statusErr) throw new Error(getSupabaseErrorMessage(statusErr))
