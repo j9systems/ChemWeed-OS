@@ -6,6 +6,7 @@ import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { useWorkOrderMaterials } from '@/hooks/useWorkOrderMaterials'
 import { useWorkOrderCharges } from '@/hooks/useWorkOrderCharges'
 import { useSiteProfile } from '@/hooks/useSiteProfile'
+import { useSitePhotos } from '@/hooks/useSitePhotos'
 import { canEdit, canCompleteField } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
@@ -13,6 +14,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { EditWorkOrderModal } from '@/components/work-orders/EditWorkOrderModal'
 import { TabBar } from './components/TabBar'
 import { SiteInfoCard } from './components/SiteInfoCard'
 import { DetailsTab } from './tabs/DetailsTab'
@@ -38,9 +40,11 @@ export function WorkOrderDetail() {
   const { materials } = useWorkOrderMaterials(id)
   const { charges } = useWorkOrderCharges(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(workOrder?.site_id)
+  const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(workOrder?.site_id)
   const [updating, setUpdating] = useState(false)
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
 
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
@@ -85,7 +89,7 @@ export function WorkOrderDetail() {
       {/* Actions */}
       <div className="flex flex-wrap gap-2 mb-4">
         {canEdit(role) && (
-          <Button variant="secondary" size="sm">
+          <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
             <Edit size={16} />
             Edit
           </Button>
@@ -112,11 +116,13 @@ export function WorkOrderDetail() {
           site={workOrder.site}
           weedProfile={weedProfile}
           observationLogs={observationLogs}
+          sitePhotos={sitePhotos}
           isOpen={siteInfoOpen}
           onToggle={() => setSiteInfoOpen(!siteInfoOpen)}
           role={role}
           userId={user?.id}
           refetchSiteProfile={refetchSiteProfile}
+          refetchPhotos={refetchPhotos}
         />
       )}
 
@@ -139,6 +145,16 @@ export function WorkOrderDetail() {
       )}
       {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
       {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+
+      {/* Edit Modal */}
+      {editModalOpen && (
+        <EditWorkOrderModal
+          open={editModalOpen}
+          workOrder={workOrder}
+          onClose={() => setEditModalOpen(false)}
+          onSaved={refetch}
+        />
+      )}
     </div>
   )
 }

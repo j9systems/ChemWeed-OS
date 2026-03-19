@@ -147,6 +147,15 @@ export interface SiteWeedProfile {
   added_by: string | null
 }
 
+export interface SitePhoto {
+  id: string
+  site_id: string
+  photo_url: string
+  caption: string | null
+  uploaded_at: string
+  uploaded_by: string | null
+}
+
 export interface SiteObservationLog {
   id: string
   site_id: string
@@ -176,6 +185,7 @@ export interface Database {
       field_completions: { Row: FieldCompletion; Insert: Omit<FieldCompletion, 'id'>; Update: Partial<Omit<FieldCompletion, 'id'>> }
       site_weed_profile: { Row: SiteWeedProfile; Insert: Omit<SiteWeedProfile, 'id' | 'added_at'>; Update: Partial<Omit<SiteWeedProfile, 'id'>> }
       site_observation_logs: { Row: SiteObservationLog; Insert: Omit<SiteObservationLog, 'id'>; Update: Partial<Omit<SiteObservationLog, 'id'>> }
+      site_photos: { Row: SitePhoto; Insert: Omit<SitePhoto, 'id' | 'uploaded_at'>; Update: Partial<Omit<SitePhoto, 'id'>> }
     }
   }
 }

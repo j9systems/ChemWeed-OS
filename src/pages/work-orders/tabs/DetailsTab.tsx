@@ -7,52 +7,37 @@ interface DetailsTabProps {
   workOrder: WorkOrder
 }
 
+function DetailItem({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-[140px]">
+      <dt className="text-xs text-[var(--color-text-muted)]">{label}</dt>
+      <dd className="text-sm mt-0.5">{children}</dd>
+    </div>
+  )
+}
+
 export function DetailsTab({ workOrder }: DetailsTabProps) {
   return (
     <Card>
       <h2 className="text-sm font-semibold mb-3">Details</h2>
-      <dl className="space-y-2 text-sm">
-        <div>
-          <dt className="text-[var(--color-text-muted)]">Client</dt>
-          <dd>{workOrder.client?.name ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-[var(--color-text-muted)]">Site</dt>
-          <dd>{workOrder.site?.name ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-[var(--color-text-muted)]">Status</dt>
-          <dd>{WORK_ORDER_STATUSES[workOrder.status]}</dd>
-        </div>
-        <div>
-          <dt className="text-[var(--color-text-muted)]">Service Type</dt>
-          <dd>{workOrder.service_type?.name ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-[var(--color-text-muted)]">Frequency</dt>
-          <dd>{workOrder.frequency_type ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-[var(--color-text-muted)]">Proposed Start</dt>
-          <dd>{formatDate(workOrder.proposed_start_date)}</dd>
-        </div>
+      <dl className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
+        <DetailItem label="Client">{workOrder.client?.name ?? '—'}</DetailItem>
+        <DetailItem label="Site">{workOrder.site?.name ?? '—'}</DetailItem>
+        <DetailItem label="Status">{WORK_ORDER_STATUSES[workOrder.status]}</DetailItem>
+        <DetailItem label="Service Type">{workOrder.service_type?.name ?? '—'}</DetailItem>
+        <DetailItem label="Frequency">{workOrder.frequency_type ?? '—'}</DetailItem>
+        <DetailItem label="Proposed Start">{formatDate(workOrder.proposed_start_date)}</DetailItem>
         {workOrder.completion_date && (
-          <div>
-            <dt className="text-[var(--color-text-muted)]">Completed</dt>
-            <dd>{formatDate(workOrder.completion_date)}</dd>
-          </div>
+          <DetailItem label="Completed">{formatDate(workOrder.completion_date)}</DetailItem>
         )}
-        <div>
-          <dt className="text-[var(--color-text-muted)]">PCA</dt>
-          <dd>{workOrder.pca ? `${workOrder.pca.first_name} ${workOrder.pca.last_name}` : '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-[var(--color-text-muted)]">PO Number</dt>
-          <dd>{workOrder.po_number ?? '—'}</dd>
-        </div>
-        <div>
-          <dt className="text-[var(--color-text-muted)]">Reason / Scope</dt>
-          <dd className="whitespace-pre-wrap">{workOrder.reason ?? '—'}</dd>
+        <DetailItem label="PCA">
+          {workOrder.pca ? `${workOrder.pca.first_name} ${workOrder.pca.last_name}` : '—'}
+        </DetailItem>
+        <DetailItem label="PO Number">{workOrder.po_number ?? '—'}</DetailItem>
+        <div className="w-full">
+          <DetailItem label="Reason / Scope">
+            <span className="whitespace-pre-wrap">{workOrder.reason ?? '—'}</span>
+          </DetailItem>
         </div>
       </dl>
     </Card>
