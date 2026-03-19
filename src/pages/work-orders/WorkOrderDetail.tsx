@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { Card } from '@/components/ui/Card'
 import { EditWorkOrderModal } from '@/components/work-orders/EditWorkOrderModal'
 import { TabBar } from './components/TabBar'
 import { SiteInfoCard } from './components/SiteInfoCard'
@@ -126,25 +127,27 @@ export function WorkOrderDetail() {
         />
       )}
 
-      {/* Tab Bar */}
-      <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-
-      {/* Tab Content */}
-      {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
-      {activeTab === 'estimate' && <EstimateTab materials={materials} charges={charges} weedProfile={weedProfile} />}
-      {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
-      {activeTab === 'field' && (
-        <FieldTab
-          workOrder={workOrder}
-          materials={materials}
-          role={role}
-          siteId={workOrder.site_id}
-          userId={user?.id}
-          refetchSiteProfile={refetchSiteProfile}
-        />
-      )}
-      {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
-      {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+      {/* Tab Card */}
+      <Card padding={false}>
+        <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+        <div className="p-4">
+          {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
+          {activeTab === 'estimate' && <EstimateTab materials={materials} charges={charges} weedProfile={weedProfile} />}
+          {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
+          {activeTab === 'field' && (
+            <FieldTab
+              workOrder={workOrder}
+              materials={materials}
+              role={role}
+              siteId={workOrder.site_id}
+              userId={user?.id}
+              refetchSiteProfile={refetchSiteProfile}
+            />
+          )}
+          {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
+          {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+        </div>
+      </Card>
 
       {/* Edit Modal */}
       {editModalOpen && (

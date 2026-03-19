@@ -1,5 +1,4 @@
 import { formatCurrency } from '@/lib/utils'
-import { Card } from '@/components/ui/Card'
 import type { WorkOrderMaterial, WorkOrderCharge, SiteWeedProfile } from '@/types/database'
 
 interface EstimateTabProps {
@@ -21,7 +20,7 @@ export function EstimateTab({ materials, charges, weedProfile }: EstimateTabProp
       )}
 
       {/* Materials */}
-      <Card>
+      <div>
         <h2 className="text-sm font-semibold mb-3">Materials</h2>
         {materials.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted)]">No materials.</p>
@@ -47,10 +46,10 @@ export function EstimateTab({ materials, charges, weedProfile }: EstimateTabProp
             </table>
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Charges */}
-      <Card>
+      <div className="border-t border-surface-border pt-4">
         <h2 className="text-sm font-semibold mb-3">Charges</h2>
         {charges.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted)]">No charges.</p>
@@ -69,7 +68,7 @@ export function EstimateTab({ materials, charges, weedProfile }: EstimateTabProp
             </div>
           </>
         )}
-      </Card>
+      </div>
     </div>
   )
 }

@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { formatDateTime, getSupabaseErrorMessage } from '@/lib/utils'
 import { canEdit } from '@/lib/roles'
 import { useTeamMembers } from '@/hooks/useTeam'
-import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import type { WorkOrder, WorkOrderMaterial, FieldCompletion, Role } from '@/types/database'
@@ -53,7 +52,7 @@ export function FieldTab({ workOrder, materials, role, siteId, userId, refetchSi
     <div className="space-y-4">
       {/* Field Completion Data */}
       {!isCompleted ? (
-        <Card>
+        <div>
           <p className="text-sm text-[var(--color-text-muted)] mb-3">This work order has not been completed yet.</p>
           {workOrder.status === 'in_progress' && (
             <Link to={`/work-orders/${workOrder.id}/complete`}>
@@ -63,14 +62,14 @@ export function FieldTab({ workOrder, materials, role, siteId, userId, refetchSi
               </Button>
             </Link>
           )}
-        </Card>
+        </div>
       ) : loadingCompletion ? (
-        <Card>
+        <div>
           <p className="text-sm text-[var(--color-text-muted)]">Loading field data...</p>
-        </Card>
+        </div>
       ) : completion ? (
         <>
-          <Card>
+          <div>
             <h2 className="text-sm font-semibold mb-3">Field Completion</h2>
             <dl className="space-y-2 text-sm">
               <div>
@@ -102,23 +101,23 @@ export function FieldTab({ workOrder, materials, role, siteId, userId, refetchSi
                 </div>
               )}
             </dl>
-          </Card>
+          </div>
 
           {/* Photos */}
           {completion.photo_urls.length > 0 && (
-            <Card>
+            <div className="border-t border-surface-border pt-4">
               <h2 className="text-sm font-semibold mb-3">Photos</h2>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                 {completion.photo_urls.map((url, i) => (
                   <img key={i} src={url} alt={`Photo ${i + 1}`} className="rounded-lg w-full h-32 object-cover" />
                 ))}
               </div>
-            </Card>
+            </div>
           )}
 
           {/* Material Actuals */}
           {materials.some((m) => m.actual_amount_used != null) && (
-            <Card>
+            <div className="border-t border-surface-border pt-4">
               <h2 className="text-sm font-semibold mb-3">Material Actuals</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
@@ -142,17 +141,21 @@ export function FieldTab({ workOrder, materials, role, siteId, userId, refetchSi
                   </tbody>
                 </table>
               </div>
-            </Card>
+            </div>
           )}
         </>
       ) : (
-        <Card>
+        <div>
           <p className="text-sm text-[var(--color-text-muted)]">No field completion data found.</p>
-        </Card>
+        </div>
       )}
 
       {/* Log Observation form — admin and manager only */}
-      {canEdit(role) && <ObservationForm siteId={siteId} workOrderId={workOrder.id} userId={userId} refetch={refetchSiteProfile} />}
+      {canEdit(role) && (
+        <div className="border-t border-surface-border pt-4">
+          <ObservationForm siteId={siteId} workOrderId={workOrder.id} userId={userId} refetch={refetchSiteProfile} />
+        </div>
+      )}
     </div>
   )
 }
@@ -218,7 +221,7 @@ function ObservationForm({ siteId, workOrderId, userId, refetch }: ObservationFo
   }
 
   return (
-    <Card>
+    <div>
       <button
         onClick={() => setOpen(!open)}
         className="flex items-center justify-between w-full min-h-[44px] text-left"
@@ -263,6 +266,6 @@ function ObservationForm({ siteId, workOrderId, userId, refetch }: ObservationFo
           </div>
         </div>
       )}
-    </Card>
+    </div>
   )
 }

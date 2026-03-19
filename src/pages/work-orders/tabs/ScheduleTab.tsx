@@ -1,5 +1,4 @@
 import { formatDate } from '@/lib/utils'
-import { Card } from '@/components/ui/Card'
 import type { WorkOrder } from '@/types/database'
 
 interface ScheduleTabProps {
@@ -8,7 +7,7 @@ interface ScheduleTabProps {
 
 export function ScheduleTab({ workOrder }: ScheduleTabProps) {
   return (
-    <Card>
+    <div>
       <h2 className="text-sm font-semibold mb-3">Schedule</h2>
       <dl className="space-y-2 text-sm">
         <div>
@@ -28,6 +27,6 @@ export function ScheduleTab({ workOrder }: ScheduleTabProps) {
           <dd className="whitespace-pre-wrap">{workOrder.notes_technician ?? '—'}</dd>
         </div>
       </dl>
-    </Card>
+    </div>
   )
 }

@@ -1,6 +1,5 @@
 import { formatDate } from '@/lib/utils'
 import { WORK_ORDER_STATUSES } from '@/lib/constants'
-import { Card } from '@/components/ui/Card'
 import type { WorkOrder } from '@/types/database'
 
 interface DetailsTabProps {
@@ -18,7 +17,7 @@ function DetailItem({ label, children }: { label: string; children: React.ReactN
 
 export function DetailsTab({ workOrder }: DetailsTabProps) {
   return (
-    <Card>
+    <div>
       <h2 className="text-sm font-semibold mb-3">Details</h2>
       <dl className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
         <DetailItem label="Client">{workOrder.client?.name ?? '—'}</DetailItem>
@@ -40,6 +39,6 @@ export function DetailsTab({ workOrder }: DetailsTabProps) {
           </DetailItem>
         </div>
       </dl>
-    </Card>
+    </div>
   )
 }
