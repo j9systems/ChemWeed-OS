@@ -17,8 +17,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/*.png'],
       manifest: {
-        name: 'ChemWeed',
-        short_name: 'ChemWeed',
+        name: 'ChemWeed OS',
+        short_name: 'ChemWeed OS',
         description: 'Vegetation management operations',
         theme_color: '#2a6b2a',
         background_color: '#ffffff',
