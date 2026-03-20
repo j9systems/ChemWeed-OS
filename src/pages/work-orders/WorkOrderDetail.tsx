@@ -133,7 +133,7 @@ export function WorkOrderDetail() {
       {/* Tab Card */}
       <Card padding={false}>
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-        <div className="p-[10px]">
+        <div className="p-5">
           {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
           {activeTab === 'estimate' && <EstimateTab materials={materials} charges={charges} weedProfile={weedProfile} workOrderId={workOrder.id} refetchMaterials={refetchMaterials} refetchCharges={refetchCharges} />}
           {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}

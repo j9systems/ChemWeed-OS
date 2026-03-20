@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
 import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Upload, MapPin, ImageIcon } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage, formatDateTime } from '@/lib/utils'
@@ -7,6 +7,8 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import type { Site, SiteWeedProfile, SiteObservationLog, SitePhoto, Role } from '@/types/database'
+
+const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
 
 interface SiteInfoCardProps {
   site: Site
@@ -23,26 +25,18 @@ interface SiteInfoCardProps {
 
 const PHOTOS_PER_PAGE = 6
 
-function useGeocode(address: string) {
-  const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
+function buildAddress(site: Site) {
+  return [site.address_line, site.city, site.state, site.zip].filter(Boolean).join(', ')
+}
 
-  useEffect(() => {
-    if (!address) return
-    let cancelled = false
+function streetViewUrl(address: string) {
+  if (!address || !GOOGLE_MAPS_KEY) return null
+  return `https://maps.googleapis.com/maps/api/streetview?size=800x300&location=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_KEY}`
+}
 
-    fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(address)}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled && data && data.length > 0) {
-          setCoords({ lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) })
-        }
-      })
-      .catch(() => {})
-
-    return () => { cancelled = true }
-  }, [address])
-
-  return coords
+function googleMapEmbedUrl(address: string) {
+  if (!address || !GOOGLE_MAPS_KEY) return null
+  return `https://www.google.com/maps/embed/v1/place?q=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_KEY}`
 }
 
 export function SiteInfoCard({
@@ -142,228 +136,241 @@ export function SiteInfoCard({
   const totalPages = Math.ceil(sitePhotos.length / PHOTOS_PER_PAGE)
   const pagedPhotos = sitePhotos.slice(photoPage * PHOTOS_PER_PAGE, (photoPage + 1) * PHOTOS_PER_PAGE)
 
-  const siteAddress = [site.address_line, site.city, site.state, site.zip].filter(Boolean).join(', ')
+  const siteAddress = buildAddress(site)
   const hasAddress = Boolean(site.address_line && site.city)
-  const coords = useGeocode(hasAddress ? siteAddress : '')
-
-  const mapSrc = coords
-    ? `https://www.openstreetmap.org/export/embed.html?bbox=${coords.lon - 0.005},${coords.lat - 0.003},${coords.lon + 0.005},${coords.lat + 0.003}&layer=mapnik&marker=${coords.lat},${coords.lon}`
-    : null
+  const streetView = hasAddress ? streetViewUrl(siteAddress) : null
+  const mapEmbed = hasAddress ? googleMapEmbedUrl(siteAddress) : null
 
   return (
-    <Card className="mb-4">
-      <button
-        onClick={onToggle}
-        className="flex items-center justify-between w-full min-h-[44px] text-left"
-      >
-        <span className="text-sm font-semibold">Site Info</span>
-        {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-      </button>
+    <Card className="mb-4 overflow-hidden" padding={false}>
+      {/* Street View Hero Image — always visible */}
+      {streetView ? (
+        <img
+          src={streetView}
+          alt={`Street view of ${siteAddress}`}
+          className="w-full h-[200px] object-cover"
+        />
+      ) : (
+        <div className="w-full h-[200px] bg-surface flex items-center justify-center text-sm text-[var(--color-text-muted)]">
+          <div className="flex flex-col items-center gap-1">
+            <MapPin size={24} />
+            <span>{hasAddress ? 'Street view unavailable' : 'No address available'}</span>
+          </div>
+        </div>
+      )}
+
+      {/* Collapsible header */}
+      <div className="px-10 pt-4 pb-2">
+        <button
+          onClick={onToggle}
+          className="flex items-center justify-between w-full min-h-[44px] text-left"
+        >
+          <span className="text-sm font-semibold">Site Info</span>
+          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+        </button>
+      </div>
 
       {isOpen && (
-        <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Column — Site Details, Weed Profile, Observation Log */}
-          <div className="space-y-6">
-            {/* Section 1 — Site Details */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Site Details</h3>
-              <dl className="space-y-1 text-sm">
-                <div><dt className="text-[var(--color-text-muted)] inline">Address: </dt><dd className="inline">{site.address_line}</dd></div>
-                <div><dt className="text-[var(--color-text-muted)] inline">City: </dt><dd className="inline">{site.city}</dd></div>
-                {site.county && <div><dt className="text-[var(--color-text-muted)] inline">County: </dt><dd className="inline">{site.county.name}</dd></div>}
-                <div><dt className="text-[var(--color-text-muted)] inline">State: </dt><dd className="inline">{site.state}</dd></div>
-                <div><dt className="text-[var(--color-text-muted)] inline">Zip: </dt><dd className="inline">{site.zip}</dd></div>
-                {site.total_acres != null && <div><dt className="text-[var(--color-text-muted)] inline">Acreage: </dt><dd className="inline">{site.total_acres}</dd></div>}
-                {site.property_type && <div><dt className="text-[var(--color-text-muted)] inline">Property Type: </dt><dd className="inline capitalize">{site.property_type}</dd></div>}
-                {site.notes && <div><dt className="text-[var(--color-text-muted)] inline">Notes: </dt><dd className="inline">{site.notes}</dd></div>}
-              </dl>
-            </div>
+        <div className="px-10 pb-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Left Column — Street View, Site Details, Weed Profile, Observation Log */}
+            <div className="space-y-6">
+              {/* Section 1 — Site Details */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Site Details</h3>
+                <dl className="space-y-1 text-sm">
+                  <div><dt className="text-[var(--color-text-muted)] inline">Address: </dt><dd className="inline">{site.address_line}</dd></div>
+                  <div><dt className="text-[var(--color-text-muted)] inline">City: </dt><dd className="inline">{site.city}</dd></div>
+                  {site.county && <div><dt className="text-[var(--color-text-muted)] inline">County: </dt><dd className="inline">{site.county.name}</dd></div>}
+                  <div><dt className="text-[var(--color-text-muted)] inline">State: </dt><dd className="inline">{site.state}</dd></div>
+                  <div><dt className="text-[var(--color-text-muted)] inline">Zip: </dt><dd className="inline">{site.zip}</dd></div>
+                  {site.total_acres != null && <div><dt className="text-[var(--color-text-muted)] inline">Acreage: </dt><dd className="inline">{site.total_acres}</dd></div>}
+                  {site.property_type && <div><dt className="text-[var(--color-text-muted)] inline">Property Type: </dt><dd className="inline capitalize">{site.property_type}</dd></div>}
+                  {site.notes && <div><dt className="text-[var(--color-text-muted)] inline">Notes: </dt><dd className="inline">{site.notes}</dd></div>}
+                </dl>
+              </div>
 
-            {/* Section 2 — Weed Profile */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Weed Profile</h3>
-              {weedProfile.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-muted)]">No weed species on record for this site.</p>
-              ) : (
-                <div className="flex flex-wrap gap-2 mb-2">
-                  {weedProfile.map((w) => (
-                    <span
-                      key={w.id}
-                      className="inline-flex items-center gap-1 bg-surface-raised border border-surface-border rounded-full px-3 py-1 text-sm"
-                    >
-                      {w.weed_name}
-                      {canEdit(role) && (
-                        <button
-                          onClick={() => removeWeed(w.id)}
-                          className="text-[var(--color-text-muted)] hover:text-red-600 min-h-[24px] min-w-[24px] flex items-center justify-center"
-                          aria-label={`Remove ${w.weed_name}`}
-                        >
-                          <X size={14} />
-                        </button>
-                      )}
-                    </span>
-                  ))}
-                </div>
-              )}
-              {canEdit(role) && (
-                <div className="flex gap-2 items-end mt-2">
-                  <Input
-                    label="Add species"
-                    value={newWeed}
-                    onChange={(e) => setNewWeed(e.target.value)}
-                    onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addWeed() } }}
-                    className="flex-1"
-                  />
-                  <Button size="sm" onClick={addWeed} disabled={adding || !newWeed.trim()}>
-                    Add
-                  </Button>
-                </div>
-              )}
-              {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
-            </div>
-
-            {/* Section 3 — Observation Log */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Observation Log</h3>
-              {observationLogs.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-muted)]">No observation logs yet.</p>
-              ) : (
-                <>
-                  <div className="space-y-0">
-                    {visibleLogs.map((log) => (
-                      <div key={log.id} className="border-b border-surface-border py-2 text-sm last:border-0">
-                        <p className="font-medium">{formatDateTime(log.observed_at)}</p>
-                        {log.weed_species && log.weed_species.length > 0 && (
-                          <p className="text-[var(--color-text-muted)]">Species: {log.weed_species.join(', ')}</p>
+              {/* Section 2 — Weed Profile */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Weed Profile</h3>
+                {weedProfile.length === 0 ? (
+                  <p className="text-sm text-[var(--color-text-muted)]">No weed species on record for this site.</p>
+                ) : (
+                  <div className="flex flex-wrap gap-2 mb-2">
+                    {weedProfile.map((w) => (
+                      <span
+                        key={w.id}
+                        className="inline-flex items-center gap-1 bg-surface-raised border border-surface-border rounded-full px-3 py-1 text-sm"
+                      >
+                        {w.weed_name}
+                        {canEdit(role) && (
+                          <button
+                            onClick={() => removeWeed(w.id)}
+                            className="text-[var(--color-text-muted)] hover:text-red-600 min-h-[24px] min-w-[24px] flex items-center justify-center"
+                            aria-label={`Remove ${w.weed_name}`}
+                          >
+                            <X size={14} />
+                          </button>
                         )}
-                        {log.density && <p className="text-[var(--color-text-muted)]">Density: {log.density}</p>}
-                        {log.conditions && <p className="text-[var(--color-text-muted)]">Conditions: {log.conditions}</p>}
-                        {log.notes && <p className="text-[var(--color-text-muted)]">{log.notes}</p>}
-                      </div>
+                      </span>
                     ))}
                   </div>
-                  {observationLogs.length > 5 && (
-                    <button
-                      onClick={() => setShowAllLogs(!showAllLogs)}
-                      className="text-sm text-[#2a6b2a] hover:underline mt-2 min-h-[44px]"
-                    >
-                      {showAllLogs ? 'Show less' : `View all (${observationLogs.length})`}
-                    </button>
-                  )}
-                </>
-              )}
-            </div>
-          </div>
-
-          {/* Right Column — Map & Photo Gallery */}
-          <div className="space-y-4">
-            {/* Map */}
-            <div>
-              <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Location</h3>
-              {mapSrc ? (
-                <div className="rounded-lg overflow-hidden border border-surface-border">
-                  <iframe
-                    title="Site location"
-                    width="100%"
-                    height="200"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    src={mapSrc}
-                  />
-                </div>
-              ) : hasAddress ? (
-                <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[200px] text-sm text-[var(--color-text-muted)]">
-                  <div className="flex flex-col items-center gap-1">
-                    <MapPin size={24} />
-                    <span>Loading map...</span>
-                  </div>
-                </div>
-              ) : (
-                <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[200px] text-sm text-[var(--color-text-muted)]">
-                  <div className="flex flex-col items-center gap-1">
-                    <MapPin size={24} />
-                    <span>No address available</span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Photo Gallery */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">Site Photos</h3>
+                )}
                 {canEdit(role) && (
-                  <>
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      accept="image/*"
-                      multiple
-                      onChange={handlePhotoUpload}
-                      className="hidden"
+                  <div className="flex gap-2 items-end mt-2">
+                    <Input
+                      label="Add species"
+                      value={newWeed}
+                      onChange={(e) => setNewWeed(e.target.value)}
+                      onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); addWeed() } }}
+                      className="flex-1"
                     />
-                    <button
-                      type="button"
-                      onClick={() => fileInputRef.current?.click()}
-                      disabled={uploading}
-                      className="inline-flex items-center gap-1 text-xs text-brand-green hover:underline min-h-[32px]"
-                    >
-                      <Upload size={14} />
-                      {uploading ? 'Uploading...' : 'Upload'}
-                    </button>
+                    <Button size="sm" onClick={addWeed} disabled={adding || !newWeed.trim()}>
+                      Add
+                    </Button>
+                  </div>
+                )}
+                {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
+              </div>
+
+              {/* Section 3 — Observation Log */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Observation Log</h3>
+                {observationLogs.length === 0 ? (
+                  <p className="text-sm text-[var(--color-text-muted)]">No observation logs yet.</p>
+                ) : (
+                  <>
+                    <div className="space-y-0">
+                      {visibleLogs.map((log) => (
+                        <div key={log.id} className="border-b border-surface-border py-2 text-sm last:border-0">
+                          <p className="font-medium">{formatDateTime(log.observed_at)}</p>
+                          {log.weed_species && log.weed_species.length > 0 && (
+                            <p className="text-[var(--color-text-muted)]">Species: {log.weed_species.join(', ')}</p>
+                          )}
+                          {log.density && <p className="text-[var(--color-text-muted)]">Density: {log.density}</p>}
+                          {log.conditions && <p className="text-[var(--color-text-muted)]">Conditions: {log.conditions}</p>}
+                          {log.notes && <p className="text-[var(--color-text-muted)]">{log.notes}</p>}
+                        </div>
+                      ))}
+                    </div>
+                    {observationLogs.length > 5 && (
+                      <button
+                        onClick={() => setShowAllLogs(!showAllLogs)}
+                        className="text-sm text-[#2a6b2a] hover:underline mt-2 min-h-[44px]"
+                      >
+                        {showAllLogs ? 'Show less' : `View all (${observationLogs.length})`}
+                      </button>
+                    )}
                   </>
                 )}
               </div>
+            </div>
 
-              {sitePhotos.length === 0 ? (
-                <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[180px] text-sm text-[var(--color-text-muted)]">
-                  <div className="flex flex-col items-center gap-1">
-                    <ImageIcon size={24} />
-                    <span>No photos yet</span>
+            {/* Right Column — Google Map & Photo Gallery */}
+            <div className="space-y-4">
+              {/* Google Map */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Location</h3>
+                {mapEmbed ? (
+                  <div className="rounded-lg overflow-hidden border border-surface-border">
+                    <iframe
+                      title="Site location"
+                      width="100%"
+                      height="200"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={mapEmbed}
+                    />
                   </div>
-                </div>
-              ) : (
-                <div className="relative">
-                  <div className="grid grid-cols-3 grid-rows-2 gap-2">
-                    {pagedPhotos.map((photo) => (
-                      <div key={photo.id} className="aspect-square rounded-lg overflow-hidden bg-surface-raised border border-surface-border">
-                        <img
-                          src={photo.photo_url}
-                          alt={photo.caption ?? 'Site photo'}
-                          className="w-full h-full object-cover"
-                        />
-                      </div>
-                    ))}
-                    {/* Fill empty slots */}
-                    {Array.from({ length: Math.max(0, PHOTOS_PER_PAGE - pagedPhotos.length) }).map((_, i) => (
-                      <div key={`empty-${i}`} className="aspect-square rounded-lg bg-surface-raised border border-surface-border" />
-                    ))}
-                  </div>
-
-                  {/* Pagination arrows */}
-                  {totalPages > 1 && (
-                    <div className="flex items-center justify-center gap-3 mt-2">
-                      <button
-                        onClick={() => setPhotoPage((p) => Math.max(0, p - 1))}
-                        disabled={photoPage === 0}
-                        className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
-                      >
-                        <ChevronLeft size={18} />
-                      </button>
-                      <span className="text-xs text-[var(--color-text-muted)]">
-                        {photoPage + 1} / {totalPages}
-                      </span>
-                      <button
-                        onClick={() => setPhotoPage((p) => Math.min(totalPages - 1, p + 1))}
-                        disabled={photoPage === totalPages - 1}
-                        className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
-                      >
-                        <ChevronRight size={18} />
-                      </button>
+                ) : (
+                  <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[200px] text-sm text-[var(--color-text-muted)]">
+                    <div className="flex flex-col items-center gap-1">
+                      <MapPin size={24} />
+                      <span>No address available</span>
                     </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Photo Gallery */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">Site Photos</h3>
+                  {canEdit(role) && (
+                    <>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        onChange={handlePhotoUpload}
+                        className="hidden"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="inline-flex items-center gap-1 text-xs text-brand-green hover:underline min-h-[32px]"
+                      >
+                        <Upload size={14} />
+                        {uploading ? 'Uploading...' : 'Upload'}
+                      </button>
+                    </>
                   )}
                 </div>
-              )}
+
+                {sitePhotos.length === 0 ? (
+                  <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[180px] text-sm text-[var(--color-text-muted)]">
+                    <div className="flex flex-col items-center gap-1">
+                      <ImageIcon size={24} />
+                      <span>No photos yet</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="relative">
+                    <div className="grid grid-cols-3 grid-rows-2 gap-2">
+                      {pagedPhotos.map((photo) => (
+                        <div key={photo.id} className="aspect-square rounded-lg overflow-hidden bg-surface-raised border border-surface-border">
+                          <img
+                            src={photo.photo_url}
+                            alt={photo.caption ?? 'Site photo'}
+                            className="w-full h-full object-cover"
+                          />
+                        </div>
+                      ))}
+                      {/* Fill empty slots */}
+                      {Array.from({ length: Math.max(0, PHOTOS_PER_PAGE - pagedPhotos.length) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="aspect-square rounded-lg bg-surface-raised border border-surface-border" />
+                      ))}
+                    </div>
+
+                    {/* Pagination arrows */}
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-3 mt-2">
+                        <button
+                          onClick={() => setPhotoPage((p) => Math.max(0, p - 1))}
+                          disabled={photoPage === 0}
+                          className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                          {photoPage + 1} / {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setPhotoPage((p) => Math.min(totalPages - 1, p + 1))}
+                          disabled={photoPage === totalPages - 1}
+                          className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
