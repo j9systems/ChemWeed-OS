@@ -82,12 +82,6 @@ export function WorkOrderDetail() {
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div className="flex items-start gap-3">
-          {canEdit(role) && (
-            <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
-              <Edit size={16} />
-              Edit
-            </Button>
-          )}
           <div>
             <h1 className="text-2xl font-bold">{workOrder.client?.name} — {workOrder.site?.name}</h1>
             <div className="mt-1">
@@ -96,8 +90,7 @@ export function WorkOrderDetail() {
           </div>
         </div>
 
-        {/* Actions */}
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {workOrder.status === 'scheduled' && canCompleteField(role) && (
             <Button size="sm" onClick={() => updateStatus('in_progress')} disabled={updating}>
               <Play size={16} />
@@ -111,6 +104,12 @@ export function WorkOrderDetail() {
                 Complete Job
               </Button>
             </Link>
+          )}
+          {canEdit(role) && (
+            <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
+              <Edit size={16} />
+              Edit
+            </Button>
           )}
         </div>
       </div>
@@ -134,7 +133,7 @@ export function WorkOrderDetail() {
       {/* Tab Card */}
       <Card padding={false}>
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
-        <div className="p-4">
+        <div className="p-[10px]">
           {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
           {activeTab === 'estimate' && <EstimateTab materials={materials} charges={charges} weedProfile={weedProfile} workOrderId={workOrder.id} refetchMaterials={refetchMaterials} refetchCharges={refetchCharges} />}
           {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
