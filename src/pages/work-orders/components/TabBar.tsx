@@ -11,7 +11,7 @@ interface TabBarProps {
 
 export function TabBar({ tabs, activeTab, onChange }: TabBarProps) {
   return (
-    <nav className="flex overflow-x-auto border-b border-surface-border mb-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <nav className="flex overflow-x-auto border-b border-surface-border" style={{ WebkitOverflowScrolling: 'touch' }}>
       {tabs.map((tab) => (
         <button
           key={tab.key}

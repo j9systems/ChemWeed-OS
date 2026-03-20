@@ -14,6 +14,7 @@ import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { Card } from '@/components/ui/Card'
 import { TabBar } from './components/TabBar'
 import { SiteInfoCard } from './components/SiteInfoCard'
 import { EditWorkOrderModal } from './components/EditWorkOrderModal'
@@ -79,35 +80,35 @@ export function WorkOrderDetail() {
       </Link>
 
       {/* Header */}
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h1 className="text-2xl font-bold">{workOrder.client?.name} — {workOrder.site?.name}</h1>
+      <div className="flex items-start justify-between mb-1">
+        <h1 className="text-2xl font-bold">{workOrder.client?.name} — {workOrder.site?.name}</h1>
+        <div className="flex flex-wrap items-center gap-2">
+          {canEdit(role) && (
+            <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
+              <Edit size={16} />
+              Edit
+            </Button>
+          )}
+          {workOrder.status === 'scheduled' && canCompleteField(role) && (
+            <Button size="sm" onClick={() => updateStatus('in_progress')} disabled={updating}>
+              <Play size={16} />
+              Start Job
+            </Button>
+          )}
+          {workOrder.status === 'in_progress' && canCompleteField(role) && (
+            <Link to={`/work-orders/${workOrder.id}/complete`}>
+              <Button size="sm">
+                <CheckCircle size={16} />
+                Complete Job
+              </Button>
+            </Link>
+          )}
         </div>
-        <Badge status={workOrder.status} />
       </div>
 
-      {/* Actions */}
-      <div className="flex flex-wrap gap-2 mb-4">
-        {canEdit(role) && (
-          <Button variant="secondary" size="sm" onClick={() => setShowEditModal(true)}>
-            <Edit size={16} />
-            Edit
-          </Button>
-        )}
-        {workOrder.status === 'scheduled' && canCompleteField(role) && (
-          <Button size="sm" onClick={() => updateStatus('in_progress')} disabled={updating}>
-            <Play size={16} />
-            Start Job
-          </Button>
-        )}
-        {workOrder.status === 'in_progress' && canCompleteField(role) && (
-          <Link to={`/work-orders/${workOrder.id}/complete`}>
-            <Button size="sm">
-              <CheckCircle size={16} />
-              Complete Job
-            </Button>
-          </Link>
-        )}
+      {/* Status */}
+      <div className="mb-4">
+        <Badge status={workOrder.status} />
       </div>
 
       {/* Edit Work Order Modal */}
@@ -136,35 +137,38 @@ export function WorkOrderDetail() {
         />
       )}
 
-      {/* Tab Bar */}
-      <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
+      {/* Tabs + Content Card */}
+      <Card padding={false}>
+        <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
 
-      {/* Tab Content */}
-      {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
-      {activeTab === 'estimate' && (
-        <EstimateTab
-          workOrderId={workOrder.id}
-          materials={materials}
-          charges={charges}
-          weedProfile={weedProfile}
-          canEdit={canEdit(role)}
-          refetchMaterials={refetchMaterials}
-          refetchCharges={refetchCharges}
-        />
-      )}
-      {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
-      {activeTab === 'field' && (
-        <FieldTab
-          workOrder={workOrder}
-          materials={materials}
-          role={role}
-          siteId={workOrder.site_id}
-          userId={user?.id}
-          refetchSiteProfile={refetchSiteProfile}
-        />
-      )}
-      {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
-      {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+        <div className="p-4">
+          {activeTab === 'details' && <DetailsTab workOrder={workOrder} />}
+          {activeTab === 'estimate' && (
+            <EstimateTab
+              workOrderId={workOrder.id}
+              materials={materials}
+              charges={charges}
+              weedProfile={weedProfile}
+              canEdit={canEdit(role)}
+              refetchMaterials={refetchMaterials}
+              refetchCharges={refetchCharges}
+            />
+          )}
+          {activeTab === 'schedule' && <ScheduleTab workOrder={workOrder} />}
+          {activeTab === 'field' && (
+            <FieldTab
+              workOrder={workOrder}
+              materials={materials}
+              role={role}
+              siteId={workOrder.site_id}
+              userId={user?.id}
+              refetchSiteProfile={refetchSiteProfile}
+            />
+          )}
+          {activeTab === 'notes' && <NotesTab workOrder={workOrder} />}
+          {activeTab === 'invoice' && <InvoiceTab workOrder={workOrder} charges={charges} />}
+        </div>
+      </Card>
     </div>
   )
 }
