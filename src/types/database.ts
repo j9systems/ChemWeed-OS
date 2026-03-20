@@ -160,6 +160,14 @@ export interface SiteObservationLog {
   photo_urls: string[]
 }
 
+export interface SitePhoto {
+  id: string
+  site_id: string
+  photo_url: string
+  uploaded_by: string | null
+  uploaded_at: string
+}
+
 // Supabase Database type for the client generic
 export interface Database {
   public: {

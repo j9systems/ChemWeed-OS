@@ -9,7 +9,7 @@ export function BottomNav() {
   const visibleItems = NAV_ITEMS.filter((item) => role && item.roles.includes(role))
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-surface-border bg-white pb-[env(safe-area-inset-bottom)]">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-white pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around">
         {visibleItems.map((item) => (
           <NavLink
@@ -19,7 +19,7 @@ export function BottomNav() {
               cn(
                 'flex flex-col items-center justify-center gap-0.5 py-2 px-3 min-h-[56px] min-w-[56px] text-xs font-medium transition-colors',
                 isActive
-                  ? 'text-brand-green'
+                  ? 'font-bold text-brand-green'
                   : 'text-[var(--color-text-muted)]',
               )
             }
