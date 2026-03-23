@@ -4,7 +4,7 @@ import { getSupabaseErrorMessage } from '@/lib/utils'
 import { useServiceTypes } from '@/hooks/useServiceTypes'
 import { useTeamMembers } from '@/hooks/useTeam'
 import { useUrgencyLevels } from '@/hooks/useUrgencyLevels'
-import { FREQUENCY_TYPES, URGENCY_COLORS } from '@/lib/constants'
+import { FREQUENCY_TYPES, getUrgencyColors } from '@/lib/constants'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -92,7 +92,7 @@ export function EditWorkOrderModal({ open, workOrder, onClose, onSaved }: EditWo
           <label className="block text-sm font-medium mb-1">Urgency</label>
           <div className="flex gap-2 flex-wrap">
             {urgencyLevels.map((level) => {
-              const colors = URGENCY_COLORS[level.key] ?? URGENCY_COLORS.flexible
+              const colors = getUrgencyColors(level.key)
               const isSelected = urgencyLevelId === level.id
               return (
                 <button

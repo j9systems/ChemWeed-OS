@@ -34,10 +34,18 @@ export const FREQUENCY_TYPES = [
   'Type 12',
 ]
 
-export const URGENCY_COLORS: Record<string, { bg: string; text: string; border: string; selectedBg: string; selectedText: string; selectedBorder: string }> = {
+interface UrgencyColor { bg: string; text: string; border: string; selectedBg: string; selectedText: string; selectedBorder: string }
+
+const URGENCY_FALLBACK: UrgencyColor = { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200', selectedBg: 'bg-sky-600', selectedText: 'text-white', selectedBorder: 'border-sky-600' }
+
+const URGENCY_COLORS_MAP: Record<string, UrgencyColor> = {
   emergency: { bg: 'bg-red-50', text: 'text-red-700', border: 'border-red-200', selectedBg: 'bg-red-600', selectedText: 'text-white', selectedBorder: 'border-red-600' },
   '7_day': { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', selectedBg: 'bg-amber-500', selectedText: 'text-white', selectedBorder: 'border-amber-500' },
-  flexible: { bg: 'bg-sky-50', text: 'text-sky-700', border: 'border-sky-200', selectedBg: 'bg-sky-600', selectedText: 'text-white', selectedBorder: 'border-sky-600' },
+  flexible: URGENCY_FALLBACK,
+}
+
+export function getUrgencyColors(key: string): UrgencyColor {
+  return URGENCY_COLORS_MAP[key] ?? URGENCY_FALLBACK
 }
 
 export const PROPERTY_TYPES = [

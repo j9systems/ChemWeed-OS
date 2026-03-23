@@ -1,5 +1,5 @@
 import { formatDate } from '@/lib/utils'
-import { WORK_ORDER_STATUSES, URGENCY_COLORS } from '@/lib/constants'
+import { WORK_ORDER_STATUSES, getUrgencyColors } from '@/lib/constants'
 import type { WorkOrder } from '@/types/database'
 
 interface DetailsTabProps {
@@ -27,7 +27,7 @@ export function DetailsTab({ workOrder }: DetailsTabProps) {
           {workOrder.urgency_level ? (
             <span className={`inline-block rounded-full px-3 py-0.5 text-xs font-medium border ${
               (() => {
-                const c = URGENCY_COLORS[workOrder.urgency_level.key] ?? URGENCY_COLORS.flexible
+                const c = getUrgencyColors(workOrder.urgency_level.key)
                 return `${c.selectedBg} ${c.selectedText} ${c.selectedBorder}`
               })()
             }`}>

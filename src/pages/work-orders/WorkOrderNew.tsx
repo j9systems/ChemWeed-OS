@@ -11,7 +11,7 @@ import { useUrgencyLevels } from '@/hooks/useUrgencyLevels'
 import { canEdit } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
-import { FREQUENCY_TYPES, URGENCY_COLORS } from '@/lib/constants'
+import { FREQUENCY_TYPES, getUrgencyColors } from '@/lib/constants'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -312,7 +312,7 @@ export function WorkOrderNew() {
               <label className="block text-sm font-medium mb-1">Urgency</label>
               <div className="flex gap-2 flex-wrap">
                 {urgencyLevels.map((level) => {
-                  const colors = URGENCY_COLORS[level.key] ?? URGENCY_COLORS.flexible
+                  const colors = getUrgencyColors(level.key)
                   const isSelected = urgencyLevelId === level.id
                   return (
                     <button
