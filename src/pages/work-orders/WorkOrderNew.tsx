@@ -7,10 +7,11 @@ import { useClients } from '@/hooks/useClients'
 import { useSites } from '@/hooks/useSites'
 import { useServiceTypes } from '@/hooks/useServiceTypes'
 import { useTeamMembers } from '@/hooks/useTeam'
+import { useUrgencyLevels } from '@/hooks/useUrgencyLevels'
 import { canEdit } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
-import { FREQUENCY_TYPES } from '@/lib/constants'
+import { FREQUENCY_TYPES, getUrgencyColors } from '@/lib/constants'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
@@ -27,6 +28,7 @@ export function WorkOrderNew() {
   const { clients, refetch: refetchClients } = useClients()
   const { serviceTypes } = useServiceTypes()
   const { members } = useTeamMembers()
+  const { urgencyLevels, defaultLevel } = useUrgencyLevels()
 
   const [clientId, setClientId] = useState('')
   const [siteId, setSiteId] = useState('')
@@ -46,6 +48,7 @@ export function WorkOrderNew() {
   const [commentTech, setCommentTech] = useState('')
   const [materials, setMaterials] = useState<MaterialRow[]>([])
   const [charges, setCharges] = useState<ChargeRow[]>([])
+  const [urgencyLevelId, setUrgencyLevelId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,6 +77,11 @@ export function WorkOrderNew() {
     setPcaId(rickFoell.id)
   }
 
+  // Default urgency to 'flexible'
+  if (!urgencyLevelId && defaultLevel) {
+    setUrgencyLevelId(defaultLevel.id)
+  }
+
   if (!canEdit(role)) {
     return <Navigate to="/work-orders" replace />
   }
@@ -100,6 +108,7 @@ export function WorkOrderNew() {
         pca_id: pcaId || null,
         po_number: poNumber || null,
         reason: reason || null,
+        urgency_level_id: urgencyLevelId || null,
         notes_client: commentClient || null,
         notes_internal: commentInternal || null,
         notes_technician: commentTech || null,
@@ -297,6 +306,30 @@ export function WorkOrderNew() {
                   <option key={st.id} value={st.id}>{st.name}</option>
                 ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Urgency</label>
+              <div className="flex gap-2 flex-wrap">
+                {urgencyLevels.map((level) => {
+                  const colors = getUrgencyColors(level.key)
+                  const isSelected = urgencyLevelId === level.id
+                  return (
+                    <button
+                      key={level.id}
+                      type="button"
+                      onClick={() => setUrgencyLevelId(level.id)}
+                      className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
+                        isSelected
+                          ? `${colors.selectedBg} ${colors.selectedText} ${colors.selectedBorder}`
+                          : `${colors.bg} ${colors.text} ${colors.border} hover:opacity-80`
+                      }`}
+                    >
+                      {level.label}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
 
             <div>

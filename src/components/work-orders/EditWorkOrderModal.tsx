@@ -3,7 +3,8 @@ import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
 import { useServiceTypes } from '@/hooks/useServiceTypes'
 import { useTeamMembers } from '@/hooks/useTeam'
-import { FREQUENCY_TYPES } from '@/lib/constants'
+import { useUrgencyLevels } from '@/hooks/useUrgencyLevels'
+import { FREQUENCY_TYPES, getUrgencyColors } from '@/lib/constants'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -19,8 +20,10 @@ interface EditWorkOrderModalProps {
 export function EditWorkOrderModal({ open, workOrder, onClose, onSaved }: EditWorkOrderModalProps) {
   const { serviceTypes } = useServiceTypes()
   const { members } = useTeamMembers()
+  const { urgencyLevels } = useUrgencyLevels()
 
   const [serviceTypeId, setServiceTypeId] = useState(workOrder.service_type_id)
+  const [urgencyLevelId, setUrgencyLevelId] = useState(workOrder.urgency_level_id ?? '')
   const [frequencyType, setFrequencyType] = useState(workOrder.frequency_type ?? '')
   const [proposedStartDate, setProposedStartDate] = useState(workOrder.proposed_start_date ?? '')
   const [pcaId, setPcaId] = useState(workOrder.pca_id ?? '')
@@ -43,6 +46,7 @@ export function EditWorkOrderModal({ open, workOrder, onClose, onSaved }: EditWo
       .from('work_orders')
       .update({
         service_type_id: serviceTypeId,
+        urgency_level_id: urgencyLevelId || null,
         frequency_type: frequencyType || null,
         proposed_start_date: proposedStartDate || null,
         pca_id: pcaId || null,
@@ -82,6 +86,30 @@ export function EditWorkOrderModal({ open, workOrder, onClose, onSaved }: EditWo
               <option key={st.id} value={st.id}>{st.name}</option>
             ))}
           </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Urgency</label>
+          <div className="flex gap-2 flex-wrap">
+            {urgencyLevels.map((level) => {
+              const colors = getUrgencyColors(level.key)
+              const isSelected = urgencyLevelId === level.id
+              return (
+                <button
+                  key={level.id}
+                  type="button"
+                  onClick={() => setUrgencyLevelId(level.id)}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
+                    isSelected
+                      ? `${colors.selectedBg} ${colors.selectedText} ${colors.selectedBorder}`
+                      : `${colors.bg} ${colors.text} ${colors.border} hover:opacity-80`
+                  }`}
+                >
+                  {level.label}
+                </button>
+              )
+            })}
+          </div>
         </div>
 
         <div>
