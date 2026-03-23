@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Plus, Calendar, User, MapPin } from 'lucide-react'
+import { Plus, Calendar, User } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { canEdit } from '@/lib/roles'
