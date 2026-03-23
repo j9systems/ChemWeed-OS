@@ -31,7 +31,7 @@ function buildAddress(site: Site) {
 
 function streetViewUrl(address: string) {
   if (!address || !GOOGLE_MAPS_KEY) return null
-  return `https://maps.googleapis.com/maps/api/streetview?size=800x300&location=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_KEY}`
+  return `https://maps.googleapis.com/maps/api/streetview?size=800x400&location=${encodeURIComponent(address)}&key=${GOOGLE_MAPS_KEY}`
 }
 
 function googleMapEmbedUrl(address: string) {
@@ -143,54 +143,100 @@ export function SiteInfoCard({
 
   return (
     <Card className="mb-4 overflow-hidden" padding={false}>
-      {/* Street View Hero Image — always visible */}
-      {streetView ? (
-        <img
-          src={streetView}
-          alt={`Street view of ${siteAddress}`}
-          className="w-full h-[200px] object-cover"
-        />
-      ) : (
-        <div className="w-full h-[200px] bg-surface flex items-center justify-center text-sm text-[var(--color-text-muted)]">
-          <div className="flex flex-col items-center gap-1">
-            <MapPin size={24} />
-            <span>{hasAddress ? 'Street view unavailable' : 'No address available'}</span>
+      {/* Collapsed summary — street view left, site info right */}
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full text-left"
+      >
+        <div className="flex flex-col sm:flex-row">
+          {/* Street View thumbnail */}
+          <div className="sm:w-[280px] md:w-[340px] shrink-0">
+            {streetView ? (
+              <img
+                src={streetView}
+                alt={`Street view of ${siteAddress}`}
+                className="w-full h-[160px] sm:h-full object-cover"
+              />
+            ) : (
+              <div className="w-full h-[160px] sm:h-full bg-surface flex items-center justify-center text-sm text-[var(--color-text-muted)]">
+                <div className="flex flex-col items-center gap-1">
+                  <MapPin size={24} />
+                  <span>{hasAddress ? 'Street view unavailable' : 'No address'}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Site summary info */}
+          <div className="flex-1 p-4 sm:p-5 flex flex-col justify-center">
+            <div className="flex items-start justify-between gap-2">
+              <h3 className="text-sm font-semibold mb-2">Site Info</h3>
+              <span className="shrink-0 text-[var(--color-text-muted)]">
+                {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+              </span>
+            </div>
+            <dl className="space-y-1 text-sm">
+              <div>
+                <dt className="text-[var(--color-text-muted)] inline">Address: </dt>
+                <dd className="inline">{site.address_line ?? '—'}</dd>
+              </div>
+              {site.city && (
+                <div>
+                  <dt className="text-[var(--color-text-muted)] inline">City: </dt>
+                  <dd className="inline">{site.city}{site.state ? `, ${site.state}` : ''} {site.zip ?? ''}</dd>
+                </div>
+              )}
+              {site.property_type && (
+                <div>
+                  <dt className="text-[var(--color-text-muted)] inline">Property Type: </dt>
+                  <dd className="inline capitalize">{site.property_type}</dd>
+                </div>
+              )}
+              {site.total_acres != null && (
+                <div>
+                  <dt className="text-[var(--color-text-muted)] inline">Acreage: </dt>
+                  <dd className="inline">{site.total_acres}</dd>
+                </div>
+              )}
+            </dl>
           </div>
         </div>
-      )}
+      </button>
 
-      {/* Collapsible header */}
-      <div className="px-10 pt-4 pb-2">
-        <button
-          onClick={onToggle}
-          className="flex items-center justify-between w-full min-h-[44px] text-left"
-        >
-          <span className="text-sm font-semibold">Site Info</span>
-          {isOpen ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-        </button>
-      </div>
-
+      {/* Expanded content — map, weed profile, observation log, site photos */}
       {isOpen && (
-        <div className="px-10 pb-10">
+        <div className="border-t border-surface-border px-5 sm:px-8 pb-8 pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Left Column — Street View, Site Details, Weed Profile, Observation Log */}
+            {/* Left Column — Google Map & Weed Profile */}
             <div className="space-y-6">
-              {/* Section 1 — Site Details */}
+              {/* Google Map */}
               <div>
-                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Site Details</h3>
-                <dl className="space-y-1 text-sm">
-                  <div><dt className="text-[var(--color-text-muted)] inline">Address: </dt><dd className="inline">{site.address_line}</dd></div>
-                  <div><dt className="text-[var(--color-text-muted)] inline">City: </dt><dd className="inline">{site.city}</dd></div>
-                  {site.county && <div><dt className="text-[var(--color-text-muted)] inline">County: </dt><dd className="inline">{site.county.name}</dd></div>}
-                  <div><dt className="text-[var(--color-text-muted)] inline">State: </dt><dd className="inline">{site.state}</dd></div>
-                  <div><dt className="text-[var(--color-text-muted)] inline">Zip: </dt><dd className="inline">{site.zip}</dd></div>
-                  {site.total_acres != null && <div><dt className="text-[var(--color-text-muted)] inline">Acreage: </dt><dd className="inline">{site.total_acres}</dd></div>}
-                  {site.property_type && <div><dt className="text-[var(--color-text-muted)] inline">Property Type: </dt><dd className="inline capitalize">{site.property_type}</dd></div>}
-                  {site.notes && <div><dt className="text-[var(--color-text-muted)] inline">Notes: </dt><dd className="inline">{site.notes}</dd></div>}
-                </dl>
+                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Location</h3>
+                {mapEmbed ? (
+                  <div className="rounded-lg overflow-hidden border border-surface-border">
+                    <iframe
+                      title="Site location"
+                      width="100%"
+                      height="220"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      allowFullScreen
+                      referrerPolicy="no-referrer-when-downgrade"
+                      src={mapEmbed}
+                    />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[220px] text-sm text-[var(--color-text-muted)]">
+                    <div className="flex flex-col items-center gap-1">
+                      <MapPin size={24} />
+                      <span>No address available</span>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              {/* Section 2 — Weed Profile */}
+              {/* Weed Profile */}
               <div>
                 <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Weed Profile</h3>
                 {weedProfile.length === 0 ? (
@@ -205,7 +251,7 @@ export function SiteInfoCard({
                         {w.weed_name}
                         {canEdit(role) && (
                           <button
-                            onClick={() => removeWeed(w.id)}
+                            onClick={(e) => { e.stopPropagation(); removeWeed(w.id) }}
                             className="text-[var(--color-text-muted)] hover:text-red-600 min-h-[24px] min-w-[24px] flex items-center justify-center"
                             aria-label={`Remove ${w.weed_name}`}
                           >
@@ -232,8 +278,11 @@ export function SiteInfoCard({
                 )}
                 {error && <p className="text-sm text-red-600 mt-1">{error}</p>}
               </div>
+            </div>
 
-              {/* Section 3 — Observation Log */}
+            {/* Right Column — Observation Log & Photo Gallery */}
+            <div className="space-y-6">
+              {/* Observation Log */}
               <div>
                 <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Observation Log</h3>
                 {observationLogs.length === 0 ? (
@@ -262,35 +311,6 @@ export function SiteInfoCard({
                       </button>
                     )}
                   </>
-                )}
-              </div>
-            </div>
-
-            {/* Right Column — Google Map & Photo Gallery */}
-            <div className="space-y-4">
-              {/* Google Map */}
-              <div>
-                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Location</h3>
-                {mapEmbed ? (
-                  <div className="rounded-lg overflow-hidden border border-surface-border">
-                    <iframe
-                      title="Site location"
-                      width="100%"
-                      height="200"
-                      style={{ border: 0 }}
-                      loading="lazy"
-                      allowFullScreen
-                      referrerPolicy="no-referrer-when-downgrade"
-                      src={mapEmbed}
-                    />
-                  </div>
-                ) : (
-                  <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[200px] text-sm text-[var(--color-text-muted)]">
-                    <div className="flex flex-col items-center gap-1">
-                      <MapPin size={24} />
-                      <span>No address available</span>
-                    </div>
-                  </div>
                 )}
               </div>
 
@@ -340,13 +360,11 @@ export function SiteInfoCard({
                           />
                         </div>
                       ))}
-                      {/* Fill empty slots */}
                       {Array.from({ length: Math.max(0, PHOTOS_PER_PAGE - pagedPhotos.length) }).map((_, i) => (
                         <div key={`empty-${i}`} className="aspect-square rounded-lg bg-surface-raised border border-surface-border" />
                       ))}
                     </div>
 
-                    {/* Pagination arrows */}
                     {totalPages > 1 && (
                       <div className="flex items-center justify-center gap-3 mt-2">
                         <button
