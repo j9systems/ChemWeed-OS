@@ -280,40 +280,8 @@ export function SiteInfoCard({
               </div>
             </div>
 
-            {/* Right Column — Observation Log & Photo Gallery */}
+            {/* Right Column — Photo Gallery & Observation Log */}
             <div className="space-y-6">
-              {/* Observation Log */}
-              <div>
-                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Observation Log</h3>
-                {observationLogs.length === 0 ? (
-                  <p className="text-sm text-[var(--color-text-muted)]">No observation logs yet.</p>
-                ) : (
-                  <>
-                    <div className="space-y-0">
-                      {visibleLogs.map((log) => (
-                        <div key={log.id} className="border-b border-surface-border py-2 text-sm last:border-0">
-                          <p className="font-medium">{formatDateTime(log.observed_at)}</p>
-                          {log.weed_species && log.weed_species.length > 0 && (
-                            <p className="text-[var(--color-text-muted)]">Species: {log.weed_species.join(', ')}</p>
-                          )}
-                          {log.density && <p className="text-[var(--color-text-muted)]">Density: {log.density}</p>}
-                          {log.conditions && <p className="text-[var(--color-text-muted)]">Conditions: {log.conditions}</p>}
-                          {log.notes && <p className="text-[var(--color-text-muted)]">{log.notes}</p>}
-                        </div>
-                      ))}
-                    </div>
-                    {observationLogs.length > 5 && (
-                      <button
-                        onClick={() => setShowAllLogs(!showAllLogs)}
-                        className="text-sm text-[#2a6b2a] hover:underline mt-2 min-h-[44px]"
-                      >
-                        {showAllLogs ? 'Show less' : `View all (${observationLogs.length})`}
-                      </button>
-                    )}
-                  </>
-                )}
-              </div>
-
               {/* Photo Gallery */}
               <div>
                 <div className="flex items-center justify-between mb-2">
@@ -387,6 +355,38 @@ export function SiteInfoCard({
                       </div>
                     )}
                   </div>
+                )}
+              </div>
+
+              {/* Observation Log */}
+              <div>
+                <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-2">Observation Log</h3>
+                {observationLogs.length === 0 ? (
+                  <p className="text-sm text-[var(--color-text-muted)]">No observation logs yet.</p>
+                ) : (
+                  <>
+                    <div className="space-y-0">
+                      {visibleLogs.map((log) => (
+                        <div key={log.id} className="border-b border-surface-border py-2 text-sm last:border-0">
+                          <p className="font-medium">{formatDateTime(log.observed_at)}</p>
+                          {log.weed_species && log.weed_species.length > 0 && (
+                            <p className="text-[var(--color-text-muted)]">Species: {log.weed_species.join(', ')}</p>
+                          )}
+                          {log.density && <p className="text-[var(--color-text-muted)]">Density: {log.density}</p>}
+                          {log.conditions && <p className="text-[var(--color-text-muted)]">Conditions: {log.conditions}</p>}
+                          {log.notes && <p className="text-[var(--color-text-muted)]">{log.notes}</p>}
+                        </div>
+                      ))}
+                    </div>
+                    {observationLogs.length > 5 && (
+                      <button
+                        onClick={() => setShowAllLogs(!showAllLogs)}
+                        className="text-sm text-[#2a6b2a] hover:underline mt-2 min-h-[44px]"
+                      >
+                        {showAllLogs ? 'Show less' : `View all (${observationLogs.length})`}
+                      </button>
+                    )}
+                  </>
                 )}
               </div>
             </div>
