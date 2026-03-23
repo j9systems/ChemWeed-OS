@@ -1,5 +1,6 @@
 import { useState, useRef } from 'react'
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Upload, MapPin, ImageIcon } from 'lucide-react'
+import { Link } from 'react-router'
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Upload, MapPin, ImageIcon, ExternalLink } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage, formatDateTime } from '@/lib/utils'
 import { canEdit } from '@/lib/roles'
@@ -200,6 +201,13 @@ export function SiteInfoCard({
                 </div>
               )}
             </dl>
+            <Link
+              to={`/sites/${site.id}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex items-center gap-1 text-xs text-brand-green hover:underline mt-2"
+            >
+              View Site <ExternalLink size={12} />
+            </Link>
           </div>
         </div>
       </button>
@@ -207,7 +215,7 @@ export function SiteInfoCard({
       {/* Expanded content — map, weed profile, observation log, site photos */}
       {isOpen && (
         <div className="border-t border-surface-border px-5 sm:px-8 pb-8 pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 md:items-start">
             {/* Left Column — Google Map & Weed Profile */}
             <div className="space-y-6">
               {/* Google Map */}
@@ -310,7 +318,7 @@ export function SiteInfoCard({
                 </div>
 
                 {sitePhotos.length === 0 ? (
-                  <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[180px] text-sm text-[var(--color-text-muted)]">
+                  <div className="rounded-lg border border-surface-border bg-surface-raised flex items-center justify-center h-[220px] text-sm text-[var(--color-text-muted)]">
                     <div className="flex flex-col items-center gap-1">
                       <ImageIcon size={24} />
                       <span>No photos yet</span>
