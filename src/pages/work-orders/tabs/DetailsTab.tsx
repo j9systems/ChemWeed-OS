@@ -1,5 +1,5 @@
 import { formatDate } from '@/lib/utils'
-import { WORK_ORDER_STATUSES } from '@/lib/constants'
+import { WORK_ORDER_STATUSES, URGENCY_COLORS } from '@/lib/constants'
 import type { WorkOrder } from '@/types/database'
 
 interface DetailsTabProps {
@@ -23,6 +23,18 @@ export function DetailsTab({ workOrder }: DetailsTabProps) {
         <DetailItem label="Client">{workOrder.client?.name ?? '—'}</DetailItem>
         <DetailItem label="Site">{workOrder.site?.name ?? '—'}</DetailItem>
         <DetailItem label="Status">{WORK_ORDER_STATUSES[workOrder.status]}</DetailItem>
+        <DetailItem label="Urgency">
+          {workOrder.urgency_level ? (
+            <span className={`inline-block rounded-full px-3 py-0.5 text-xs font-medium border ${
+              (() => {
+                const c = URGENCY_COLORS[workOrder.urgency_level.key] ?? URGENCY_COLORS.flexible
+                return `${c.selectedBg} ${c.selectedText} ${c.selectedBorder}`
+              })()
+            }`}>
+              {workOrder.urgency_level.label}
+            </span>
+          ) : '—'}
+        </DetailItem>
         <DetailItem label="Service Type">{workOrder.service_type?.name ?? '—'}</DetailItem>
         <DetailItem label="Frequency">{workOrder.frequency_type ?? '—'}</DetailItem>
         <DetailItem label="Proposed Start">{formatDate(workOrder.proposed_start_date)}</DetailItem>

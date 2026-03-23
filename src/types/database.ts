@@ -46,6 +46,15 @@ export interface County {
   notes: string | null
 }
 
+export interface UrgencyLevel {
+  id: string
+  key: string
+  label: string
+  sort_order: number
+  is_default: boolean
+  created_at: string
+}
+
 export interface WorkOrder {
   id: string
   work_order_number: string | null
@@ -60,6 +69,7 @@ export interface WorkOrder {
   pca_id: string | null
   po_number: string | null
   reason: string | null
+  urgency_level_id: string | null
   notes_client: string | null
   notes_internal: string | null
   notes_technician: string | null
@@ -70,6 +80,7 @@ export interface WorkOrder {
   site?: Site
   service_type?: ServiceType
   pca?: TeamMember
+  urgency_level?: UrgencyLevel
 }
 
 export interface WorkOrderMaterial {
@@ -186,6 +197,7 @@ export interface Database {
       site_weed_profile: { Row: SiteWeedProfile; Insert: Omit<SiteWeedProfile, 'id' | 'added_at'>; Update: Partial<Omit<SiteWeedProfile, 'id'>> }
       site_observation_logs: { Row: SiteObservationLog; Insert: Omit<SiteObservationLog, 'id'>; Update: Partial<Omit<SiteObservationLog, 'id'>> }
       site_photos: { Row: SitePhoto; Insert: Omit<SitePhoto, 'id' | 'uploaded_at'>; Update: Partial<Omit<SitePhoto, 'id'>> }
+      urgency_levels: { Row: UrgencyLevel; Insert: Omit<UrgencyLevel, 'id' | 'created_at'>; Update: Partial<Omit<UrgencyLevel, 'id'>> }
     }
   }
 }
