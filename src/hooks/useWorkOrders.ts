@@ -18,7 +18,7 @@ export function useWorkOrders(filters?: WorkOrderFilters) {
 
     let query = supabase
       .from('work_orders')
-      .select('*, client:clients(*), site:sites(*), service_type:service_types(*)')
+      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey(*)')
       .order('created_at', { ascending: false })
 
     if (filters?.status) {
