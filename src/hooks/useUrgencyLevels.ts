@@ -11,7 +11,7 @@ export function useUrgencyLevels() {
       const { data } = await supabase
         .from('urgency_levels')
         .select('*')
-        .order('sort_order')
+        .order('sort_order', { ascending: false })
 
       setUrgencyLevels((data ?? []) as UrgencyLevel[])
       setIsLoading(false)

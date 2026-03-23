@@ -27,3 +27,15 @@ body {
   color: var(--color-text-primary);
   background-color: var(--color-surface);
 }
+
+/* Show pointer cursor on all interactive elements */
+button,
+select,
+a,
+[role="button"],
+label[for],
+input[type="checkbox"],
+input[type="radio"],
+summary {
+  cursor: pointer;
+}
