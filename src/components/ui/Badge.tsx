@@ -14,7 +14,7 @@ export function Badge({ status, className }: BadgeProps) {
     <span
       className={cn(
         'inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium',
-        isDraft ? 'bg-gray-100 text-gray-400' : [colors.bg, colors.text],
+        isDraft ? 'bg-gray-100 text-gray-400' : `${colors.bg} ${colors.text}`,
         className,
       )}
     >

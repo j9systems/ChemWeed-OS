@@ -92,8 +92,8 @@ function hashIndex(s: string): number {
 export function getServiceColor(name: string | undefined): ServiceColor {
   if (!name) return SERVICE_FALLBACK
   const idx = SERVICE_NAME_COLOR_MAP[name]
-  if (idx !== undefined) return SERVICE_COLOR_PALETTE[idx]
-  return SERVICE_COLOR_PALETTE[hashIndex(name)]
+  if (idx !== undefined) return SERVICE_COLOR_PALETTE[idx]!
+  return SERVICE_COLOR_PALETTE[hashIndex(name)]!
 }
 
 export const PROPERTY_TYPES = [
