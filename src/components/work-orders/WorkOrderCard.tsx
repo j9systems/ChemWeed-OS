@@ -1,8 +1,8 @@
 import { Link } from 'react-router'
-import { Calendar, MapPin } from 'lucide-react'
+import { Calendar, MapPin, User } from 'lucide-react'
 import { Badge } from '@/components/ui/Badge'
 import { formatDate } from '@/lib/utils'
-import { STATUS_COLORS } from '@/lib/constants'
+import { getServiceColor } from '@/lib/constants'
 import type { WorkOrder } from '@/types/database'
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
@@ -22,14 +22,18 @@ interface WorkOrderCardProps {
 }
 
 export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
-  const colors = STATUS_COLORS[workOrder.status]
   const siteAddress = buildAddress(workOrder.site)
   const streetView = siteAddress ? streetViewUrl(siteAddress) : null
+  const serviceColor = getServiceColor(workOrder.service_type?.name)
+  const techName = workOrder.pca
+    ? `${workOrder.pca.first_name} ${workOrder.pca.last_name}`
+    : null
 
   return (
     <Link to={`/work-orders/${workOrder.id}`}>
       <div
-        className={`rounded-[20px] bg-surface-raised shadow-card overflow-hidden border-l-[4px] ${colors.border} hover:shadow-md transition-shadow`}
+        className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden hover:shadow-md transition-shadow"
+        style={{ borderLeft: `4px solid ${serviceColor.border}` }}
       >
         {/* Street View Hero */}
         {streetView ? (
@@ -54,7 +58,10 @@ export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
             <p className="font-semibold text-sm leading-tight truncate">
               {workOrder.client?.name ?? 'Unknown Client'}
             </p>
-            <Badge status={workOrder.status} className="shrink-0" />
+            <Badge
+              status={workOrder.status}
+              className={workOrder.status === 'draft' ? 'opacity-50' : undefined}
+            />
           </div>
 
           {/* Address */}
@@ -62,12 +69,24 @@ export function WorkOrderCard({ workOrder }: WorkOrderCardProps) {
             {workOrder.site?.address_line ?? 'No address'}
           </p>
 
-          {/* Job type chip */}
+          {/* Service type pill – primary visual element */}
           {workOrder.service_type?.name && (
-            <span className="inline-block rounded-md bg-surface px-2 py-0.5 text-xs font-semibold text-[var(--color-text-primary)]">
+            <span
+              className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${serviceColor.bg} ${serviceColor.text}`}
+            >
               {workOrder.service_type.name}
             </span>
           )}
+
+          {/* Assigned technician */}
+          <div className="flex items-center gap-1.5 text-xs">
+            <User size={12} className="shrink-0 text-[var(--color-text-muted)]" />
+            {techName ? (
+              <span className="truncate">{techName}</span>
+            ) : (
+              <span className="text-[var(--color-text-muted)] italic">Unassigned</span>
+            )}
+          </div>
 
           {/* Date with icon */}
           <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)]">

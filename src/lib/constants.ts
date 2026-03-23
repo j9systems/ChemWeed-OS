@@ -48,6 +48,54 @@ export function getUrgencyColors(key: string): UrgencyColor {
   return URGENCY_COLORS_MAP[key] ?? URGENCY_FALLBACK
 }
 
+// ---------------------------------------------------------------------------
+// Service-type color map – used for card left-border accent & service pill.
+// Add new entries here as service types are created.
+// ---------------------------------------------------------------------------
+export interface ServiceColor { border: string; bg: string; text: string }
+
+const SERVICE_COLOR_PALETTE: ServiceColor[] = [
+  { border: '#2563eb', bg: 'bg-blue-50',    text: 'text-blue-700' },    // 0
+  { border: '#d97706', bg: 'bg-amber-50',   text: 'text-amber-700' },   // 1
+  { border: '#0891b2', bg: 'bg-cyan-50',    text: 'text-cyan-700' },    // 2
+  { border: '#7c3aed', bg: 'bg-violet-50',  text: 'text-violet-700' },  // 3
+  { border: '#059669', bg: 'bg-emerald-50', text: 'text-emerald-700' }, // 4
+  { border: '#dc2626', bg: 'bg-red-50',     text: 'text-red-700' },     // 5
+  { border: '#db2777', bg: 'bg-pink-50',    text: 'text-pink-700' },    // 6
+  { border: '#4f46e5', bg: 'bg-indigo-50',  text: 'text-indigo-700' },  // 7
+  { border: '#ca8a04', bg: 'bg-yellow-50',  text: 'text-yellow-700' },  // 8
+  { border: '#0d9488', bg: 'bg-teal-50',    text: 'text-teal-700' },    // 9
+]
+
+const SERVICE_NAME_COLOR_MAP: Record<string, number> = {
+  'Bare Ground Treatment': 0,
+  'Cleanup': 1,
+  'Aquatic Herbicide Application': 2,
+  'Weed Abatement': 3,
+  'Vegetation Management': 4,
+  'Pre-Emergent Application': 5,
+  'Right-of-Way Spraying': 6,
+  'Soil Sterilization': 7,
+  'Brush Control': 8,
+  'Industrial Weed Control': 9,
+}
+
+const SERVICE_FALLBACK: ServiceColor = { border: '#6b7280', bg: 'bg-gray-100', text: 'text-gray-700' }
+
+/** Simple hash to deterministically pick a colour for unknown service names. */
+function hashIndex(s: string): number {
+  let h = 0
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) | 0
+  return Math.abs(h) % SERVICE_COLOR_PALETTE.length
+}
+
+export function getServiceColor(name: string | undefined): ServiceColor {
+  if (!name) return SERVICE_FALLBACK
+  const idx = SERVICE_NAME_COLOR_MAP[name]
+  if (idx !== undefined) return SERVICE_COLOR_PALETTE[idx]
+  return SERVICE_COLOR_PALETTE[hashIndex(name)]
+}
+
 export const PROPERTY_TYPES = [
   { value: 'commercial', label: 'Commercial' },
   { value: 'government', label: 'Government' },
