@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Link } from 'react-router'
-import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Upload, MapPin, ImageIcon, ExternalLink } from 'lucide-react'
+import { ChevronDown, ChevronUp, ChevronLeft, ChevronRight, X, Upload, MapPin, ImageIcon, Eye } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage, formatDateTime } from '@/lib/utils'
 import { canEdit } from '@/lib/roles'
@@ -132,6 +132,15 @@ export function SiteInfoCard({
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  const contentRef = useRef<HTMLDivElement>(null)
+  const [contentHeight, setContentHeight] = useState(0)
+
+  useEffect(() => {
+    if (isOpen && contentRef.current) {
+      setContentHeight(contentRef.current.scrollHeight)
+    }
+  }, [isOpen, observationLogs, weedProfile, sitePhotos, showAllLogs])
+
   const visibleLogs = showAllLogs ? observationLogs : observationLogs.slice(0, 5)
 
   const totalPages = Math.ceil(sitePhotos.length / PHOTOS_PER_PAGE)
@@ -206,14 +215,21 @@ export function SiteInfoCard({
               onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center gap-1 text-xs text-brand-green hover:underline mt-2"
             >
-              View Site <ExternalLink size={12} />
+              View Site <Eye size={12} />
             </Link>
           </div>
         </div>
       </button>
 
       {/* Expanded content — map, weed profile, observation log, site photos */}
-      {isOpen && (
+      <div
+        ref={contentRef}
+        className="overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: isOpen ? `${contentHeight}px` : '0px',
+          opacity: isOpen ? 1 : 0,
+        }}
+      >
         <div className="border-t border-surface-border px-5 sm:px-8 pb-8 pt-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-6 md:items-start">
             {/* Left Column — Google Map & Weed Profile */}
@@ -400,7 +416,7 @@ export function SiteInfoCard({
             </div>
           </div>
         </div>
-      )}
+      </div>
     </Card>
   )
 }
