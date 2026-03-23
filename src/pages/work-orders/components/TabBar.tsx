@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from 'react'
+import { useState, useRef, useEffect, useCallback, useLayoutEffect } from 'react'
 import { MoreHorizontal } from 'lucide-react'
 
 interface Tab {
@@ -16,8 +16,10 @@ export function TabBar({ tabs, activeTab, onChange }: TabBarProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const measureRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const tabRefs = useRef<Map<string, HTMLButtonElement>>(new Map())
   const [visibleCount, setVisibleCount] = useState(tabs.length)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [indicatorStyle, setIndicatorStyle] = useState<{ left: number; width: number }>({ left: 0, width: 0 })
 
   const recalculate = useCallback(() => {
     const container = containerRef.current
@@ -67,14 +69,38 @@ export function TabBar({ tabs, activeTab, onChange }: TabBarProps) {
     return () => document.removeEventListener('mousedown', handleClick)
   }, [menuOpen])
 
+  // Update indicator position when active tab changes
+  const updateIndicator = useCallback(() => {
+    const activeButton = tabRefs.current.get(activeTab)
+    if (activeButton && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const buttonRect = activeButton.getBoundingClientRect()
+      setIndicatorStyle({
+        left: buttonRect.left - containerRect.left,
+        width: buttonRect.width,
+      })
+    }
+  }, [activeTab])
+
+  useLayoutEffect(() => {
+    updateIndicator()
+  }, [updateIndicator, visibleCount])
+
+  useEffect(() => {
+    // Recalculate on resize
+    window.addEventListener('resize', updateIndicator)
+    return () => window.removeEventListener('resize', updateIndicator)
+  }, [updateIndicator])
+
   const visibleTabs = tabs.slice(0, visibleCount)
   const overflowTabs = tabs.slice(visibleCount)
   const activeInOverflow = overflowTabs.some((t) => t.key === activeTab)
+  const activeInVisible = visibleTabs.some((t) => t.key === activeTab)
 
   const tabClassName = (isActive: boolean) =>
     `min-h-[44px] px-4 text-sm font-medium whitespace-nowrap transition-colors ${
       isActive
-        ? 'border-b-2 border-[#2a6b2a] text-[#2a6b2a]'
+        ? 'text-[#2a6b2a]'
         : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
     }`
 
@@ -89,10 +115,25 @@ export function TabBar({ tabs, activeTab, onChange }: TabBarProps) {
         ))}
       </div>
 
+      {/* Sliding indicator */}
+      {activeInVisible && (
+        <div
+          className="absolute bottom-0 h-[2px] bg-[#2a6b2a] transition-all duration-300 ease-in-out"
+          style={{
+            left: `${indicatorStyle.left}px`,
+            width: `${indicatorStyle.width}px`,
+          }}
+        />
+      )}
+
       {/* Visible tabs */}
       {visibleTabs.map((tab) => (
         <button
           key={tab.key}
+          ref={(el) => {
+            if (el) tabRefs.current.set(tab.key, el)
+            else tabRefs.current.delete(tab.key)
+          }}
           onClick={() => onChange(tab.key)}
           className={tabClassName(activeTab === tab.key)}
         >
