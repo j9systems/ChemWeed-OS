@@ -64,11 +64,15 @@ function MobileRow({ wo }: { wo: WorkOrder }) {
 /*  Desktop table row                                                  */
 /* ------------------------------------------------------------------ */
 function TableRow({ wo }: { wo: WorkOrder }) {
+  const navigate = useNavigate()
   const sc = getServiceColor(wo.service_type?.name)
   const tech = wo.pca ? `${wo.pca.first_name} ${wo.pca.last_name}` : null
 
   return (
-    <tr className="border-b border-surface-border last:border-0 hover:bg-surface transition-colors">
+    <tr
+      onClick={() => navigate(`/work-orders/${wo.id}`)}
+      className="border-b border-surface-border last:border-0 hover:bg-surface transition-colors cursor-pointer"
+    >
       {/* Service color indicator */}
       <td className="py-3 pl-4 pr-2">
         <span
@@ -79,12 +83,9 @@ function TableRow({ wo }: { wo: WorkOrder }) {
 
       {/* Client */}
       <td className="py-3 pr-4">
-        <Link
-          to={`/work-orders/${wo.id}`}
-          className="font-medium text-sm hover:underline"
-        >
+        <span className="font-medium text-sm">
           {wo.client?.name ?? 'Unknown Client'}
-        </Link>
+        </span>
         <p className="text-xs text-[var(--color-text-muted)] truncate max-w-[220px]">
           {wo.site?.address_line ?? 'No address'}
         </p>
