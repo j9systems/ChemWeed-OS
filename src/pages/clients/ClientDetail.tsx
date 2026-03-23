@@ -62,27 +62,29 @@ export function ClientDetail() {
       {!sitesLoading && !sitesError && (
         <div className="grid gap-3 sm:grid-cols-2">
           {sites.map((site) => (
-            <Card key={site.id}>
-              <p className="font-medium">{site.name}</p>
-              <p className="text-sm text-[var(--color-text-muted)]">{site.address_line}, {site.city}, {site.state} {site.zip}</p>
-              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
-                {site.total_acres != null && (
-                  <span className="text-[var(--color-text-muted)]">{site.total_acres} acres</span>
-                )}
-                <span className="rounded-full bg-surface-raised border border-surface-border px-2 py-0.5 capitalize">
-                  {site.property_type}
-                </span>
-                {site.county && (
-                  <span className="text-[var(--color-text-muted)]">{site.county.name} County</span>
-                )}
-                {site.county && !site.county.is_licensed && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 font-medium">
-                    <AlertTriangle size={12} />
-                    Unlicensed County
+            <Link key={site.id} to={`/sites/${site.id}`} className="block">
+              <Card className="hover:bg-surface transition-colors cursor-pointer">
+                <p className="font-medium">{site.name}</p>
+                <p className="text-sm text-[var(--color-text-muted)]">{site.address_line}, {site.city}, {site.state} {site.zip}</p>
+                <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
+                  {site.total_acres != null && (
+                    <span className="text-[var(--color-text-muted)]">{site.total_acres} acres</span>
+                  )}
+                  <span className="rounded-full bg-surface-raised border border-surface-border px-2 py-0.5 capitalize">
+                    {site.property_type}
                   </span>
-                )}
-              </div>
-            </Card>
+                  {site.county && (
+                    <span className="text-[var(--color-text-muted)]">{site.county.name} County</span>
+                  )}
+                  {site.county && !site.county.is_licensed && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-amber-700 font-medium">
+                      <AlertTriangle size={12} />
+                      Unlicensed County
+                    </span>
+                  )}
+                </div>
+              </Card>
+            </Link>
           ))}
           {sites.length === 0 && (
             <p className="col-span-full py-4 text-center text-[var(--color-text-muted)]">

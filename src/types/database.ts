@@ -36,6 +36,7 @@ export interface Site {
   latitude: number | null
   longitude: number | null
   county?: County
+  client?: Client
 }
 
 export interface County {

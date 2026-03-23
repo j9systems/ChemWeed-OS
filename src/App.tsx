@@ -10,6 +10,7 @@ import { SchedulePage } from '@/pages/schedule/SchedulePage'
 import { ClientsPage } from '@/pages/clients/ClientsPage'
 import { ClientDetail } from '@/pages/clients/ClientDetail'
 import { FieldCompletionForm } from '@/pages/field/FieldCompletionForm'
+import { SiteDetail } from '@/pages/sites/SiteDetail'
 
 function RootLayout() {
   return (
@@ -38,6 +39,7 @@ const router = createBrowserRouter([
               { path: 'schedule', element: <SchedulePage /> },
               { path: 'clients', element: <ClientsPage /> },
               { path: 'clients/:id', element: <ClientDetail /> },
+              { path: 'sites/:id', element: <SiteDetail /> },
             ],
           },
         ],
