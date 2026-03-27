@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useParams, Link } from 'react-router'
+import { useParams, useSearchParams, Link } from 'react-router'
 import {
   ArrowLeft,
   MapPin,
@@ -12,6 +12,7 @@ import {
   Mail,
   Navigation,
   AlertTriangle,
+  Pencil,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSite } from '@/hooks/useSite'
@@ -27,6 +28,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { EditSiteModal } from './EditSiteModal'
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
 const PHOTOS_PER_PAGE = 6
@@ -47,8 +49,9 @@ function googleMapEmbedUrl(address: string) {
 
 export function SiteDetail() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const { role, user } = useAuth()
-  const { site, isLoading, error } = useSite(id)
+  const { site, isLoading, error, refetch: refetchSite } = useSite(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(id)
   const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(id)
   const { workOrders } = useWorkOrders()
@@ -59,6 +62,7 @@ export function SiteDetail() {
   const [showAllLogs, setShowAllLogs] = useState(false)
   const [photoPage, setPhotoPage] = useState(0)
   const [uploading, setUploading] = useState(false)
+  const [editModalOpen, setEditModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (isLoading) return <LoadingSpinner />
@@ -161,7 +165,15 @@ export function SiteDetail() {
   return (
     <div>
       {/* Back link */}
-      {site.client ? (
+      {searchParams.get('from') === 'wo' && searchParams.get('woId') ? (
+        <Link
+          to={`/work-orders/${searchParams.get('woId')}`}
+          className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4"
+        >
+          <ArrowLeft size={16} />
+          Back to Work Order
+        </Link>
+      ) : site.client ? (
         <Link
           to={`/clients/${site.client_id}`}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4"
@@ -188,6 +200,15 @@ export function SiteDetail() {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {canEdit(role) && (
+            <button
+              onClick={() => setEditModalOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm hover:bg-surface transition-colors"
+            >
+              <Pencil size={16} />
+              Edit
+            </button>
+          )}
           {navUrl && (
             <a
               href={navUrl}
@@ -515,6 +536,17 @@ export function SiteDetail() {
           </div>
         )}
       </Card>
+
+      {/* Edit Site Modal */}
+      <EditSiteModal
+        open={editModalOpen}
+        site={site}
+        onCancel={() => setEditModalOpen(false)}
+        onSuccess={() => {
+          setEditModalOpen(false)
+          refetchSite()
+        }}
+      />
     </div>
   )
 }
