@@ -11,6 +11,7 @@ import { ClientsPage } from '@/pages/clients/ClientsPage'
 import { ClientDetail } from '@/pages/clients/ClientDetail'
 import { FieldCompletionForm } from '@/pages/field/FieldCompletionForm'
 import { SiteDetail } from '@/pages/sites/SiteDetail'
+import { SettingsPage } from '@/pages/settings/SettingsPage'
 
 function RootLayout() {
   return (
@@ -40,6 +41,7 @@ const router = createBrowserRouter([
               { path: 'clients', element: <ClientsPage /> },
               { path: 'clients/:id', element: <ClientDetail /> },
               { path: 'sites/:id', element: <SiteDetail /> },
+              { path: 'settings', element: <SettingsPage /> },
             ],
           },
         ],
