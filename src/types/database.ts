@@ -44,6 +44,7 @@ export interface County {
   name: string
   state: string
   is_licensed: boolean
+  report_recipient: string | null
   notes: string | null
 }
 
@@ -107,8 +108,10 @@ export interface Chemical {
   name: string
   manufacturer: string | null
   active_ingredient: string | null
+  epa_reg_number: string | null
   default_unit: string | null
   default_rate_per_100gal: number | null
+  default_rate_unit: string | null
   max_rate_per_100gal: number | null
   reapplication_interval_days: number | null
   use_types: string[]
@@ -116,11 +119,46 @@ export interface Chemical {
   is_active: boolean
 }
 
+export type PricingModel = 'per_acre' | 'per_hour' | 'flat_rate'
+
 export interface ServiceType {
   id: string
   name: string
   description: string | null
+  pricing_model: PricingModel
+  base_rate_low: number | null
+  base_rate_high: number | null
+  internal_notes: string | null
   is_active: boolean
+}
+
+export interface JobSiteCategory {
+  id: string
+  name: string
+  requires_annual_report: boolean
+  is_active: boolean
+  notes: string | null
+}
+
+export interface AppSettings {
+  id: number
+  default_tank_size_gal: number | null
+  minimum_job_charge: number | null
+  county_report_due_day: number | null
+  county_report_reminder_days_before: number | null
+  no_activity_report_template: string | null
+}
+
+export interface CompanySettings {
+  id: number
+  business_name: string | null
+  address: string | null
+  phone: string | null
+  email: string | null
+  license_number: string | null
+  logo_url: string | null
+  default_proposal_terms: string | null
+  default_invoice_terms: string | null
 }
 
 export interface TeamMember {
