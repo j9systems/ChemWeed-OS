@@ -22,6 +22,7 @@ interface SiteInfoCardProps {
   userId: string | undefined
   refetchSiteProfile: () => void
   refetchPhotos: () => void
+  workOrderId?: string
 }
 
 const PHOTOS_PER_PAGE = 6
@@ -51,6 +52,7 @@ export function SiteInfoCard({
   userId,
   refetchSiteProfile,
   refetchPhotos,
+  workOrderId,
 }: SiteInfoCardProps) {
   const [newWeed, setNewWeed] = useState('')
   const [adding, setAdding] = useState(false)
@@ -211,7 +213,7 @@ export function SiteInfoCard({
               )}
             </dl>
             <Link
-              to={`/sites/${site.id}`}
+              to={`/sites/${site.id}${workOrderId ? `?from=wo&woId=${workOrderId}` : ''}`}
               onClick={(e) => e.stopPropagation()}
               className="inline-flex items-center gap-1 text-xs text-brand-green hover:underline mt-2"
             >

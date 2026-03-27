@@ -127,6 +127,7 @@ export function WorkOrderDetail() {
           userId={user?.id}
           refetchSiteProfile={refetchSiteProfile}
           refetchPhotos={refetchPhotos}
+          workOrderId={id}
         />
       )}
 

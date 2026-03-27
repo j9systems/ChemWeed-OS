@@ -1,5 +1,5 @@
 import { useState, useRef } from 'react'
-import { useParams, Link } from 'react-router'
+import { useParams, useSearchParams, Link } from 'react-router'
 import {
   ArrowLeft,
   MapPin,
@@ -49,6 +49,7 @@ function googleMapEmbedUrl(address: string) {
 
 export function SiteDetail() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
   const { role, user } = useAuth()
   const { site, isLoading, error, refetch: refetchSite } = useSite(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(id)
@@ -164,7 +165,15 @@ export function SiteDetail() {
   return (
     <div>
       {/* Back link */}
-      {site.client ? (
+      {searchParams.get('from') === 'wo' && searchParams.get('woId') ? (
+        <Link
+          to={`/work-orders/${searchParams.get('woId')}`}
+          className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4"
+        >
+          <ArrowLeft size={16} />
+          Back to Work Order
+        </Link>
+      ) : site.client ? (
         <Link
           to={`/clients/${site.client_id}`}
           className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4"
