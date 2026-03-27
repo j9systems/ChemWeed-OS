@@ -30,6 +30,7 @@ export function EstimateDefaultsTab() {
       id: 1,
       default_tank_size_gal: settings.default_tank_size_gal,
       minimum_job_charge: settings.minimum_job_charge,
+      default_overhead_margin_pct: settings.default_overhead_margin_pct,
     })
 
     setSaving(false)
@@ -66,6 +67,21 @@ export function EstimateDefaultsTab() {
             onChange={(e) => setSettings(s => s ? { ...s, minimum_job_charge: e.target.value ? Number(e.target.value) : null } : s)}
             placeholder="Leave blank if none"
           />
+          <div>
+            <Input
+              label="Default overhead margin %"
+              type="number"
+              step="0.5"
+              min="0"
+              max="100"
+              value={settings?.default_overhead_margin_pct ?? ''}
+              onChange={(e) => setSettings(s => s ? { ...s, default_overhead_margin_pct: e.target.value ? Number(e.target.value) : null } : s)}
+              placeholder="35"
+            />
+            <p className="text-xs text-[var(--color-text-muted)] mt-1">
+              Applied on top of chemical cost to account for labor, insurance, and operational overhead. Can be overridden per job.
+            </p>
+          </div>
 
           <div className="pt-4">
             <Button onClick={handleSave} disabled={saving}>
