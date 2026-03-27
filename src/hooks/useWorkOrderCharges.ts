@@ -14,7 +14,7 @@ export function useWorkOrderCharges(workOrderId: string | undefined) {
 
     const { data, error: err } = await supabase
       .from('work_order_charges')
-      .select('*')
+      .select('*, service_type:service_types(*)')
       .eq('work_order_id', workOrderId)
 
     if (err) {

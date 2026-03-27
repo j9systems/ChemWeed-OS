@@ -35,7 +35,10 @@ export function MaterialsSection({ rows, onChange, readOnly = false }: Materials
       if (updates.chemical_id) {
         const chem = chemicals.find((c) => c.id === updates.chemical_id)
         newRow.chemical = chem
-        newRow.recommended_unit = chem?.default_unit ?? row.recommended_unit
+        newRow.recommended_unit = chem?.default_unit ?? ''
+        if (chem?.default_rate_per_100gal != null) {
+          newRow.recommended_amount = String(chem.default_rate_per_100gal)
+        }
       }
       return newRow
     })
@@ -126,17 +129,7 @@ export function MaterialsSection({ rows, onChange, readOnly = false }: Materials
             </div>
             <div>
               <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Unit</label>
-              {readOnly ? (
-                <p className="text-sm">{row.recommended_unit || '—'}</p>
-              ) : (
-                <input
-                  type="text"
-                  value={row.recommended_unit}
-                  onChange={(e) => updateRow(i, { recommended_unit: e.target.value })}
-                  placeholder="oz, gal, etc."
-                  className="w-full rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px]"
-                />
-              )}
+              <p className="text-sm py-1.5">{row.recommended_unit || '—'}</p>
             </div>
           </div>
         </div>

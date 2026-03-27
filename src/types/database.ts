@@ -99,8 +99,14 @@ export interface WorkOrderMaterial {
 export interface WorkOrderCharge {
   id: string
   work_order_id: string
-  description: string
+  description: string | null
   amount: number
+  service_type_id: string | null
+  acreage: number | null
+  hours: number | null
+  unit_rate: number | null
+  is_manual_override: boolean
+  service_type?: ServiceType
 }
 
 export interface Chemical {
