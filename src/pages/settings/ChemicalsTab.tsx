@@ -42,6 +42,7 @@ const emptyChemical: Partial<Chemical> = {
   default_unit: 'fl_oz',
   default_rate_per_100gal: null,
   default_rate_unit: null,
+  cost_per_unit: null,
   max_rate_per_100gal: null,
   reapplication_interval_days: null,
   use_types: [],
@@ -78,6 +79,7 @@ export function ChemicalsTab() {
       default_unit: editing.default_unit || null,
       default_rate_per_100gal: editing.default_rate_per_100gal,
       default_rate_unit: editing.default_rate_unit || null,
+      cost_per_unit: editing.cost_per_unit ?? null,
       max_rate_per_100gal: editing.max_rate_per_100gal,
       reapplication_interval_days: editing.reapplication_interval_days,
       use_types: editing.use_types ?? [],
@@ -219,6 +221,14 @@ export function ChemicalsTab() {
               step="0.01"
               value={editing.default_rate_per_100gal ?? ''}
               onChange={(e) => setEditing({ ...editing, default_rate_per_100gal: e.target.value ? Number(e.target.value) : null })}
+            />
+            <Input
+              label="Cost per unit (what we pay)"
+              type="number"
+              step="0.01"
+              value={editing.cost_per_unit ?? ''}
+              onChange={(e) => setEditing({ ...editing, cost_per_unit: e.target.value ? Number(e.target.value) : null })}
+              placeholder="$"
             />
             <Input
               label="Max rate — compliance cap (per 100 gal)"

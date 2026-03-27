@@ -112,6 +112,7 @@ export interface Chemical {
   default_unit: string | null
   default_rate_per_100gal: number | null
   default_rate_unit: string | null
+  cost_per_unit: number | null
   max_rate_per_100gal: number | null
   reapplication_interval_days: number | null
   use_types: string[]
@@ -144,6 +145,7 @@ export interface AppSettings {
   id: number
   default_tank_size_gal: number | null
   minimum_job_charge: number | null
+  default_overhead_margin_pct: number | null
   county_report_due_day: number | null
   county_report_reminder_days_before: number | null
   no_activity_report_template: string | null
