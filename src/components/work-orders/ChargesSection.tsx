@@ -56,9 +56,10 @@ interface ChargesSectionProps {
   rows: ChargeRow[]
   onChange: (rows: ChargeRow[]) => void
   readOnly?: boolean
+  totalAcres?: number | null
 }
 
-export function ChargesSection({ rows, onChange, readOnly = false }: ChargesSectionProps) {
+export function ChargesSection({ rows, onChange, readOnly = false, totalAcres }: ChargesSectionProps) {
   const { serviceTypes } = useServiceTypes()
 
   function addCalculated() {
@@ -81,6 +82,9 @@ export function ChargesSection({ rows, onChange, readOnly = false }: ChargesSect
         newRow.service_type = st
         if (st?.base_rate_low != null && st?.base_rate_high != null) {
           newRow.unit_rate = String(((st.base_rate_low + st.base_rate_high) / 2).toFixed(2))
+        }
+        if (st?.pricing_model !== 'per_hour' && totalAcres != null && totalAcres > 0) {
+          newRow.acreage = String(totalAcres)
         }
       }
       return newRow

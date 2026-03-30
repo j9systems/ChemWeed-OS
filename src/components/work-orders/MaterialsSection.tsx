@@ -38,8 +38,9 @@ export function MaterialsSection({ rows, onChange, readOnly = false, totalAcres 
         const chem = chemicals.find((c) => c.id === updates.chemical_id)
         newRow.chemical = chem
         newRow.recommended_unit = chem?.default_unit ?? ''
-        if (chem?.default_rate_per_acre != null && totalAcres != null) {
-          newRow.recommended_amount = String(+(chem.default_rate_per_acre * totalAcres).toFixed(4))
+        const rate = chem?.default_rate_per_acre != null ? parseFloat(String(chem.default_rate_per_acre)) : 0
+        if (rate > 0 && totalAcres != null) {
+          newRow.recommended_amount = String(Math.round(rate * totalAcres * 100) / 100)
         }
       }
       return newRow

@@ -184,7 +184,7 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, tota
         <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
 
         <div className="border-t border-surface-border pt-4">
-          <ChargesSection rows={chargeRows} onChange={setChargeRows} />
+          <ChargesSection rows={chargeRows} onChange={setChargeRows} totalAcres={totalAcres} />
         </div>
 
         {error && (
