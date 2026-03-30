@@ -65,9 +65,6 @@ export function ChargesSection({ rows, onChange, readOnly = false }: ChargesSect
     onChange([...rows, emptyCalculatedRow()])
   }
 
-  function _addManual() {
-    onChange([...rows, emptyManualRow()])
-  }
 
   function removeRow(index: number) {
     onChange(rows.filter((_, i) => i !== index))
