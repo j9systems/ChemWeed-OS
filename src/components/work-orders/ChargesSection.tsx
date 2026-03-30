@@ -65,7 +65,7 @@ export function ChargesSection({ rows, onChange, readOnly = false }: ChargesSect
     onChange([...rows, emptyCalculatedRow()])
   }
 
-  function addManual() {
+  function _addManual() {
     onChange([...rows, emptyManualRow()])
   }
 
