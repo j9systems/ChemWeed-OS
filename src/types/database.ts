@@ -106,6 +106,7 @@ export interface WorkOrderCharge {
   hours: number | null
   unit_rate: number | null
   is_manual_override: boolean
+  line_items: string[]
   service_type?: ServiceType
 }
 
@@ -136,6 +137,7 @@ export interface ServiceType {
   pricing_model: PricingModel
   base_rate_low: number | null
   base_rate_high: number | null
+  default_scope_template: string | null
   internal_notes: string | null
   is_active: boolean
 }

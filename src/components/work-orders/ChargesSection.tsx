@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useServiceTypes } from '@/hooks/useServiceTypes'
 import { formatCurrency } from '@/lib/utils'
@@ -16,6 +16,8 @@ export interface ChargeRow {
   // Manual fields
   description: string
   amount: string
+  // Scope line items
+  line_items: string[]
 }
 
 export function emptyCalculatedRow(): ChargeRow {
@@ -27,6 +29,7 @@ export function emptyCalculatedRow(): ChargeRow {
     unit_rate: '',
     description: '',
     amount: '',
+    line_items: [],
   }
 }
 
@@ -39,6 +42,7 @@ export function emptyManualRow(): ChargeRow {
     unit_rate: '',
     description: '',
     amount: '',
+    line_items: [],
   }
 }
 
@@ -86,6 +90,12 @@ export function ChargesSection({ rows, onChange, readOnly = false, totalAcres }:
         if (st?.pricing_model !== 'per_hour' && totalAcres != null && totalAcres > 0) {
           newRow.acreage = String(totalAcres)
         }
+        // Pre-fill first line item from default_scope_template
+        if (st?.default_scope_template) {
+          newRow.line_items = [st.default_scope_template]
+        } else {
+          newRow.line_items = []
+        }
       }
       return newRow
     }))
@@ -110,6 +120,23 @@ export function ChargesSection({ rows, onChange, readOnly = false, totalAcres }:
     })
   }
 
+  function updateLineItem(rowIndex: number, itemIndex: number, value: string) {
+    const row = rows[rowIndex]
+    const newItems = [...row.line_items]
+    newItems[itemIndex] = value
+    updateRow(rowIndex, { line_items: newItems })
+  }
+
+  function removeLineItem(rowIndex: number, itemIndex: number) {
+    const row = rows[rowIndex]
+    updateRow(rowIndex, { line_items: row.line_items.filter((_, j) => j !== itemIndex) })
+  }
+
+  function addLineItem(rowIndex: number) {
+    const row = rows[rowIndex]
+    updateRow(rowIndex, { line_items: [...row.line_items, ''] })
+  }
+
   const total = rows.reduce((sum, r) => sum + rowTotal(r), 0)
 
   if (readOnly) {
@@ -123,9 +150,18 @@ export function ChargesSection({ rows, onChange, readOnly = false, totalAcres }:
           <>
             <div className="space-y-1">
               {rows.map((row, i) => (
-                <div key={i} className="flex justify-between text-sm py-1">
-                  <span>{row.description || '—'}</span>
-                  <span>{formatCurrency(rowTotal(row))}</span>
+                <div key={i}>
+                  <div className="flex justify-between text-sm py-1">
+                    <span>{row.is_manual_override ? (row.description || '—') : (row.service_type?.name || '—')}</span>
+                    <span>{formatCurrency(rowTotal(row))}</span>
+                  </div>
+                  {row.line_items.length > 0 && (
+                    <ul className="ml-4 mb-1">
+                      {row.line_items.map((item, j) => (
+                        <li key={j} className="text-xs text-[var(--color-text-muted)] leading-snug">• {item}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>
@@ -227,6 +263,35 @@ export function ChargesSection({ rows, onChange, readOnly = false, totalAcres }:
                 </div>
               )}
 
+              {/* Line items */}
+              <div className="space-y-1">
+                {row.line_items.map((item, j) => (
+                  <div key={j} className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={(e) => updateLineItem(i, j, e.target.value)}
+                      placeholder="Line item description"
+                      className="flex-1 rounded border border-surface-border bg-white px-2 py-1 text-xs min-h-[32px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLineItem(i, j)}
+                      className="text-[var(--color-text-muted)] hover:text-red-500 p-0.5"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addLineItem(i)}
+                  className="text-xs text-brand-green hover:underline"
+                >
+                  + Add line item
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => switchToManual(i)}
@@ -266,6 +331,35 @@ export function ChargesSection({ rows, onChange, readOnly = false, totalAcres }:
                   className="mt-5 rounded-lg p-2 text-red-500 hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
                 >
                   <Trash2 size={16} />
+                </button>
+              </div>
+
+              {/* Line items */}
+              <div className="space-y-1">
+                {row.line_items.map((item, j) => (
+                  <div key={j} className="flex items-center gap-1">
+                    <input
+                      type="text"
+                      value={item}
+                      onChange={(e) => updateLineItem(i, j, e.target.value)}
+                      placeholder="Line item description"
+                      className="flex-1 rounded border border-surface-border bg-white px-2 py-1 text-xs min-h-[32px]"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeLineItem(i, j)}
+                      className="text-[var(--color-text-muted)] hover:text-red-500 p-0.5"
+                    >
+                      <X size={14} />
+                    </button>
+                  </div>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => addLineItem(i)}
+                  className="text-xs text-brand-green hover:underline"
+                >
+                  + Add line item
                 </button>
               </div>
 

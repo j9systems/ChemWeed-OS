@@ -37,6 +37,7 @@ function toChargeRows(charges: WorkOrderCharge[]): ChargeRow[] {
     unit_rate: c.unit_rate != null ? String(c.unit_rate) : '',
     description: c.description ?? '',
     amount: c.amount != null ? String(c.amount) : '',
+    line_items: Array.isArray(c.line_items) ? c.line_items : [],
   }))
 }
 
@@ -139,12 +140,14 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, tota
         .insert(
           validCharges.map((r) => {
             const total = rowTotal(r)
+            const lineItems = r.line_items.filter((li) => li.trim())
             if (r.is_manual_override) {
               return {
                 work_order_id: workOrderId,
                 description: r.description.trim(),
                 amount: parseFloat(r.amount) || 0,
                 is_manual_override: true,
+                line_items: lineItems,
               }
             }
             return {
@@ -155,6 +158,7 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, tota
               unit_rate: r.unit_rate ? parseFloat(r.unit_rate) : null,
               amount: total,
               is_manual_override: false,
+              line_items: lineItems,
             }
           })
         )
@@ -260,9 +264,18 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, tota
           <>
             <div className="space-y-1">
               {charges.map((c) => (
-                <div key={c.id} className="flex justify-between text-sm py-1">
-                  <span>{chargeDisplayLine(c)}</span>
-                  <span>{formatCurrency(chargeTotal(c))}</span>
+                <div key={c.id}>
+                  <div className="flex justify-between text-sm py-1">
+                    <span>{chargeDisplayLine(c)}</span>
+                    <span>{formatCurrency(chargeTotal(c))}</span>
+                  </div>
+                  {Array.isArray(c.line_items) && c.line_items.length > 0 && (
+                    <ul className="ml-4 mb-1">
+                      {c.line_items.map((item, j) => (
+                        <li key={j} className="text-xs text-[var(--color-text-muted)] leading-snug">• {item}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>

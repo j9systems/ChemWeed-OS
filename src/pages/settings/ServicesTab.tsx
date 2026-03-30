@@ -23,6 +23,7 @@ const emptyService: Partial<ServiceType> = {
   pricing_model: 'per_acre',
   base_rate_low: null,
   base_rate_high: null,
+  default_scope_template: '',
   internal_notes: '',
   is_active: true,
 }
@@ -64,6 +65,7 @@ export function ServicesTab() {
       base_rate_high: editingService.pricing_model === 'flat_rate'
         ? editingService.base_rate_low // flat rate uses single value
         : editingService.base_rate_high,
+      default_scope_template: editingService.default_scope_template || null,
       internal_notes: editingService.internal_notes || null,
       is_active: editingService.is_active ?? true,
     }
@@ -222,6 +224,19 @@ export function ServicesTab() {
                 />
               </div>
             )}
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Default scope template</label>
+              <textarea
+                className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[72px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+                rows={3}
+                value={editingService.default_scope_template ?? ''}
+                onChange={(e) => setEditingService({ ...editingService, default_scope_template: e.target.value })}
+                placeholder="e.g. Mow approximately [X] acres, open field"
+              />
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                Pre-fills the first line item when this service is added to an estimate. Art can edit or delete it on the job.
+              </p>
+            </div>
             <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Internal Notes</label>
               <textarea
