@@ -117,6 +117,7 @@ export interface Chemical {
   epa_reg_number: string | null
   default_unit: string | null
   default_rate_per_100gal: number | null
+  default_rate_per_acre: number | null
   default_rate_unit: string | null
   cost_per_unit: number | null
   max_rate_per_100gal: number | null

@@ -13,6 +13,7 @@ interface EstimateTabProps {
   charges: WorkOrderCharge[]
   weedProfile: SiteWeedProfile[]
   workOrderId: string
+  totalAcres?: number | null
   refetchMaterials: () => void
   refetchCharges: () => void
 }
@@ -59,7 +60,7 @@ function chargeTotal(c: WorkOrderCharge): number {
   return c.amount
 }
 
-export function EstimateTab({ materials, charges, weedProfile, workOrderId, refetchMaterials, refetchCharges }: EstimateTabProps) {
+export function EstimateTab({ materials, charges, weedProfile, workOrderId, totalAcres, refetchMaterials, refetchCharges }: EstimateTabProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
@@ -180,7 +181,7 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, refe
           </div>
         )}
 
-        <MaterialsSection rows={materialRows} onChange={setMaterialRows} />
+        <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
 
         <div className="border-t border-surface-border pt-4">
           <ChargesSection rows={chargeRows} onChange={setChargeRows} />
