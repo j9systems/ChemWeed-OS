@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
-import { ChargesSection, type ChargeRow } from '@/components/work-orders/ChargesSection'
+import { ChargesSection, type ChargeRow, rowTotal } from '@/components/work-orders/ChargesSection'
 import { NewClientModal } from '@/components/work-orders/NewClientModal'
 import { NewSiteModal } from '@/components/work-orders/NewSiteModal'
 import type { WorkOrderStatus } from '@/types/database'
@@ -144,12 +144,26 @@ export function WorkOrderNew() {
 
     // Insert charges
     const chargeInserts = charges
-      .filter((c) => c.description)
-      .map((c) => ({
-        work_order_id: wo.id,
-        description: c.description,
-        amount: parseFloat(c.amount) || 0,
-      }))
+      .filter((c) => c.is_manual_override ? c.description.trim() : c.service_type_id)
+      .map((c) => {
+        if (c.is_manual_override) {
+          return {
+            work_order_id: wo.id,
+            description: c.description.trim(),
+            amount: parseFloat(c.amount) || 0,
+            is_manual_override: true,
+          }
+        }
+        return {
+          work_order_id: wo.id,
+          service_type_id: c.service_type_id,
+          acreage: c.acreage ? parseFloat(c.acreage) : null,
+          hours: c.hours ? parseFloat(c.hours) : null,
+          unit_rate: c.unit_rate ? parseFloat(c.unit_rate) : null,
+          amount: rowTotal(c),
+          is_manual_override: false,
+        }
+      })
 
     if (chargeInserts.length > 0) {
       const { error: chgErr } = await supabase.from('work_order_charges').insert(chargeInserts)

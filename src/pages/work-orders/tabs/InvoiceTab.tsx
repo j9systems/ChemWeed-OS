@@ -34,7 +34,7 @@ export function InvoiceTab({ workOrder, charges }: InvoiceTabProps) {
             <div className="space-y-1">
               {charges.map((c) => (
                 <div key={c.id} className="flex justify-between text-sm py-1">
-                  <span>{c.description}</span>
+                  <span>{c.description || c.service_type?.name || '—'}</span>
                   <span>{formatCurrency(c.amount)}</span>
                 </div>
               ))}

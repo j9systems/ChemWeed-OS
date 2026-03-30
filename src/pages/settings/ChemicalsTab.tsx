@@ -41,6 +41,7 @@ const emptyChemical: Partial<Chemical> = {
   epa_reg_number: '',
   default_unit: 'fl_oz',
   default_rate_per_100gal: null,
+  default_rate_per_acre: null,
   default_rate_unit: null,
   cost_per_unit: null,
   max_rate_per_100gal: null,
@@ -78,6 +79,7 @@ export function ChemicalsTab() {
       epa_reg_number: editing.epa_reg_number || null,
       default_unit: editing.default_unit || null,
       default_rate_per_100gal: editing.default_rate_per_100gal,
+      default_rate_per_acre: editing.default_rate_per_acre ?? null,
       default_rate_unit: editing.default_rate_unit || null,
       cost_per_unit: editing.cost_per_unit ?? null,
       max_rate_per_100gal: editing.max_rate_per_100gal,
@@ -222,6 +224,16 @@ export function ChemicalsTab() {
               value={editing.default_rate_per_100gal ?? ''}
               onChange={(e) => setEditing({ ...editing, default_rate_per_100gal: e.target.value ? Number(e.target.value) : null })}
             />
+            <div>
+              <Input
+                label={`Default rate per acre${editing.default_unit ? ` (${UNIT_OPTIONS.find(o => o.value === editing.default_unit)?.label ?? editing.default_unit} / acre)` : ''}`}
+                type="number"
+                step="0.0001"
+                value={editing.default_rate_per_acre ?? ''}
+                onChange={(e) => setEditing({ ...editing, default_rate_per_acre: e.target.value ? Number(e.target.value) : null })}
+              />
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">Used to pre-fill chemical amounts on estimates. Separate from tank mixing rate.</p>
+            </div>
             <Input
               label="Cost per unit (what we pay)"
               type="number"

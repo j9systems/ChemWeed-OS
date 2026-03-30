@@ -99,8 +99,15 @@ export interface WorkOrderMaterial {
 export interface WorkOrderCharge {
   id: string
   work_order_id: string
-  description: string
+  description: string | null
   amount: number
+  service_type_id: string | null
+  acreage: number | null
+  hours: number | null
+  unit_rate: number | null
+  is_manual_override: boolean
+  line_items: string[]
+  service_type?: ServiceType
 }
 
 export interface Chemical {
@@ -111,6 +118,7 @@ export interface Chemical {
   epa_reg_number: string | null
   default_unit: string | null
   default_rate_per_100gal: number | null
+  default_rate_per_acre: number | null
   default_rate_unit: string | null
   cost_per_unit: number | null
   max_rate_per_100gal: number | null
@@ -129,6 +137,7 @@ export interface ServiceType {
   pricing_model: PricingModel
   base_rate_low: number | null
   base_rate_high: number | null
+  default_scope_template: string | null
   internal_notes: string | null
   is_active: boolean
 }

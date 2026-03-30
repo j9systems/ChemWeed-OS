@@ -4,7 +4,7 @@ import { canEdit } from '@/lib/roles'
 import { useAuth } from '@/hooks/useAuth'
 import { formatCurrency, getSupabaseErrorMessage } from '@/lib/utils'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
-import { ChargesSection, type ChargeRow } from '@/components/work-orders/ChargesSection'
+import { ChargesSection, type ChargeRow, rowTotal } from '@/components/work-orders/ChargesSection'
 import { Button } from '@/components/ui/Button'
 import type { WorkOrderMaterial, WorkOrderCharge, SiteWeedProfile } from '@/types/database'
 
@@ -13,6 +13,7 @@ interface EstimateTabProps {
   charges: WorkOrderCharge[]
   weedProfile: SiteWeedProfile[]
   workOrderId: string
+  totalAcres?: number | null
   refetchMaterials: () => void
   refetchCharges: () => void
 }
@@ -28,12 +29,39 @@ function toMaterialRows(materials: WorkOrderMaterial[]): MaterialRow[] {
 
 function toChargeRows(charges: WorkOrderCharge[]): ChargeRow[] {
   return charges.map((c) => ({
+    is_manual_override: c.is_manual_override,
+    service_type_id: c.service_type_id ?? '',
+    service_type: c.service_type ?? undefined,
+    acreage: c.acreage != null ? String(c.acreage) : '',
+    hours: c.hours != null ? String(c.hours) : '',
+    unit_rate: c.unit_rate != null ? String(c.unit_rate) : '',
     description: c.description ?? '',
     amount: c.amount != null ? String(c.amount) : '',
+    line_items: Array.isArray(c.line_items) ? c.line_items : [],
   }))
 }
 
-export function EstimateTab({ materials, charges, weedProfile, workOrderId, refetchMaterials, refetchCharges }: EstimateTabProps) {
+function chargeDisplayLine(c: WorkOrderCharge): string {
+  if (!c.is_manual_override && c.service_type) {
+    const name = c.service_type.name
+    const isHours = c.service_type.pricing_model === 'per_hour'
+    const qty = isHours ? c.hours : c.acreage
+    const qtyLabel = isHours ? `${qty} hrs` : `${qty} acres`
+    return `${name} — ${qtyLabel} @ ${formatCurrency(c.unit_rate ?? 0)}`
+  }
+  return c.description ?? '—'
+}
+
+function chargeTotal(c: WorkOrderCharge): number {
+  if (!c.is_manual_override) {
+    const rate = c.unit_rate ?? 0
+    const qty = c.service_type?.pricing_model === 'per_hour' ? (c.hours ?? 0) : (c.acreage ?? 0)
+    return qty * rate
+  }
+  return c.amount
+}
+
+export function EstimateTab({ materials, charges, weedProfile, workOrderId, totalAcres, refetchMaterials, refetchCharges }: EstimateTabProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
@@ -41,7 +69,7 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, refe
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const chargesTotal = charges.reduce((sum, c) => sum + c.amount, 0)
+  const chargesTotal = charges.reduce((sum, c) => sum + chargeTotal(c), 0)
 
   function handleEdit() {
     setMaterialRows(toMaterialRows(materials))
@@ -103,16 +131,36 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, refe
     }
 
     // Insert new charges
-    const validCharges = chargeRows.filter((r) => r.description.trim())
+    const validCharges = chargeRows.filter((r) =>
+      r.is_manual_override ? r.description.trim() : r.service_type_id
+    )
     if (validCharges.length > 0) {
       const { error: chgErr } = await supabase
         .from('work_order_charges')
         .insert(
-          validCharges.map((r) => ({
-            work_order_id: workOrderId,
-            description: r.description.trim(),
-            amount: parseFloat(r.amount) || 0,
-          }))
+          validCharges.map((r) => {
+            const total = rowTotal(r)
+            const lineItems = r.line_items.filter((li) => li.trim())
+            if (r.is_manual_override) {
+              return {
+                work_order_id: workOrderId,
+                description: r.description.trim(),
+                amount: parseFloat(r.amount) || 0,
+                is_manual_override: true,
+                line_items: lineItems,
+              }
+            }
+            return {
+              work_order_id: workOrderId,
+              service_type_id: r.service_type_id,
+              acreage: r.acreage ? parseFloat(r.acreage) : null,
+              hours: r.hours ? parseFloat(r.hours) : null,
+              unit_rate: r.unit_rate ? parseFloat(r.unit_rate) : null,
+              amount: total,
+              is_manual_override: false,
+              line_items: lineItems,
+            }
+          })
         )
       if (chgErr) {
         setError(getSupabaseErrorMessage(chgErr))
@@ -137,10 +185,10 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, refe
           </div>
         )}
 
-        <MaterialsSection rows={materialRows} onChange={setMaterialRows} />
+        <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
 
         <div className="border-t border-surface-border pt-4">
-          <ChargesSection rows={chargeRows} onChange={setChargeRows} />
+          <ChargesSection rows={chargeRows} onChange={setChargeRows} totalAcres={totalAcres} />
         </div>
 
         {error && (
@@ -216,9 +264,18 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, refe
           <>
             <div className="space-y-1">
               {charges.map((c) => (
-                <div key={c.id} className="flex justify-between text-sm py-1">
-                  <span>{c.description}</span>
-                  <span>{formatCurrency(c.amount)}</span>
+                <div key={c.id}>
+                  <div className="flex justify-between text-sm py-1">
+                    <span>{chargeDisplayLine(c)}</span>
+                    <span>{formatCurrency(chargeTotal(c))}</span>
+                  </div>
+                  {Array.isArray(c.line_items) && c.line_items.length > 0 && (
+                    <ul className="ml-4 mb-1">
+                      {c.line_items.map((item, j) => (
+                        <li key={j} className="text-xs text-[var(--color-text-muted)] leading-snug">• {item}</li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
               ))}
             </div>

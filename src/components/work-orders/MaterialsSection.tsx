@@ -1,6 +1,7 @@
 import { Plus, Trash2, AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { useChemicals } from '@/hooks/useChemicals'
+import { formatCurrency } from '@/lib/utils'
 import type { Chemical } from '@/types/database'
 
 export interface MaterialRow {
@@ -15,9 +16,10 @@ interface MaterialsSectionProps {
   rows: MaterialRow[]
   onChange: (rows: MaterialRow[]) => void
   readOnly?: boolean
+  totalAcres?: number | null
 }
 
-export function MaterialsSection({ rows, onChange, readOnly = false }: MaterialsSectionProps) {
+export function MaterialsSection({ rows, onChange, readOnly = false, totalAcres }: MaterialsSectionProps) {
   const { chemicals } = useChemicals()
 
   function addRow() {
@@ -35,7 +37,11 @@ export function MaterialsSection({ rows, onChange, readOnly = false }: Materials
       if (updates.chemical_id) {
         const chem = chemicals.find((c) => c.id === updates.chemical_id)
         newRow.chemical = chem
-        newRow.recommended_unit = chem?.default_unit ?? row.recommended_unit
+        newRow.recommended_unit = chem?.default_unit ?? ''
+        const rate = chem?.default_rate_per_acre != null ? parseFloat(String(chem.default_rate_per_acre)) : 0
+        if (rate > 0 && totalAcres != null) {
+          newRow.recommended_amount = String(Math.round(rate * totalAcres * 100) / 100)
+        }
       }
       return newRow
     })
@@ -126,19 +132,15 @@ export function MaterialsSection({ rows, onChange, readOnly = false }: Materials
             </div>
             <div>
               <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Unit</label>
-              {readOnly ? (
-                <p className="text-sm">{row.recommended_unit || '—'}</p>
-              ) : (
-                <input
-                  type="text"
-                  value={row.recommended_unit}
-                  onChange={(e) => updateRow(i, { recommended_unit: e.target.value })}
-                  placeholder="oz, gal, etc."
-                  className="w-full rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px]"
-                />
-              )}
+              <p className="text-sm py-1.5">{row.recommended_unit || '—'}</p>
             </div>
           </div>
+
+          {row.recommended_amount && row.chemical?.cost_per_unit != null && (
+            <p className="text-xs text-[var(--color-text-muted)]">
+              Est. cost: {formatCurrency(parseFloat(row.recommended_amount) * row.chemical.cost_per_unit)}
+            </p>
+          )}
         </div>
       ))}
     </div>
