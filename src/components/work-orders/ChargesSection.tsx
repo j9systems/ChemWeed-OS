@@ -121,20 +121,20 @@ export function ChargesSection({ rows, onChange, readOnly = false, totalAcres }:
   }
 
   function updateLineItem(rowIndex: number, itemIndex: number, value: string) {
-    const row = rows[rowIndex]
-    const newItems = [...row.line_items]
+    const items = rows[rowIndex]?.line_items ?? []
+    const newItems = [...items]
     newItems[itemIndex] = value
     updateRow(rowIndex, { line_items: newItems })
   }
 
   function removeLineItem(rowIndex: number, itemIndex: number) {
-    const row = rows[rowIndex]
-    updateRow(rowIndex, { line_items: row.line_items.filter((_, j) => j !== itemIndex) })
+    const items = rows[rowIndex]?.line_items ?? []
+    updateRow(rowIndex, { line_items: items.filter((_, j) => j !== itemIndex) })
   }
 
   function addLineItem(rowIndex: number) {
-    const row = rows[rowIndex]
-    updateRow(rowIndex, { line_items: [...row.line_items, ''] })
+    const items = rows[rowIndex]?.line_items ?? []
+    updateRow(rowIndex, { line_items: [...items, ''] })
   }
 
   const total = rows.reduce((sum, r) => sum + rowTotal(r), 0)
