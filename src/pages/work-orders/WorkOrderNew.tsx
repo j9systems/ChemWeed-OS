@@ -152,6 +152,7 @@ export function WorkOrderNew() {
             description: c.description.trim(),
             amount: parseFloat(c.amount) || 0,
             is_manual_override: true,
+            line_items: [],
           }
         }
         return {
@@ -162,6 +163,7 @@ export function WorkOrderNew() {
           unit_rate: c.unit_rate ? parseFloat(c.unit_rate) : null,
           amount: rowTotal(c),
           is_manual_override: false,
+          line_items: [],
         }
       })
 

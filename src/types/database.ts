@@ -12,6 +12,10 @@ export interface Client {
   billing_contact: string | null
   billing_email: string | null
   billing_phone: string | null
+  billing_address: string | null
+  billing_city: string | null
+  billing_state: string
+  billing_zip: string | null
   po_required: boolean
   payment_method: string | null
   notes: string | null
@@ -170,6 +174,7 @@ export interface CompanySettings {
   logo_url: string | null
   default_proposal_terms: string | null
   default_invoice_terms: string | null
+  signer_line: string | null
 }
 
 export interface TeamMember {

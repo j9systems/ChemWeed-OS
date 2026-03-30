@@ -46,6 +46,17 @@ export function ClientDetail() {
             <p className="text-sm text-[var(--color-text-muted)]">Payment Method</p>
             <p>{client.payment_method ?? '—'}</p>
           </div>
+          <div className="col-span-full">
+            <p className="text-sm text-[var(--color-text-muted)]">Billing Address</p>
+            <p>
+              {client.billing_address || client.billing_city || client.billing_zip
+                ? [
+                    client.billing_address,
+                    [client.billing_city, client.billing_state, client.billing_zip].filter(Boolean).join(' '),
+                  ].filter(Boolean).join(', ')
+                : '—'}
+            </p>
+          </div>
         </div>
         {client.notes && (
           <div className="mt-3 pt-3 border-t border-surface-border">

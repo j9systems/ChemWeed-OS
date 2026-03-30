@@ -23,6 +23,10 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
   const [billingContact, setBillingContact] = useState('')
   const [billingPhone, setBillingPhone] = useState('')
   const [billingEmail, setBillingEmail] = useState('')
+  const [billingAddress, setBillingAddress] = useState('')
+  const [billingCity, setBillingCity] = useState('')
+  const [billingState, setBillingState] = useState('CA')
+  const [billingZip, setBillingZip] = useState('')
   const [poRequired, setPoRequired] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState('')
   const [clientNotes, setClientNotes] = useState('')
@@ -58,6 +62,10 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
       setBillingContact('')
       setBillingPhone('')
       setBillingEmail('')
+      setBillingAddress('')
+      setBillingCity('')
+      setBillingState('CA')
+      setBillingZip('')
       setPoRequired(false)
       setPaymentMethod('')
       setClientNotes('')
@@ -129,6 +137,10 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
         billing_contact: billingContact || null,
         billing_phone: billingPhone || null,
         billing_email: billingEmail || null,
+        billing_address: billingAddress || null,
+        billing_city: billingCity || null,
+        billing_state: billingState || 'CA',
+        billing_zip: billingZip || null,
         po_required: poRequired,
         payment_method: paymentMethod || null,
         notes: clientNotes || null,
@@ -253,6 +265,36 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
               type="email"
             />
           </div>
+          {/* Billing Address */}
+          <div className="pt-2">
+            <p className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Billing Address</p>
+            <div className="space-y-3">
+              <Input
+                label="Street Address"
+                value={billingAddress}
+                onChange={(e) => setBillingAddress(e.target.value)}
+                placeholder="123 Main St"
+              />
+              <div className="grid grid-cols-3 gap-3">
+                <Input
+                  label="City"
+                  value={billingCity}
+                  onChange={(e) => setBillingCity(e.target.value)}
+                />
+                <Input
+                  label="State"
+                  value={billingState}
+                  onChange={(e) => setBillingState(e.target.value)}
+                />
+                <Input
+                  label="ZIP"
+                  value={billingZip}
+                  onChange={(e) => setBillingZip(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="flex items-center gap-2 min-h-[44px]">
               <input
