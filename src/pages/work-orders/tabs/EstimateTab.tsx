@@ -68,8 +68,30 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, tota
   const [chargeRows, setChargeRows] = useState<ChargeRow[]>(() => toChargeRows(charges))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const [proposalUrl, setProposalUrl] = useState<string | null>(null)
 
   const chargesTotal = charges.reduce((sum, c) => sum + chargeTotal(c), 0)
+
+  async function handleGenerateProposal() {
+    setGenerating(true)
+    setGenerateError(null)
+    setProposalUrl(null)
+
+    const { data, error } = await supabase.functions.invoke('generate-proposal', {
+      body: { work_order_id: workOrderId },
+    })
+
+    if (error || !data?.success) {
+      setGenerateError(data?.error ?? error?.message ?? 'Failed to generate proposal')
+    } else if (data.documentUrl) {
+      setProposalUrl(data.documentUrl)
+      window.open(data.documentUrl, '_blank')
+    }
+
+    setGenerating(false)
+  }
 
   function handleEdit() {
     setMaterialRows(toMaterialRows(materials))
@@ -283,6 +305,33 @@ export function EstimateTab({ materials, charges, weedProfile, workOrderId, tota
               <p className="text-sm font-semibold">Total: {formatCurrency(chargesTotal)}</p>
             </div>
           </>
+        )}
+      </div>
+
+      {/* Generate Proposal */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleGenerateProposal}
+            disabled={generating || charges.length === 0}
+          >
+            {generating ? 'Generating...' : 'Generate Proposal'}
+          </Button>
+          {proposalUrl && (
+            <a
+              href={proposalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-brand-green underline"
+            >
+              Open PDF
+            </a>
+          )}
+        </div>
+        {generateError && (
+          <p className="text-sm text-red-600">{generateError}</p>
         )}
       </div>
     </div>
