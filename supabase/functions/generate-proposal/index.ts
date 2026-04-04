@@ -120,15 +120,43 @@ serve(async (req) => {
         currency: 'USD',
       }).format(charge.amount ?? 0)
 
+      // Frequency label
+      const frequencyLabels: Record<string, string> = {
+        one_time: '1 time',
+        annual: 'Annual',
+        monthly_seasonal: 'Monthly (seasonal)',
+        weekly_seasonal: 'Weekly (seasonal)',
+      }
+      const frequencyLabel = frequencyLabels[charge.frequency] ?? charge.frequency ?? ''
+
+      // Season info
+      const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+      let seasonLabel = ''
+      if ((charge.frequency === 'monthly_seasonal' || charge.frequency === 'weekly_seasonal')
+          && charge.season_start_month && charge.season_end_month) {
+        seasonLabel = `${monthNames[charge.season_start_month - 1]}–${monthNames[charge.season_end_month - 1]}`
+      }
+
+      // Ensure line_items is an array (handle string, null, or already-parsed array)
+      let rawItems = charge.line_items
+      if (typeof rawItems === 'string') {
+        try { rawItems = JSON.parse(rawItems) } catch { rawItems = [] }
+      }
+      if (!Array.isArray(rawItems)) rawItems = []
+
       // Map string[] line items to DocsAutomator nested format
-      const subLines = (charge.line_items ?? [])
-        .filter((li: string) => li.trim().length > 0)
+      const subLines = rawItems
+        .filter((li: string) => typeof li === 'string' && li.trim().length > 0)
         .map((li: string) => ({ description: li }))
+
+      console.log('Charge:', charge.service_type?.name ?? charge.description, 'line_items raw:', charge.line_items, 'parsed subLines:', subLines)
 
       return {
         service_name: serviceName,
         cost_label: costLabel,
         service_total: formattedTotal,
+        frequency: frequencyLabel,
+        season: seasonLabel,
         line_items_1_1: subLines,
       }
     })
@@ -157,7 +185,7 @@ serve(async (req) => {
 
         // Job details
         date: dateStr,
-        contract_type: wo.frequency_type ?? '1 time',
+        contract_type: wo.frequency_type ?? lineItems1[0]?.frequency ?? '1 time',
         po_number: wo.po_number ?? '',
         closing_notes: wo.notes_client ?? '',
 
