@@ -67,6 +67,18 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
       return
     }
 
+    // Regenerate WOs if contract dates changed or agreement is active
+    const datesChanged = contractStartDate !== (agreement.contract_start_date ?? '') ||
+      contractEndDate !== (agreement.contract_end_date ?? '')
+    if (datesChanged || agreement.agreement_status === 'active') {
+      const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+        p_agreement_id: agreement.id
+      })
+      if (genError) {
+        console.warn('WO generation warning:', genError.message)
+      }
+    }
+
     setSaving(false)
     onSaved()
     onClose()

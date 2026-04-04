@@ -105,10 +105,12 @@ export function WorkOrdersPage() {
   const { workOrders, isLoading, error, refetch } = useWorkOrders(
     statusFilter ? { status: statusFilter } : undefined
   )
+  // Separate query for unscheduled queue with actionability filter
+  const { workOrders: actionableUnscheduled, refetch: refetchActionable } = useWorkOrders({ status: 'unscheduled', actionableOnly: true })
   const [generating, setGenerating] = useState(false)
   const [genMessage, setGenMessage] = useState<string | null>(null)
 
-  const unscheduled = workOrders.filter(wo => wo.status === 'unscheduled')
+  const unscheduled = actionableUnscheduled
     .sort((a, b) => {
       const da = a.days_since_last_service ?? -1
       const db = b.days_since_last_service ?? -1
@@ -124,8 +126,13 @@ export function WorkOrdersPage() {
       setGenMessage(`Error: ${error.message}`)
     } else {
       const count = data?.work_orders_generated ?? 0
-      setGenMessage(`Generated ${count} work order(s).`)
+      if (count === 0) {
+        setGenMessage('All work orders are up to date.')
+      } else {
+        setGenMessage(`Generated ${count} new work order(s) across all active agreements.`)
+      }
       refetch()
+      refetchActionable()
     }
     setGenerating(false)
   }

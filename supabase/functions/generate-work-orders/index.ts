@@ -6,17 +6,26 @@ const supabase = createClient(
 )
 
 Deno.serve(async (req) => {
-  // Allow manual trigger via POST, or scheduled via pg_cron via internal call
-  const { data, error } = await supabase.rpc('generate_work_orders_for_next_month')
+  // Optional: accept a specific agreement_id to regenerate one agreement
+  let data, error
 
-  if (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    })
+  try {
+    const body = req.method === 'POST' ? await req.json() : {}
+    if (body.agreement_id) {
+      ;({ data, error } = await supabase.rpc('generate_work_orders_for_agreement', {
+        p_agreement_id: body.agreement_id
+      }))
+    } else {
+      ;({ data, error } = await supabase.rpc('generate_work_orders_all_active'))
+    }
+  } catch {
+    ;({ data, error } = await supabase.rpc('generate_work_orders_all_active'))
   }
 
+  if (error) {
+    return new Response(JSON.stringify({ error: error.message }), { status: 500 })
+  }
   return new Response(JSON.stringify(data), {
-    headers: { 'Content-Type': 'application/json' },
+    headers: { 'Content-Type': 'application/json' }
   })
 })

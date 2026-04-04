@@ -223,6 +223,16 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, t
       }
     }
 
+    // Regenerate WOs after line item changes (idempotent -- duplicates ignored)
+    if (isDraft) {
+      const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+        p_agreement_id: agreementId
+      })
+      if (genError) {
+        console.warn('WO generation warning:', genError.message)
+      }
+    }
+
     refetchMaterials()
     refetchLineItems()
     setEditing(false)
@@ -385,6 +395,14 @@ function ScheduleSection({ agreement }: { agreement: ServiceAgreement }) {
   )
 }
 
+function isFuturePeriod(wo: WorkOrder): boolean {
+  if (wo.period_year == null || wo.period_month == null) return false
+  const now = new Date()
+  const currentPeriod = now.getFullYear() * 100 + (now.getMonth() + 1)
+  const woPeriod = wo.period_year * 100 + wo.period_month
+  return woPeriod > currentPeriod
+}
+
 function WorkOrdersSection({ workOrders, lineItems }: { workOrders: WorkOrder[]; lineItems: ServiceAgreementLineItem[] }) {
   const navigate = useNavigate()
 
@@ -413,22 +431,32 @@ function WorkOrdersSection({ workOrders, lineItems }: { workOrders: WorkOrder[];
             </span>
           </h3>
           <div className="space-y-1">
-            {wos.map(wo => (
-              <button
-                key={wo.id}
-                type="button"
-                onClick={() => navigate(`/work-orders/${wo.id}`)}
-                className="w-full flex items-center justify-between text-sm py-2 px-3 rounded-lg hover:bg-surface transition-colors text-left"
-              >
-                <span>{formatPeriodLabel(wo)}</span>
-                <div className="flex items-center gap-2">
-                  {wo.scheduled_date && (
-                    <span className="text-xs text-[var(--color-text-muted)]">{formatDate(wo.scheduled_date)}</span>
-                  )}
-                  <Badge status={wo.status} />
-                </div>
-              </button>
-            ))}
+            {wos.map(wo => {
+              const future = isFuturePeriod(wo)
+              return (
+                <button
+                  key={wo.id}
+                  type="button"
+                  onClick={() => navigate(`/work-orders/${wo.id}`)}
+                  className={`w-full flex items-center justify-between text-sm py-2 px-3 rounded-lg hover:bg-surface transition-colors text-left ${future ? 'opacity-50' : ''}`}
+                >
+                  <span className="flex items-center gap-2">
+                    {formatPeriodLabel(wo)}
+                    {future && (
+                      <span className="inline-block rounded-full bg-gray-100 text-gray-500 px-2 py-0.5 text-[10px] font-medium">
+                        Future
+                      </span>
+                    )}
+                  </span>
+                  <div className="flex items-center gap-2">
+                    {wo.scheduled_date && (
+                      <span className="text-xs text-[var(--color-text-muted)]">{formatDate(wo.scheduled_date)}</span>
+                    )}
+                    <Badge status={wo.status} />
+                  </div>
+                </button>
+              )
+            })}
           </div>
         </div>
       ))}
@@ -516,8 +544,13 @@ export function AgreementDetail() {
     if (err) {
       alert(getSupabaseErrorMessage(err))
     } else {
-      // Generate WOs for one-time line items
-      await supabase.rpc('generate_work_orders_for_next_month')
+      // Generate all WOs for the agreement upfront
+      const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+        p_agreement_id: agreement.id
+      })
+      if (genError) {
+        console.warn('WO generation warning:', genError.message)
+      }
       refetch()
     }
     setActivating(false)
