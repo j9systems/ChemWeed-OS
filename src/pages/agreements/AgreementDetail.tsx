@@ -8,7 +8,8 @@ import { useSiteProfile } from '@/hooks/useSiteProfile'
 import { useSitePhotos } from '@/hooks/useSitePhotos'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { canEdit } from '@/lib/roles'
-import { formatDate, formatCurrency } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
+import { formatDate, formatCurrency, getSupabaseErrorMessage } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -16,9 +17,11 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Card } from '@/components/ui/Card'
 import { TabBar } from '@/pages/work-orders/components/TabBar'
 import { SiteInfoCard } from '@/pages/work-orders/components/SiteInfoCard'
+import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
+import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
 import { AGREEMENT_STATUSES, getUrgencyColors, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
-import type { ServiceAgreement, ServiceAgreementLineItem, WorkOrder } from '@/types/database'
+import type { ServiceAgreement, ServiceAgreementLineItem, ServiceAgreementMaterial, WorkOrder } from '@/types/database'
 
 const TABS = [
   { key: 'details', label: 'Details' },
@@ -76,11 +79,157 @@ function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
   )
 }
 
-function EstimateSection({ lineItems, materials }: { lineItems: ServiceAgreementLineItem[]; materials: any[] }) {
+interface EstimateSectionProps {
+  lineItems: ServiceAgreementLineItem[]
+  materials: ServiceAgreementMaterial[]
+  agreementId: string
+  totalAcres?: number | null
+  refetchLineItems: () => void
+  refetchMaterials: () => void
+}
+
+function toMaterialRows(materials: ServiceAgreementMaterial[]): MaterialRow[] {
+  return materials.map((m) => ({
+    chemical_id: m.chemical_id ?? '',
+    recommended_amount: m.recommended_amount != null ? String(m.recommended_amount) : '',
+    recommended_unit: m.recommended_unit ?? '',
+    chemical: m.chemical ?? undefined,
+  }))
+}
+
+function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
+  return items.map((c) => ({
+    is_manual_override: c.is_manual_override,
+    service_type_id: c.service_type_id ?? '',
+    service_type: c.service_type ?? undefined,
+    acreage: c.acreage != null ? String(c.acreage) : '',
+    hours: c.hours != null ? String(c.hours) : '',
+    unit_rate: c.unit_rate != null ? String(c.unit_rate) : '',
+    description: c.description ?? '',
+    amount: c.amount != null ? String(c.amount) : '',
+    line_items: Array.isArray(c.line_items) ? c.line_items : [],
+    frequency: c.frequency ?? 'one_time',
+    season_start_month: c.season_start_month ?? 5,
+    season_end_month: c.season_end_month ?? 9,
+  }))
+}
+
+function EstimateSection({ lineItems, materials, agreementId, totalAcres, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
+  const { role } = useAuth()
+  const [editing, setEditing] = useState(false)
+  const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
+  const [liRows, setLiRows] = useState<LineItemRow[]>(() => toLineItemRows(lineItems))
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
   const total = lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0)
 
+  function handleEdit() {
+    setMaterialRows(toMaterialRows(materials))
+    setLiRows(toLineItemRows(lineItems))
+    setEditing(true)
+    setError(null)
+  }
+
+  function handleCancel() {
+    setEditing(false)
+    setError(null)
+  }
+
+  async function handleSave() {
+    setSaving(true)
+    setError(null)
+
+    // Delete existing materials and line items, then re-insert
+    const { error: delMatErr } = await supabase
+      .from('service_agreement_materials')
+      .delete()
+      .eq('agreement_id', agreementId)
+    if (delMatErr) { setError(getSupabaseErrorMessage(delMatErr)); setSaving(false); return }
+
+    const { error: delLiErr } = await supabase
+      .from('service_agreement_line_items')
+      .delete()
+      .eq('agreement_id', agreementId)
+    if (delLiErr) { setError(getSupabaseErrorMessage(delLiErr)); setSaving(false); return }
+
+    // Insert materials
+    const validMats = materialRows.filter((r) => r.chemical_id)
+    if (validMats.length > 0) {
+      const { error: matErr } = await supabase
+        .from('service_agreement_materials')
+        .insert(validMats.map((r) => ({
+          agreement_id: agreementId,
+          chemical_id: r.chemical_id,
+          recommended_amount: r.recommended_amount ? parseFloat(r.recommended_amount) : null,
+          recommended_unit: r.recommended_unit || null,
+        })))
+      if (matErr) { setError(getSupabaseErrorMessage(matErr)); setSaving(false); return }
+    }
+
+    // Insert line items
+    const validLIs = liRows.filter((r) => r.is_manual_override ? r.description.trim() : r.service_type_id)
+    if (validLIs.length > 0) {
+      const { error: liErr } = await supabase
+        .from('service_agreement_line_items')
+        .insert(validLIs.map((r, idx) => {
+          const lineItemsList = r.line_items.filter((li) => li.trim())
+          const base = {
+            agreement_id: agreementId,
+            sort_order: idx,
+            frequency: r.frequency,
+            season_start_month: (r.frequency === 'monthly_seasonal' || r.frequency === 'weekly_seasonal') ? r.season_start_month : null,
+            season_end_month: (r.frequency === 'monthly_seasonal' || r.frequency === 'weekly_seasonal') ? r.season_end_month : null,
+            line_items: lineItemsList,
+          }
+          if (r.is_manual_override) {
+            return { ...base, description: r.description.trim(), amount: parseFloat(r.amount) || 0, is_manual_override: true }
+          }
+          return {
+            ...base,
+            service_type_id: r.service_type_id,
+            acreage: r.acreage ? parseFloat(r.acreage) : null,
+            hours: r.hours ? parseFloat(r.hours) : null,
+            unit_rate: r.unit_rate ? parseFloat(r.unit_rate) : null,
+            amount: rowTotal(r),
+            is_manual_override: false,
+          }
+        }))
+      if (liErr) { setError(getSupabaseErrorMessage(liErr)); setSaving(false); return }
+    }
+
+    refetchMaterials()
+    refetchLineItems()
+    setEditing(false)
+    setSaving(false)
+  }
+
+  // Editing mode
+  if (editing) {
+    return (
+      <div className="space-y-6">
+        <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
+        <div className="border-t border-surface-border pt-4">
+          <AgreementLineItemsSection rows={liRows} onChange={setLiRows} totalAcres={totalAcres} />
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex gap-2 justify-end">
+          <Button variant="secondary" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
+          <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save'}</Button>
+        </div>
+      </div>
+    )
+  }
+
+  // Read-only mode
   return (
     <div className="space-y-4">
+      {canEdit(role) && (
+        <div className="flex justify-end">
+          <Button variant="ghost" size="sm" onClick={handleEdit}>Edit Estimate</Button>
+        </div>
+      )}
+
       <div>
         <h2 className="text-sm font-semibold mb-3">Materials</h2>
         {materials.length === 0 ? (
@@ -96,7 +245,7 @@ function EstimateSection({ lineItems, materials }: { lineItems: ServiceAgreement
                 </tr>
               </thead>
               <tbody>
-                {materials.map((m: any) => (
+                {materials.map((m) => (
                   <tr key={m.id} className="border-b border-surface-border last:border-0">
                     <td className="py-2 pr-4">{m.chemical?.name ?? '—'}</td>
                     <td className="py-2 pr-4 text-[var(--color-text-muted)]">{m.chemical?.active_ingredient ?? '—'}</td>
@@ -281,7 +430,7 @@ export function AgreementDetail() {
   const { id } = useParams<{ id: string }>()
   const { role, user } = useAuth()
   const { agreement, lineItems, isLoading, error, refetch } = useServiceAgreement(id)
-  const { materials } = useServiceAgreementMaterials(id)
+  const { materials, refetch: refetchMaterials } = useServiceAgreementMaterials(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(agreement?.site_id)
   const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(agreement?.site_id)
   const { workOrders } = useWorkOrders()
@@ -339,7 +488,7 @@ export function AgreementDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsSection agreement={agreement} />}
-          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} />}
+          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} totalAcres={agreement.site?.total_acres} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}
           {activeTab === 'notes' && <NotesSection agreement={agreement} />}
