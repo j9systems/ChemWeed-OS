@@ -1,10 +1,17 @@
 export type Role = 'admin' | 'manager' | 'tech' | 'pca'
 
-export type WorkOrderStatus = 'draft' | 'scheduled' | 'in_progress' | 'completed' | 'invoiced'
+export type AgreementStatus = 'draft' | 'active' | 'completed' | 'cancelled'
+
+export type WorkOrderStatus =
+  'unscheduled' | 'tentative' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+
+export type FrequencyType = 'one_time' | 'annual' | 'monthly_seasonal' | 'weekly_seasonal'
 
 export type PropertyType = 'commercial' | 'government' | 'residential'
 
 export type WindDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW'
+
+export type PricingModel = 'per_acre' | 'per_hour' | 'flat_rate'
 
 export interface Client {
   id: string
@@ -61,37 +68,60 @@ export interface UrgencyLevel {
   created_at: string
 }
 
-export interface WorkOrder {
+export interface ServiceAgreementLineItem {
   id: string
-  work_order_number: string | null
-  service_agreement_id?: string | null
+  agreement_id: string
+  sort_order: number
+  description: string | null
+  service_type_id: string | null
+  service_type?: ServiceType
+  acreage: number | null
+  hours: number | null
+  unit_rate: number | null
+  amount: number
+  is_manual_override: boolean
+  line_items: string[]
+  frequency: FrequencyType
+  season_start_month: number | null
+  season_end_month: number | null
+  created_at: string
+}
+
+export interface ServiceAgreement {
+  id: string
+  agreement_number: string | null
   client_id: string
+  client?: Client
   site_id: string
-  service_type_id: string
+  site?: Site
+  service_type_id: string | null
+  service_type?: ServiceType
   frequency_type: string | null
-  status: WorkOrderStatus
-  proposed_start_date: string | null
-  completion_date: string | null
-  pca_id: string | null
-  po_number: string | null
   reason: string | null
+  proposed_start_date: string | null
+  proposed_start_time: string | null
+  contract_start_date: string | null
+  contract_end_date: string | null
+  contract_value: number | null
+  billing_method: string | null
+  po_number: string | null
+  pca_id: string | null
+  pca?: TeamMember
+  pca_rec_url: string | null
   urgency_level_id: string | null
+  urgency_level?: UrgencyLevel
+  agreement_status: AgreementStatus
   notes_client: string | null
   notes_internal: string | null
   notes_technician: string | null
-  created_by: string
+  created_by: string | null
   created_at: string
-  updated_at: string | null
-  client?: Client
-  site?: Site
-  service_type?: ServiceType
-  pca?: TeamMember
-  urgency_level?: UrgencyLevel
+  updated_at: string
 }
 
-export interface WorkOrderMaterial {
+export interface ServiceAgreementMaterial {
   id: string
-  work_order_id: string
+  agreement_id: string
   chemical_id: string
   recommended_amount: number | null
   recommended_unit: string | null
@@ -100,18 +130,48 @@ export interface WorkOrderMaterial {
   chemical?: Chemical
 }
 
-export interface WorkOrderCharge {
+export interface WorkOrder {
   id: string
-  work_order_id: string
-  description: string | null
-  amount: number
+  work_order_number: string | null
+  service_agreement_id: string
+  service_agreement?: ServiceAgreement
+  agreement_line_item_id: string
+  agreement_line_item?: ServiceAgreementLineItem
+  client_id: string
+  client?: Client
+  site_id: string
+  site?: Site
   service_type_id: string | null
-  acreage: number | null
-  hours: number | null
-  unit_rate: number | null
-  is_manual_override: boolean
-  line_items: string[]
   service_type?: ServiceType
+  period_month: number | null
+  period_year: number | null
+  period_week: number | null
+  status: WorkOrderStatus
+  scheduled_date: string | null
+  scheduled_time: string | null
+  last_serviced_date: string | null
+  days_since_last_service: number | null
+  actual_start_date: string | null
+  actual_start_time: string | null
+  completion_date: string | null
+  completion_time: string | null
+  wind_speed_mph: number | null
+  wind_direction: string | null
+  air_temp_f: number | null
+  tanks_used: number | null
+  pca_id: string | null
+  pca?: TeamMember
+  pca_rec_url: string | null
+  urgency_level_id: string | null
+  urgency_level?: UrgencyLevel
+  notes_client: string | null
+  notes_internal: string | null
+  notes_technician: string | null
+  po_number: string | null
+  signature_url: string | null
+  created_by: string | null
+  created_at: string
+  updated_at: string
 }
 
 export interface Chemical {
@@ -131,8 +191,6 @@ export interface Chemical {
   notes: string | null
   is_active: boolean
 }
-
-export type PricingModel = 'per_acre' | 'per_hour' | 'flat_rate'
 
 export interface ServiceType {
   id: string
@@ -242,9 +300,10 @@ export interface Database {
       clients: { Row: Client; Insert: Omit<Client, 'id' | 'created_at'>; Update: Partial<Omit<Client, 'id'>> }
       sites: { Row: Site; Insert: Omit<Site, 'id'>; Update: Partial<Omit<Site, 'id'>> }
       counties: { Row: County; Insert: Omit<County, 'id'>; Update: Partial<Omit<County, 'id'>> }
+      service_agreements: { Row: ServiceAgreement; Insert: Omit<ServiceAgreement, 'id' | 'created_at'>; Update: Partial<Omit<ServiceAgreement, 'id'>> }
+      service_agreement_line_items: { Row: ServiceAgreementLineItem; Insert: Omit<ServiceAgreementLineItem, 'id'>; Update: Partial<Omit<ServiceAgreementLineItem, 'id'>> }
+      service_agreement_materials: { Row: ServiceAgreementMaterial; Insert: Omit<ServiceAgreementMaterial, 'id'>; Update: Partial<Omit<ServiceAgreementMaterial, 'id'>> }
       work_orders: { Row: WorkOrder; Insert: Omit<WorkOrder, 'id' | 'created_at'>; Update: Partial<Omit<WorkOrder, 'id'>> }
-      work_order_materials: { Row: WorkOrderMaterial; Insert: Omit<WorkOrderMaterial, 'id'>; Update: Partial<Omit<WorkOrderMaterial, 'id'>> }
-      work_order_charges: { Row: WorkOrderCharge; Insert: Omit<WorkOrderCharge, 'id'>; Update: Partial<Omit<WorkOrderCharge, 'id'>> }
       chemicals: { Row: Chemical; Insert: Omit<Chemical, 'id'>; Update: Partial<Omit<Chemical, 'id'>> }
       service_types: { Row: ServiceType; Insert: Omit<ServiceType, 'id'>; Update: Partial<Omit<ServiceType, 'id'>> }
       team: { Row: TeamMember; Insert: Omit<TeamMember, 'id'>; Update: Partial<Omit<TeamMember, 'id'>> }

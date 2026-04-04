@@ -1,31 +1,32 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
-import type { WorkOrderCharge } from '@/types/database'
+import type { ServiceAgreementLineItem } from '@/types/database'
 
-export function useWorkOrderCharges(workOrderId: string | undefined) {
-  const [charges, setCharges] = useState<WorkOrderCharge[]>([])
+export function useServiceAgreementLineItems(agreementId: string | undefined) {
+  const [lineItems, setLineItems] = useState<ServiceAgreementLineItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   const fetch = useCallback(async () => {
-    if (!workOrderId) return
+    if (!agreementId) return
     setIsLoading(true)
     setError(null)
 
     const { data, error: err } = await supabase
-      .from('work_order_charges')
+      .from('service_agreement_line_items')
       .select('*, service_type:service_types(*)')
-      .eq('work_order_id', workOrderId)
+      .eq('agreement_id', agreementId)
+      .order('sort_order', { ascending: true })
 
     if (err) {
       setError(err.message)
     } else {
-      setCharges((data ?? []) as WorkOrderCharge[])
+      setLineItems((data ?? []) as ServiceAgreementLineItem[])
     }
     setIsLoading(false)
-  }, [workOrderId])
+  }, [agreementId])
 
   useEffect(() => { fetch() }, [fetch])
 
-  return { charges, isLoading, error, refetch: fetch }
+  return { lineItems, isLoading, error, refetch: fetch }
 }

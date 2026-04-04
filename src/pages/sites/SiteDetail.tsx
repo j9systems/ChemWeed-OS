@@ -520,8 +520,8 @@ export function SiteDetail() {
                 <div>
                   <p className="text-sm font-medium">
                     {wo.service_type?.name ?? 'Service'}{' '}
-                    {wo.proposed_start_date && (
-                      <span className="text-[var(--color-text-muted)] font-normal">— {formatDate(wo.proposed_start_date)}</span>
+                    {wo.scheduled_date && (
+                      <span className="text-[var(--color-text-muted)] font-normal">— {formatDate(wo.scheduled_date)}</span>
                     )}
                   </p>
                   {wo.pca && (

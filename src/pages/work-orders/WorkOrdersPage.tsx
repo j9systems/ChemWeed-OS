@@ -1,24 +1,36 @@
 import { useState } from 'react'
-import { Link, useNavigate } from 'react-router'
-import { Plus, Calendar, User } from 'lucide-react'
+import { useNavigate } from 'react-router'
+import { RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { canEdit } from '@/lib/roles'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Badge } from '@/components/ui/Badge'
-import { WORK_ORDER_STATUSES, getServiceColor } from '@/lib/constants'
+import { WORK_ORDER_STATUSES, getServiceColor, formatPeriodLabel } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { WorkOrder, WorkOrderStatus } from '@/types/database'
 
-/* ------------------------------------------------------------------ */
-/*  Mobile list item                                                   */
-/* ------------------------------------------------------------------ */
-function MobileRow({ wo }: { wo: WorkOrder }) {
+function DaysSincePill({ days }: { days: number | null }) {
+  if (days == null) {
+    return <span className="inline-block rounded-full px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500">—</span>
+  }
+  let classes = 'bg-gray-100 text-gray-600'
+  if (days > 45) classes = 'bg-red-100 text-red-700'
+  else if (days >= 20) classes = 'bg-amber-100 text-amber-700'
+
+  return (
+    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${classes}`}>
+      {days}d ago
+    </span>
+  )
+}
+
+function WOCard({ wo }: { wo: WorkOrder }) {
   const navigate = useNavigate()
   const sc = getServiceColor(wo.service_type?.name)
-  const tech = wo.pca ? `${wo.pca.first_name} ${wo.pca.last_name}` : null
 
   return (
     <button
@@ -29,175 +41,186 @@ function MobileRow({ wo }: { wo: WorkOrder }) {
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-sm truncate">{wo.client?.name ?? 'Unknown Client'}</p>
-        <Badge
-          status={wo.status}
-          className={`shrink-0 ${wo.status === 'draft' ? 'opacity-50' : ''}`}
-        />
+        <DaysSincePill days={wo.days_since_last_service} />
       </div>
-
       <p className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
-        {wo.site?.address_line ?? 'No address'}
+        {wo.site?.name ?? 'No site'}
       </p>
-
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
         {wo.service_type?.name && (
           <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
             {wo.service_type.name}
           </span>
         )}
-
-        <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
-          <User size={11} />
-          {tech ?? <em>Unassigned</em>}
-        </span>
-
-        <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
-          <Calendar size={11} />
-          {formatDate(wo.proposed_start_date)}
+        <span className="text-xs text-[var(--color-text-muted)]">
+          {formatPeriodLabel(wo)}
         </span>
       </div>
     </button>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Desktop table row                                                  */
-/* ------------------------------------------------------------------ */
-function TableRow({ wo }: { wo: WorkOrder }) {
+function WOTableRow({ wo }: { wo: WorkOrder }) {
   const navigate = useNavigate()
   const sc = getServiceColor(wo.service_type?.name)
-  const tech = wo.pca ? `${wo.pca.first_name} ${wo.pca.last_name}` : null
 
   return (
     <tr
       onClick={() => navigate(`/work-orders/${wo.id}`)}
       className="border-b border-surface-border last:border-0 hover:bg-surface transition-colors cursor-pointer"
     >
-      {/* Service color indicator */}
       <td className="py-3 pl-4 pr-2">
-        <span
-          className="block w-1 h-6 rounded-full"
-          style={{ backgroundColor: sc.border }}
-        />
+        <span className="block w-1 h-6 rounded-full" style={{ backgroundColor: sc.border }} />
       </td>
-
-      {/* Client */}
       <td className="py-3 pr-4">
-        <span className="font-medium text-sm">
-          {wo.client?.name ?? 'Unknown Client'}
-        </span>
-        <p className="text-xs text-[var(--color-text-muted)] truncate max-w-[220px]">
-          {wo.site?.address_line ?? 'No address'}
-        </p>
+        <span className="font-medium text-sm">{wo.client?.name ?? 'Unknown'}</span>
+        <p className="text-xs text-[var(--color-text-muted)] truncate max-w-[220px]">{wo.site?.name ?? ''}</p>
       </td>
-
-      {/* Service type */}
       <td className="py-3 pr-4">
         {wo.service_type?.name ? (
           <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
             {wo.service_type.name}
           </span>
-        ) : (
-          <span className="text-xs text-[var(--color-text-muted)]">—</span>
-        )}
+        ) : <span className="text-xs text-[var(--color-text-muted)]">—</span>}
       </td>
-
-      {/* Assigned tech */}
-      <td className="py-3 pr-4 text-sm">
-        {tech ?? <span className="text-[var(--color-text-muted)] italic text-xs">Unassigned</span>}
-      </td>
-
-      {/* Due date */}
       <td className="py-3 pr-4 text-sm text-[var(--color-text-muted)] whitespace-nowrap">
-        {formatDate(wo.proposed_start_date)}
+        {formatPeriodLabel(wo)}
       </td>
-
-      {/* Status */}
+      <td className="py-3 pr-4 text-sm text-[var(--color-text-muted)] whitespace-nowrap">
+        {formatDate(wo.scheduled_date)}
+      </td>
       <td className="py-3 pr-4">
-        <Badge
-          status={wo.status}
-          className={wo.status === 'draft' ? 'opacity-50' : undefined}
-        />
+        <DaysSincePill days={wo.days_since_last_service} />
+      </td>
+      <td className="py-3 pr-4">
+        <Badge status={wo.status} />
       </td>
     </tr>
   )
 }
 
-/* ------------------------------------------------------------------ */
-/*  Page                                                               */
-/* ------------------------------------------------------------------ */
 export function WorkOrdersPage() {
   const { role } = useAuth()
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | ''>('')
   const { workOrders, isLoading, error, refetch } = useWorkOrders(
     statusFilter ? { status: statusFilter } : undefined
   )
+  const [generating, setGenerating] = useState(false)
+  const [genMessage, setGenMessage] = useState<string | null>(null)
+
+  const unscheduled = workOrders.filter(wo => wo.status === 'unscheduled')
+    .sort((a, b) => {
+      const da = a.days_since_last_service ?? -1
+      const db = b.days_since_last_service ?? -1
+      if (db !== da) return db - da
+      return (a.client?.name ?? '').localeCompare(b.client?.name ?? '')
+    })
+
+  async function handleGenerate() {
+    setGenerating(true)
+    setGenMessage(null)
+    const { data, error } = await supabase.functions.invoke('generate-work-orders')
+    if (error) {
+      setGenMessage(`Error: ${error.message}`)
+    } else {
+      const count = data?.work_orders_generated ?? 0
+      setGenMessage(`Generated ${count} work order(s).`)
+      refetch()
+    }
+    setGenerating(false)
+  }
 
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Work Orders</h1>
         {canEdit(role) && (
-          <Link to="/work-orders/new">
-            <Button size="md">
-              <Plus size={18} />
-              New Work Order
-            </Button>
-          </Link>
+          <Button size="md" variant="secondary" onClick={handleGenerate} disabled={generating}>
+            <RefreshCw size={16} className={generating ? 'animate-spin' : ''} />
+            {generating ? 'Generating...' : 'Generate Work Orders'}
+          </Button>
         )}
       </div>
 
-      <div className="mb-4">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as WorkOrderStatus | '')}
-          className="rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[44px]"
-        >
-          <option value="">All Statuses</option>
-          {(Object.entries(WORK_ORDER_STATUSES) as [WorkOrderStatus, string][]).map(([value, label]) => (
-            <option key={value} value={value}>{label}</option>
-          ))}
-        </select>
-      </div>
-
-      {isLoading && <LoadingSpinner />}
-      {error && <ErrorMessage message={error} onRetry={refetch} />}
-
-      {!isLoading && !error && workOrders.length === 0 && (
-        <p className="py-8 text-center text-[var(--color-text-muted)]">
-          No work orders found.
-        </p>
+      {genMessage && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {genMessage}
+        </div>
       )}
 
-      {!isLoading && !error && workOrders.length > 0 && (
-        <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
-          {/* Desktop table */}
-          <table className="w-full text-sm hidden md:table">
-            <thead>
-              <tr className="border-b border-surface-border text-left text-xs text-[var(--color-text-muted)]">
-                <th className="py-3 pl-4 pr-2 w-6" />
-                <th className="py-3 pr-4 font-medium">Client / Site</th>
-                <th className="py-3 pr-4 font-medium">Service</th>
-                <th className="py-3 pr-4 font-medium">Technician</th>
-                <th className="py-3 pr-4 font-medium">Due Date</th>
-                <th className="py-3 pr-4 font-medium">Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {workOrders.map((wo) => (
-                <TableRow key={wo.id} wo={wo} />
+      {/* Unscheduled Queue */}
+      {!statusFilter && unscheduled.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-3">
+            Unscheduled
+            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-amber-100 text-amber-700 px-2 py-0.5 text-xs font-medium">
+              {unscheduled.length}
+            </span>
+          </h2>
+          <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
+            <div className="divide-y divide-surface-border">
+              {unscheduled.map((wo) => (
+                <WOCard key={wo.id} wo={wo} />
               ))}
-            </tbody>
-          </table>
-
-          {/* Mobile compact list */}
-          <div className="md:hidden divide-y divide-surface-border">
-            {workOrders.map((wo) => (
-              <MobileRow key={wo.id} wo={wo} />
-            ))}
+            </div>
           </div>
         </div>
       )}
+
+      {/* All Work Orders */}
+      <div>
+        <h2 className="text-lg font-semibold mb-3">All Work Orders</h2>
+        <div className="mb-4">
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value as WorkOrderStatus | '')}
+            className="rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[44px]"
+          >
+            <option value="">All Statuses</option>
+            {(Object.entries(WORK_ORDER_STATUSES) as [WorkOrderStatus, string][]).map(([value, label]) => (
+              <option key={value} value={value}>{label}</option>
+            ))}
+          </select>
+        </div>
+
+        {isLoading && <LoadingSpinner />}
+        {error && <ErrorMessage message={error} onRetry={refetch} />}
+
+        {!isLoading && !error && workOrders.length === 0 && (
+          <p className="py-8 text-center text-[var(--color-text-muted)]">
+            No work orders found.
+          </p>
+        )}
+
+        {!isLoading && !error && workOrders.length > 0 && (
+          <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
+            <table className="w-full text-sm hidden md:table">
+              <thead>
+                <tr className="border-b border-surface-border text-left text-xs text-[var(--color-text-muted)]">
+                  <th className="py-3 pl-4 pr-2 w-6" />
+                  <th className="py-3 pr-4 font-medium">Client / Site</th>
+                  <th className="py-3 pr-4 font-medium">Service</th>
+                  <th className="py-3 pr-4 font-medium">Period</th>
+                  <th className="py-3 pr-4 font-medium">Scheduled</th>
+                  <th className="py-3 pr-4 font-medium">Priority</th>
+                  <th className="py-3 pr-4 font-medium">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {workOrders.map((wo) => (
+                  <WOTableRow key={wo.id} wo={wo} />
+                ))}
+              </tbody>
+            </table>
+
+            <div className="md:hidden divide-y divide-surface-border">
+              {workOrders.map((wo) => (
+                <WOCard key={wo.id} wo={wo} />
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

@@ -1,8 +1,3 @@
-// Required Supabase secrets:
-//   DOCSAUTOMATOR_API_KEY          = 40b7254a-21ad-4f55-b71e-b2cba8c97d2a
-//   DOCSAUTOMATOR_AUTOMATION_ID    = 69ca013a723efefefdeed9b1
-
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const DOCSAUTOMATOR_API_KEY = Deno.env.get('DOCSAUTOMATOR_API_KEY')!
@@ -22,47 +17,45 @@ function errorResponse(message: string, status: number) {
   )
 }
 
-serve(async (req) => {
+Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const { work_order_id } = await req.json()
-    if (!work_order_id) {
-      return errorResponse('work_order_id is required', 400)
+    const body = await req.json()
+    const agreement_id = body.agreement_id ?? body.work_order_id
+    if (!agreement_id) {
+      return errorResponse('agreement_id is required', 400)
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    // Fetch work order with all needed relations
     const { data: wo, error: woErr } = await supabase
-      .from('work_orders')
+      .from('service_agreements')
       .select(`
         *,
         client:clients(*),
         site:sites(*, county:counties(*)),
         service_type:service_types(*)
       `)
-      .eq('id', work_order_id)
+      .eq('id', agreement_id)
       .single()
 
     if (woErr || !wo) {
-      return errorResponse('Work order not found', 404)
+      return errorResponse('Service agreement not found', 404)
     }
 
-    // Fetch charges ordered by insertion
     const { data: charges, error: chargesErr } = await supabase
-      .from('work_order_charges')
+      .from('service_agreement_line_items')
       .select('*, service_type:service_types(*)')
-      .eq('work_order_id', work_order_id)
-      .order('created_at', { ascending: true })
+      .eq('agreement_id', agreement_id)
+      .order('sort_order', { ascending: true })
 
     if (chargesErr) {
-      return errorResponse('Failed to fetch charges', 500)
+      return errorResponse('Failed to fetch line items', 500)
     }
 
-    // Fetch company settings
     const { data: company, error: companyErr } = await supabase
       .from('company_settings')
       .select('*')
@@ -73,7 +66,6 @@ serve(async (req) => {
       return errorResponse('Company settings not configured', 500)
     }
 
-    // Format date
     const dateStr = wo.proposed_start_date
       ? new Date(wo.proposed_start_date).toLocaleDateString('en-US', {
           month: 'short', day: 'numeric', year: 'numeric',
@@ -84,16 +76,24 @@ serve(async (req) => {
 
     const documentName = `Proposal - ${wo.client?.name ?? 'Client'} - ${dateStr}`
 
-    // Client billing address — fall back to site address if billing address not set
     const clientAddress = wo.client?.billing_address ?? wo.site?.address_line ?? ''
     const clientCity = wo.client?.billing_city ?? wo.site?.city ?? ''
     const clientState = wo.client?.billing_state ?? wo.site?.state ?? 'CA'
     const clientZip = wo.client?.billing_zip ?? wo.site?.zip ?? ''
     const clientCityStateZip = `${clientCity}, ${clientState} ${clientZip}`.trim()
 
-    // Build nested line items for DocsAutomator
+    const frequencyLabels: Record<string, string> = {
+      one_time: '1X',
+      annual: 'ANNUAL',
+      monthly_seasonal: 'MONTHLY',
+      weekly_seasonal: 'WEEKLY',
+    }
+    const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
+
+    // 6 non-breaking spaces for indent (matches v18 pattern)
+    const INDENT = '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0'
+
     const lineItems1 = (charges ?? []).map((charge: any) => {
-      // Service block header
       let serviceName: string
       if (charge.is_manual_override && charge.description) {
         serviceName = charge.description.toUpperCase()
@@ -107,36 +107,52 @@ serve(async (req) => {
         serviceName = (charge.description ?? 'SERVICE').toUpperCase()
       }
 
-      // Short cost label for "COST FOR [X]: $amount"
       const costLabel = charge.is_manual_override
         ? (charge.description ?? 'SERVICE').toUpperCase()
         : (charge.service_type?.name ?? 'SERVICE').toUpperCase()
 
-      // Format total as currency
       const formattedTotal = new Intl.NumberFormat('en-US', {
         style: 'currency',
         currency: 'USD',
       }).format(charge.amount ?? 0)
 
-      // Map string[] line items to DocsAutomator nested format
-      const subLines = (charge.line_items ?? [])
-        .filter((li: string) => li.trim().length > 0)
-        .map((li: string) => ({ description: li }))
+      const frequencyLabel = frequencyLabels[charge.frequency] ?? (charge.frequency ?? '').toUpperCase()
+
+      let seasonLabel = ''
+      if ((charge.frequency === 'monthly_seasonal' || charge.frequency === 'weekly_seasonal')
+          && charge.season_start_month && charge.season_end_month) {
+        seasonLabel = `${monthNames[charge.season_start_month - 1]}-${monthNames[charge.season_end_month - 1]}`
+      }
+
+      // Build children array (DocsAutomator API uses "children" key, not the template tag name)
+      const rawItems = Array.isArray(charge.line_items) ? charge.line_items : []
+
+      const children = rawItems
+        .filter((li: any) => typeof li === 'string' && li.trim().length > 0)
+        .map((li: string, idx: number) => ({
+          // Indent + letter goes in line_letter, description is plain uppercase
+          line_letter: `${INDENT}${String.fromCharCode(65 + idx)}.`,
+          description: li.toUpperCase(),
+        }))
+
+      // Add cost line as last child (no indent, no letter)
+      children.push({
+        line_letter: '',
+        description: `COST FOR ${costLabel}: ${formattedTotal}`,
+      })
 
       return {
         service_name: serviceName,
-        cost_label: costLabel,
-        service_total: formattedTotal,
-        line_items_1_1: subLines,
+        frequency: frequencyLabel,
+        season: seasonLabel,
+        children: children,
       }
     })
 
-    // Full DocsAutomator payload
     const payload = {
       docId: DOCSAUTOMATOR_AUTOMATION_ID,
       documentName,
       data: {
-        // Company header
         company_name: company.business_name ?? '',
         company_address: company.address ?? '',
         company_phone: company.phone ?? '',
@@ -145,7 +161,6 @@ serve(async (req) => {
         signer_line: company.signer_line ?? '',
         proposal_terms: company.default_proposal_terms ?? '',
 
-        // Client block
         client_name: wo.client?.name ?? '',
         client_address: clientAddress,
         client_city_state_zip: clientCityStateZip,
@@ -153,18 +168,15 @@ serve(async (req) => {
         client_phone: wo.client?.billing_phone ?? '',
         client_email: wo.client?.billing_email ?? '',
 
-        // Job details
         date: dateStr,
-        contract_type: wo.frequency_type ?? '1 time',
+        contract_type: wo.frequency_type ?? lineItems1[0]?.frequency ?? '1X',
         po_number: wo.po_number ?? '',
         closing_notes: wo.notes_client ?? '',
 
-        // Nested service blocks
         line_items_1: lineItems1,
       },
     }
 
-    // Call DocsAutomator
     const daResponse = await fetch('https://api.docsautomator.co/createDocument', {
       method: 'POST',
       headers: {
@@ -176,8 +188,7 @@ serve(async (req) => {
 
     if (!daResponse.ok) {
       const errText = await daResponse.text()
-      console.error('DocsAutomator error:', errText)
-      return errorResponse(`DocsAutomator error: ${daResponse.status}`, 502)
+      return errorResponse(`DocsAutomator error: ${daResponse.status} - ${errText}`, 502)
     }
 
     const daData = await daResponse.json()
