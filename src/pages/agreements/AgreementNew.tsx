@@ -11,17 +11,17 @@ import { useUrgencyLevels } from '@/hooks/useUrgencyLevels'
 import { canEdit } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
-import { FREQUENCY_TYPES, getUrgencyColors } from '@/lib/constants'
+import { getUrgencyColors } from '@/lib/constants'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
-import { ChargesSection, type ChargeRow, rowTotal } from '@/components/work-orders/ChargesSection'
+import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
 import { NewClientModal } from '@/components/work-orders/NewClientModal'
 import { NewSiteModal } from '@/components/work-orders/NewSiteModal'
-import type { WorkOrderStatus } from '@/types/database'
+import type { AgreementStatus } from '@/types/database'
 
-export function WorkOrderNew() {
+export function AgreementNew() {
   const { role, user } = useAuth()
   const navigate = useNavigate()
 
@@ -38,8 +38,11 @@ export function WorkOrderNew() {
   const [showNewSiteModal, setShowNewSiteModal] = useState(false)
   const clientDropdownRef = useRef<HTMLDivElement>(null)
   const [serviceTypeId, setServiceTypeId] = useState('')
-  const [frequencyType, setFrequencyType] = useState('')
   const [proposedStartDate, setProposedStartDate] = useState('')
+  const [contractStartDate, setContractStartDate] = useState('')
+  const [contractEndDate, setContractEndDate] = useState('')
+  const [contractValue, setContractValue] = useState('')
+  const [billingMethod, setBillingMethod] = useState('')
   const [pcaId, setPcaId] = useState('')
   const [poNumber, setPoNumber] = useState('')
   const [reason, setReason] = useState('')
@@ -47,14 +50,13 @@ export function WorkOrderNew() {
   const [commentInternal, setCommentInternal] = useState('')
   const [commentTech, setCommentTech] = useState('')
   const [materials, setMaterials] = useState<MaterialRow[]>([])
-  const [charges, setCharges] = useState<ChargeRow[]>([])
+  const [lineItems, setLineItems] = useState<LineItemRow[]>([])
   const [urgencyLevelId, setUrgencyLevelId] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   const { sites, refetch: refetchSites } = useSites(clientId || undefined)
 
-  // Close client dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (clientDropdownRef.current && !clientDropdownRef.current.contains(e.target as Node)) {
@@ -71,22 +73,20 @@ export function WorkOrderNew() {
 
   const selectedClientName = clients.find((c) => c.id === clientId)?.name ?? ''
 
-  // Default PCA to Rick Foell if available
   const rickFoell = members.find((m) => m.role === 'pca')
   if (!pcaId && rickFoell) {
     setPcaId(rickFoell.id)
   }
 
-  // Default urgency to 'flexible'
   if (!urgencyLevelId && defaultLevel) {
     setUrgencyLevelId(defaultLevel.id)
   }
 
   if (!canEdit(role)) {
-    return <Navigate to="/work-orders" replace />
+    return <Navigate to="/agreements" replace />
   }
 
-  async function handleSubmit(e: FormEvent, status: WorkOrderStatus) {
+  async function handleSubmit(e: FormEvent, status: AgreementStatus) {
     e.preventDefault()
     if (!clientId || !siteId || !serviceTypeId) {
       setError('Client, site, and service type are required.')
@@ -96,15 +96,18 @@ export function WorkOrderNew() {
     setSubmitting(true)
     setError(null)
 
-    const { data: wo, error: woErr } = await supabase
-      .from('work_orders')
+    const { data: sa, error: saErr } = await supabase
+      .from('service_agreements')
       .insert({
         client_id: clientId,
         site_id: siteId,
         service_type_id: serviceTypeId,
-        frequency_type: frequencyType || null,
-        status,
+        agreement_status: status,
         proposed_start_date: proposedStartDate || null,
+        contract_start_date: contractStartDate || null,
+        contract_end_date: contractEndDate || null,
+        contract_value: contractValue ? parseFloat(contractValue) : null,
+        billing_method: billingMethod || null,
         pca_id: pcaId || null,
         po_number: poNumber || null,
         reason: reason || null,
@@ -117,8 +120,8 @@ export function WorkOrderNew() {
       .select('id')
       .single()
 
-    if (woErr) {
-      setError(getSupabaseErrorMessage(woErr))
+    if (saErr) {
+      setError(getSupabaseErrorMessage(saErr))
       setSubmitting(false)
       return
     }
@@ -127,14 +130,14 @@ export function WorkOrderNew() {
     const materialInserts = materials
       .filter((m) => m.chemical_id)
       .map((m) => ({
-        work_order_id: wo.id,
+        agreement_id: sa.id,
         chemical_id: m.chemical_id,
         recommended_amount: parseFloat(m.recommended_amount) || null,
         recommended_unit: m.recommended_unit || null,
       }))
 
     if (materialInserts.length > 0) {
-      const { error: matErr } = await supabase.from('work_order_materials').insert(materialInserts)
+      const { error: matErr } = await supabase.from('service_agreement_materials').insert(materialInserts)
       if (matErr) {
         setError(getSupabaseErrorMessage(matErr))
         setSubmitting(false)
@@ -142,58 +145,69 @@ export function WorkOrderNew() {
       }
     }
 
-    // Insert charges
-    const chargeInserts = charges
+    // Insert line items
+    const lineItemInserts = lineItems
       .filter((c) => c.is_manual_override ? c.description.trim() : c.service_type_id)
-      .map((c) => {
+      .map((c, idx) => {
+        const base = {
+          agreement_id: sa.id,
+          sort_order: idx,
+          frequency: c.frequency,
+          season_start_month: (c.frequency === 'monthly_seasonal' || c.frequency === 'weekly_seasonal') ? c.season_start_month : null,
+          season_end_month: (c.frequency === 'monthly_seasonal' || c.frequency === 'weekly_seasonal') ? c.season_end_month : null,
+          line_items: c.line_items.filter((li) => li.trim()),
+        }
         if (c.is_manual_override) {
           return {
-            work_order_id: wo.id,
+            ...base,
             description: c.description.trim(),
             amount: parseFloat(c.amount) || 0,
             is_manual_override: true,
-            line_items: [],
           }
         }
         return {
-          work_order_id: wo.id,
+          ...base,
           service_type_id: c.service_type_id,
           acreage: c.acreage ? parseFloat(c.acreage) : null,
           hours: c.hours ? parseFloat(c.hours) : null,
           unit_rate: c.unit_rate ? parseFloat(c.unit_rate) : null,
           amount: rowTotal(c),
           is_manual_override: false,
-          line_items: [],
         }
       })
 
-    if (chargeInserts.length > 0) {
-      const { error: chgErr } = await supabase.from('work_order_charges').insert(chargeInserts)
-      if (chgErr) {
-        setError(getSupabaseErrorMessage(chgErr))
+    if (lineItemInserts.length > 0) {
+      const { error: liErr } = await supabase.from('service_agreement_line_items').insert(lineItemInserts)
+      if (liErr) {
+        setError(getSupabaseErrorMessage(liErr))
         setSubmitting(false)
         return
       }
     }
 
+    // For one_time line items, generate WOs immediately
+    const hasOneTime = lineItems.some(li => li.frequency === 'one_time' && (li.is_manual_override ? li.description.trim() : li.service_type_id))
+    if (hasOneTime && status === 'active') {
+      await supabase.rpc('generate_work_orders_for_next_month')
+    }
+
     setSubmitting(false)
-    navigate(`/work-orders/${wo.id}`)
+    navigate(`/agreements/${sa.id}`)
   }
 
   return (
     <div>
-      <Link to="/work-orders" className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4">
+      <Link to="/agreements" className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4">
         <ArrowLeft size={16} />
-        Back to Work Orders
+        Back to Agreements
       </Link>
 
-      <h1 className="text-2xl font-bold mb-6">New Work Order</h1>
+      <h1 className="text-2xl font-bold mb-6">New Agreement</h1>
 
       <form className="space-y-6" onSubmit={(e) => handleSubmit(e, 'draft')}>
         {/* Client & Site */}
         <Card>
           <div className="space-y-4">
-            {/* Searchable client dropdown */}
             <div ref={clientDropdownRef}>
               <label className="block text-sm font-medium mb-1">Client *</label>
               <div className="relative">
@@ -212,7 +226,6 @@ export function WorkOrderNew() {
                   placeholder="Search clients..."
                   className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
                 />
-                {/* Hidden input for form required validation */}
                 <input type="hidden" value={clientId} required />
                 {showClientDropdown && (
                   <ul className="absolute z-20 mt-1 max-h-48 w-full overflow-auto rounded-lg border border-surface-border bg-white shadow-lg">
@@ -232,7 +245,6 @@ export function WorkOrderNew() {
                         </button>
                       </li>
                     ))}
-                    {/* + Add New Client option */}
                     <li className="border-t border-surface-border">
                       <button
                         type="button"
@@ -277,7 +289,6 @@ export function WorkOrderNew() {
           </div>
         </Card>
 
-        {/* New Client Modal */}
         <NewClientModal
           open={showNewClientModal}
           initialClientName={clientSearch}
@@ -288,12 +299,9 @@ export function WorkOrderNew() {
             setClientSearch('')
             refetchClients()
           }}
-          onCancel={() => {
-            setShowNewClientModal(false)
-          }}
+          onCancel={() => setShowNewClientModal(false)}
         />
 
-        {/* New Site Modal */}
         <NewSiteModal
           open={showNewSiteModal}
           clientId={clientId}
@@ -348,26 +356,51 @@ export function WorkOrderNew() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium mb-1">Frequency Type</label>
-              <select
-                value={frequencyType}
-                onChange={(e) => setFrequencyType(e.target.value)}
-                className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px]"
-              >
-                <option value="">None</option>
-                {FREQUENCY_TYPES.map((ft) => (
-                  <option key={ft} value={ft}>{ft}</option>
-                ))}
-              </select>
-            </div>
-
             <Input
               label="Proposed Start Date"
               type="date"
               value={proposedStartDate}
               onChange={(e) => setProposedStartDate(e.target.value)}
             />
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Contract Start Date"
+                type="date"
+                value={contractStartDate}
+                onChange={(e) => setContractStartDate(e.target.value)}
+              />
+              <Input
+                label="Contract End Date"
+                type="date"
+                value={contractEndDate}
+                onChange={(e) => setContractEndDate(e.target.value)}
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <Input
+                label="Contract Value"
+                type="number"
+                step="0.01"
+                value={contractValue}
+                onChange={(e) => setContractValue(e.target.value)}
+                placeholder="0.00"
+              />
+              <div>
+                <label className="block text-sm font-medium mb-1">Billing Method</label>
+                <select
+                  value={billingMethod}
+                  onChange={(e) => setBillingMethod(e.target.value)}
+                  className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px]"
+                >
+                  <option value="">Select...</option>
+                  <option value="upfront">Upfront</option>
+                  <option value="per_visit">Per Visit</option>
+                  <option value="net_30">Net 30</option>
+                </select>
+              </div>
+            </div>
 
             <div>
               <label className="block text-sm font-medium mb-1">PCA</label>
@@ -410,9 +443,9 @@ export function WorkOrderNew() {
           <MaterialsSection rows={materials} onChange={setMaterials} />
         </Card>
 
-        {/* Charges */}
+        {/* Line Items */}
         <Card>
-          <ChargesSection rows={charges} onChange={setCharges} />
+          <AgreementLineItemsSection rows={lineItems} onChange={setLineItems} />
         </Card>
 
         {/* Comments */}
@@ -463,9 +496,9 @@ export function WorkOrderNew() {
             type="button"
             variant="secondary"
             disabled={submitting}
-            onClick={(e) => handleSubmit(e as unknown as FormEvent, 'scheduled')}
+            onClick={(e) => handleSubmit(e as unknown as FormEvent, 'active')}
           >
-            Submit as Scheduled
+            Save as Active
           </Button>
         </div>
       </form>

@@ -3,8 +3,10 @@ import { AuthProvider } from '@/context/AuthContext'
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { AgreementsPage } from '@/pages/agreements/AgreementsPage'
+import { AgreementNew } from '@/pages/agreements/AgreementNew'
+import { AgreementDetail } from '@/pages/agreements/AgreementDetail'
 import { WorkOrdersPage } from '@/pages/work-orders/WorkOrdersPage'
-import { WorkOrderNew } from '@/pages/work-orders/WorkOrderNew'
 import { WorkOrderDetail } from '@/pages/work-orders/WorkOrderDetail'
 import { SchedulePage } from '@/pages/schedule/SchedulePage'
 import { ClientsPage } from '@/pages/clients/ClientsPage'
@@ -32,9 +34,11 @@ const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [
-              { index: true, element: <Navigate to="/work-orders" replace /> },
+              { index: true, element: <Navigate to="/agreements" replace /> },
+              { path: 'agreements', element: <AgreementsPage /> },
+              { path: 'agreements/new', element: <AgreementNew /> },
+              { path: 'agreements/:id', element: <AgreementDetail /> },
               { path: 'work-orders', element: <WorkOrdersPage /> },
-              { path: 'work-orders/new', element: <WorkOrderNew /> },
               { path: 'work-orders/:id', element: <WorkOrderDetail /> },
               { path: 'work-orders/:id/complete', element: <FieldCompletionForm /> },
               { path: 'schedule', element: <SchedulePage /> },

@@ -3,7 +3,7 @@ import { useParams, Navigate, Link, useNavigate } from 'react-router'
 import { ArrowLeft } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
-import { useWorkOrderMaterials } from '@/hooks/useWorkOrderMaterials'
+import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
 import { useTeamMembers } from '@/hooks/useTeam'
 import { useFieldCompletion } from '@/hooks/useFieldCompletion'
 import { canCompleteField } from '@/lib/roles'
@@ -29,7 +29,7 @@ export function FieldCompletionForm() {
   const navigate = useNavigate()
   const { role, teamMember } = useAuth()
   const { workOrder, isLoading: woLoading } = useWorkOrder(id)
-  const { materials: woMaterials, isLoading: matLoading } = useWorkOrderMaterials(id)
+  const { materials: woMaterials, isLoading: matLoading } = useServiceAgreementMaterials(workOrder?.service_agreement_id)
   const { members } = useTeamMembers()
   const { submit, isSubmitting, progress, error: submitError } = useFieldCompletion()
 

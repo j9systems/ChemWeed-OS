@@ -1,4 +1,4 @@
-import type { Role, WorkOrderStatus, WindDirection } from '@/types/database'
+import type { Role, AgreementStatus, WorkOrderStatus, WindDirection, FrequencyType } from '@/types/database'
 
 export const ROLES: Record<Role, string> = {
   admin: 'Admin',
@@ -7,20 +7,56 @@ export const ROLES: Record<Role, string> = {
   pca: 'PCA',
 }
 
-export const WORK_ORDER_STATUSES: Record<WorkOrderStatus, string> = {
+export const AGREEMENT_STATUSES: Record<AgreementStatus, string> = {
   draft: 'Draft',
+  active: 'Active',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+}
+
+export const WORK_ORDER_STATUSES: Record<WorkOrderStatus, string> = {
+  unscheduled: 'Unscheduled',
+  tentative: 'Tentative',
   scheduled: 'Scheduled',
   in_progress: 'In Progress',
   completed: 'Completed',
-  invoiced: 'Invoiced',
+  cancelled: 'Cancelled',
 }
 
-export const STATUS_COLORS: Record<WorkOrderStatus, { bg: string; text: string; border: string }> = {
-  draft: { bg: 'bg-[#2a6b2a]/10', text: 'text-[#2a6b2a]', border: 'border-l-[#2a6b2a]/40' },
-  scheduled: { bg: 'bg-orange-100', text: 'text-orange-800', border: 'border-l-orange-400' },
+export const AGREEMENT_STATUS_COLORS: Record<AgreementStatus, { bg: string; text: string; border: string }> = {
+  draft: { bg: 'bg-gray-100', text: 'text-gray-500', border: 'border-l-gray-300' },
+  active: { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-l-emerald-500' },
+  completed: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-l-green-500' },
+  cancelled: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-l-red-400' },
+}
+
+export const WO_STATUS_COLORS: Record<WorkOrderStatus, { bg: string; text: string; border: string }> = {
+  unscheduled: { bg: 'bg-gray-100', text: 'text-gray-600', border: 'border-l-gray-400' },
+  tentative: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-l-amber-400' },
+  scheduled: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-l-blue-500' },
   in_progress: { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-l-emerald-500' },
   completed: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-l-green-500' },
-  invoiced: { bg: 'bg-[#2a6b2a]/15', text: 'text-[#2a6b2a]', border: 'border-l-[#2a6b2a]' },
+  cancelled: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-l-red-400' },
+}
+
+export const FREQUENCY_LABELS: Record<FrequencyType, string> = {
+  one_time: 'One-time',
+  annual: 'Annual',
+  monthly_seasonal: 'Monthly',
+  weekly_seasonal: 'Weekly',
+}
+
+export const MONTH_NAMES = [
+  'Jan','Feb','Mar','Apr','May','Jun',
+  'Jul','Aug','Sep','Oct','Nov','Dec',
+]
+
+export function formatPeriodLabel(wo: { period_month?: number | null; period_year?: number | null; period_week?: number | null }): string {
+  if (!wo.period_month && !wo.period_year) return 'One-time'
+  const month = wo.period_month ? MONTH_NAMES[wo.period_month - 1] : ''
+  const year = wo.period_year ? String(wo.period_year) : ''
+  const week = wo.period_week ? ` – Week ${wo.period_week}` : ''
+  return `${month} ${year}${week}`.trim()
 }
 
 export const WIND_DIRECTIONS: WindDirection[] = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW']

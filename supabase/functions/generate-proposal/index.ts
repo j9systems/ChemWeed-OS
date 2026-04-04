@@ -28,38 +28,40 @@ serve(async (req) => {
   }
 
   try {
-    const { work_order_id } = await req.json()
-    if (!work_order_id) {
-      return errorResponse('work_order_id is required', 400)
+    // Accept either agreement_id (new) or work_order_id (legacy compat)
+    const body = await req.json()
+    const agreement_id = body.agreement_id ?? body.work_order_id
+    if (!agreement_id) {
+      return errorResponse('agreement_id is required', 400)
     }
 
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
-    // Fetch work order with all needed relations
+    // Fetch service agreement with all needed relations
     const { data: wo, error: woErr } = await supabase
-      .from('work_orders')
+      .from('service_agreements')
       .select(`
         *,
         client:clients(*),
         site:sites(*, county:counties(*)),
         service_type:service_types(*)
       `)
-      .eq('id', work_order_id)
+      .eq('id', agreement_id)
       .single()
 
     if (woErr || !wo) {
-      return errorResponse('Work order not found', 404)
+      return errorResponse('Service agreement not found', 404)
     }
 
-    // Fetch charges ordered by insertion
+    // Fetch line items ordered by sort_order
     const { data: charges, error: chargesErr } = await supabase
-      .from('work_order_charges')
+      .from('service_agreement_line_items')
       .select('*, service_type:service_types(*)')
-      .eq('work_order_id', work_order_id)
-      .order('created_at', { ascending: true })
+      .eq('agreement_id', agreement_id)
+      .order('sort_order', { ascending: true })
 
     if (chargesErr) {
-      return errorResponse('Failed to fetch charges', 500)
+      return errorResponse('Failed to fetch line items', 500)
     }
 
     // Fetch company settings
