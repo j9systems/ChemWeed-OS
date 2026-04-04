@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Edit } from 'lucide-react'
+import { ArrowLeft, Edit, CheckCircle, FileText } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -83,6 +83,7 @@ interface EstimateSectionProps {
   lineItems: ServiceAgreementLineItem[]
   materials: ServiceAgreementMaterial[]
   agreementId: string
+  agreementStatus: ServiceAgreement['agreement_status']
   totalAcres?: number | null
   refetchLineItems: () => void
   refetchMaterials: () => void
@@ -114,15 +115,19 @@ function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
   }))
 }
 
-function EstimateSection({ lineItems, materials, agreementId, totalAcres, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
+function EstimateSection({ lineItems, materials, agreementId, agreementStatus, totalAcres, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
   const [liRows, setLiRows] = useState<LineItemRow[]>(() => toLineItemRows(lineItems))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [generateError, setGenerateError] = useState<string | null>(null)
+  const [proposalUrl, setProposalUrl] = useState<string | null>(null)
 
   const total = lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0)
+  const isDraft = agreementStatus === 'draft'
 
   function handleEdit() {
     setMaterialRows(toMaterialRows(materials))
@@ -136,24 +141,36 @@ function EstimateSection({ lineItems, materials, agreementId, totalAcres, refetc
     setError(null)
   }
 
+  async function handleGenerateProposal() {
+    setGenerating(true)
+    setGenerateError(null)
+    setProposalUrl(null)
+
+    const { data, error } = await supabase.functions.invoke('generate-proposal', {
+      body: { agreement_id: agreementId },
+    })
+
+    if (error || !data?.success) {
+      setGenerateError(data?.error ?? error?.message ?? 'Failed to generate proposal')
+    } else if (data.documentUrl) {
+      setProposalUrl(data.documentUrl)
+      window.open(data.documentUrl, '_blank')
+    }
+
+    setGenerating(false)
+  }
+
   async function handleSave() {
     setSaving(true)
     setError(null)
 
-    // Delete existing materials and line items, then re-insert
+    // Always delete and re-insert materials
     const { error: delMatErr } = await supabase
       .from('service_agreement_materials')
       .delete()
       .eq('agreement_id', agreementId)
     if (delMatErr) { setError(getSupabaseErrorMessage(delMatErr)); setSaving(false); return }
 
-    const { error: delLiErr } = await supabase
-      .from('service_agreement_line_items')
-      .delete()
-      .eq('agreement_id', agreementId)
-    if (delLiErr) { setError(getSupabaseErrorMessage(delLiErr)); setSaving(false); return }
-
-    // Insert materials
     const validMats = materialRows.filter((r) => r.chemical_id)
     if (validMats.length > 0) {
       const { error: matErr } = await supabase
@@ -167,35 +184,43 @@ function EstimateSection({ lineItems, materials, agreementId, totalAcres, refetc
       if (matErr) { setError(getSupabaseErrorMessage(matErr)); setSaving(false); return }
     }
 
-    // Insert line items
-    const validLIs = liRows.filter((r) => r.is_manual_override ? r.description.trim() : r.service_type_id)
-    if (validLIs.length > 0) {
-      const { error: liErr } = await supabase
+    // Only delete and re-insert line items if draft
+    if (isDraft) {
+      const { error: delLiErr } = await supabase
         .from('service_agreement_line_items')
-        .insert(validLIs.map((r, idx) => {
-          const lineItemsList = r.line_items.filter((li) => li.trim())
-          const base = {
-            agreement_id: agreementId,
-            sort_order: idx,
-            frequency: r.frequency,
-            season_start_month: (r.frequency === 'monthly_seasonal' || r.frequency === 'weekly_seasonal') ? r.season_start_month : null,
-            season_end_month: (r.frequency === 'monthly_seasonal' || r.frequency === 'weekly_seasonal') ? r.season_end_month : null,
-            line_items: lineItemsList,
-          }
-          if (r.is_manual_override) {
-            return { ...base, description: r.description.trim(), amount: parseFloat(r.amount) || 0, is_manual_override: true }
-          }
-          return {
-            ...base,
-            service_type_id: r.service_type_id,
-            acreage: r.acreage ? parseFloat(r.acreage) : null,
-            hours: r.hours ? parseFloat(r.hours) : null,
-            unit_rate: r.unit_rate ? parseFloat(r.unit_rate) : null,
-            amount: rowTotal(r),
-            is_manual_override: false,
-          }
-        }))
-      if (liErr) { setError(getSupabaseErrorMessage(liErr)); setSaving(false); return }
+        .delete()
+        .eq('agreement_id', agreementId)
+      if (delLiErr) { setError(getSupabaseErrorMessage(delLiErr)); setSaving(false); return }
+
+      const validLIs = liRows.filter((r) => r.is_manual_override ? r.description.trim() : r.service_type_id)
+      if (validLIs.length > 0) {
+        const { error: liErr } = await supabase
+          .from('service_agreement_line_items')
+          .insert(validLIs.map((r, idx) => {
+            const lineItemsList = r.line_items.filter((li) => li.trim())
+            const base = {
+              agreement_id: agreementId,
+              sort_order: idx,
+              frequency: r.frequency,
+              season_start_month: (r.frequency === 'monthly_seasonal' || r.frequency === 'weekly_seasonal') ? r.season_start_month : null,
+              season_end_month: (r.frequency === 'monthly_seasonal' || r.frequency === 'weekly_seasonal') ? r.season_end_month : null,
+              line_items: lineItemsList,
+            }
+            if (r.is_manual_override) {
+              return { ...base, description: r.description.trim(), amount: parseFloat(r.amount) || 0, is_manual_override: true }
+            }
+            return {
+              ...base,
+              service_type_id: r.service_type_id,
+              acreage: r.acreage ? parseFloat(r.acreage) : null,
+              hours: r.hours ? parseFloat(r.hours) : null,
+              unit_rate: r.unit_rate ? parseFloat(r.unit_rate) : null,
+              amount: rowTotal(r),
+              is_manual_override: false,
+            }
+          }))
+        if (liErr) { setError(getSupabaseErrorMessage(liErr)); setSaving(false); return }
+      }
     }
 
     refetchMaterials()
@@ -209,9 +234,16 @@ function EstimateSection({ lineItems, materials, agreementId, totalAcres, refetc
     return (
       <div className="space-y-6">
         <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
-        <div className="border-t border-surface-border pt-4">
-          <AgreementLineItemsSection rows={liRows} onChange={setLiRows} totalAcres={totalAcres} />
-        </div>
+        {isDraft ? (
+          <div className="border-t border-surface-border pt-4">
+            <AgreementLineItemsSection rows={liRows} onChange={setLiRows} totalAcres={totalAcres} />
+          </div>
+        ) : (
+          <div className="border-t border-surface-border pt-4">
+            <AgreementLineItemsSection rows={liRows} onChange={() => {}} readOnly totalAcres={totalAcres} />
+            <p className="text-xs text-[var(--color-text-muted)] mt-2">Line items are locked after the agreement is activated.</p>
+          </div>
+        )}
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex gap-2 justify-end">
           <Button variant="secondary" size="sm" onClick={handleCancel} disabled={saving}>Cancel</Button>
@@ -293,6 +325,34 @@ function EstimateSection({ lineItems, materials, agreementId, totalAcres, refetc
               <p className="text-sm font-semibold">Total: {formatCurrency(total)}</p>
             </div>
           </>
+        )}
+      </div>
+
+      {/* Generate Proposal */}
+      <div className="flex items-center justify-between pt-2">
+        <div className="flex items-center gap-2">
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={handleGenerateProposal}
+            disabled={generating || lineItems.length === 0}
+          >
+            <FileText size={16} />
+            {generating ? 'Generating...' : 'Generate Proposal'}
+          </Button>
+          {proposalUrl && (
+            <a
+              href={proposalUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm text-brand-green underline"
+            >
+              Open PDF
+            </a>
+          )}
+        </div>
+        {generateError && (
+          <p className="text-sm text-red-600">{generateError}</p>
         )}
       </div>
     </div>
@@ -437,6 +497,7 @@ export function AgreementDetail() {
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [activating, setActivating] = useState(false)
 
   // Filter WOs for this agreement
   const agreementWOs = workOrders.filter(wo => wo.service_agreement_id === id)
@@ -444,6 +505,23 @@ export function AgreementDetail() {
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
   if (!agreement) return <ErrorMessage message="Agreement not found." />
+
+  async function activateAgreement() {
+    if (!agreement) return
+    setActivating(true)
+    const { error: err } = await supabase
+      .from('service_agreements')
+      .update({ agreement_status: 'active' })
+      .eq('id', agreement.id)
+    if (err) {
+      alert(getSupabaseErrorMessage(err))
+    } else {
+      // Generate WOs for one-time line items
+      await supabase.rpc('generate_work_orders_for_next_month')
+      refetch()
+    }
+    setActivating(false)
+  }
 
   return (
     <div>
@@ -460,6 +538,12 @@ export function AgreementDetail() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {agreement.agreement_status === 'draft' && canEdit(role) && (
+            <Button size="sm" onClick={activateAgreement} disabled={activating}>
+              <CheckCircle size={16} />
+              {activating ? 'Activating...' : 'Activate Agreement'}
+            </Button>
+          )}
           {canEdit(role) && (
             <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
               <Edit size={16} />
@@ -488,7 +572,7 @@ export function AgreementDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsSection agreement={agreement} />}
-          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} totalAcres={agreement.site?.total_acres} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
+          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} totalAcres={agreement.site?.total_acres} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}
           {activeTab === 'notes' && <NotesSection agreement={agreement} />}
