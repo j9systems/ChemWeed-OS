@@ -19,7 +19,7 @@ export function useWorkOrders(filters?: WorkOrderFilters) {
 
     let query = supabase
       .from('work_orders')
-      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey(*), urgency_level:urgency_levels(*), agreement_line_item:service_agreement_line_items(*)')
+      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey1(*), urgency_level:urgency_levels(*), agreement_line_item:service_agreement_line_items(*)')
       .order('created_at', { ascending: false })
 
     if (filters?.status) {
@@ -59,7 +59,7 @@ export function useWorkOrder(id: string | undefined) {
 
     const { data, error: err } = await supabase
       .from('work_orders')
-      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey(*), urgency_level:urgency_levels(*), agreement_line_item:service_agreement_line_items(*, service_type:service_types(*)), service_agreement:service_agreements(*, client:clients(*))')
+      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey1(*), urgency_level:urgency_levels(*), agreement_line_item:service_agreement_line_items(*, service_type:service_types(*)), service_agreement:service_agreements(*, client:clients(*))')
       .eq('id', id)
       .single()
 
