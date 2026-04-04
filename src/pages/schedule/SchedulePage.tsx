@@ -1,10 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
-import { getServiceColor, formatPeriodLabel, MONTH_NAMES, WO_STATUS_COLORS } from '@/lib/constants'
+import { getServiceColor, formatPeriodLabel, MONTH_NAMES } from '@/lib/constants'
 import type { WorkOrder } from '@/types/database'
 
 function DaysSincePill({ days }: { days: number | null }) {
@@ -117,7 +117,6 @@ function getFirstDayOfMonth(year: number, month: number): number {
 
 export function SchedulePage() {
   const { workOrders, refetch } = useWorkOrders()
-  const navigate = useNavigate()
 
   const now = new Date()
   const [viewYear, setViewYear] = useState(now.getFullYear())

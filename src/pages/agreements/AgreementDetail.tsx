@@ -8,8 +8,7 @@ import { useSiteProfile } from '@/hooks/useSiteProfile'
 import { useSitePhotos } from '@/hooks/useSitePhotos'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { canEdit } from '@/lib/roles'
-import { supabase } from '@/lib/supabase'
-import { getSupabaseErrorMessage, formatDate, formatCurrency } from '@/lib/utils'
+import { formatDate, formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -17,7 +16,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Card } from '@/components/ui/Card'
 import { TabBar } from '@/pages/work-orders/components/TabBar'
 import { SiteInfoCard } from '@/pages/work-orders/components/SiteInfoCard'
-import { AGREEMENT_STATUSES, getUrgencyColors, getServiceColor, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
+import { AGREEMENT_STATUSES, getUrgencyColors, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
 import type { ServiceAgreement, ServiceAgreementLineItem, WorkOrder } from '@/types/database'
 
@@ -30,9 +29,6 @@ const TABS = [
 ]
 
 function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
-  const phone = agreement.client?.billing_phone
-  const email = agreement.client?.billing_email
-
   return (
     <div>
       <h2 className="text-sm font-semibold mb-3">Details</h2>
@@ -80,7 +76,7 @@ function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
   )
 }
 
-function EstimateSection({ lineItems, materials, agreement }: { lineItems: ServiceAgreementLineItem[]; materials: any[]; agreement: ServiceAgreement }) {
+function EstimateSection({ lineItems, materials }: { lineItems: ServiceAgreementLineItem[]; materials: any[] }) {
   const total = lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0)
 
   return (
@@ -285,7 +281,7 @@ export function AgreementDetail() {
   const { id } = useParams<{ id: string }>()
   const { role, user } = useAuth()
   const { agreement, lineItems, isLoading, error, refetch } = useServiceAgreement(id)
-  const { materials, refetch: refetchMaterials } = useServiceAgreementMaterials(id)
+  const { materials } = useServiceAgreementMaterials(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(agreement?.site_id)
   const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(agreement?.site_id)
   const { workOrders } = useWorkOrders()
@@ -343,7 +339,7 @@ export function AgreementDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsSection agreement={agreement} />}
-          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreement={agreement} />}
+          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}
           {activeTab === 'notes' && <NotesSection agreement={agreement} />}
