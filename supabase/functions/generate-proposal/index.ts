@@ -82,7 +82,6 @@ Deno.serve(async (req) => {
     const clientZip = wo.client?.billing_zip ?? wo.site?.zip ?? ''
     const clientCityStateZip = `${clientCity}, ${clientState} ${clientZip}`.trim()
 
-    // Frequency and month helpers
     const frequencyLabels: Record<string, string> = {
       one_time: '1X',
       annual: 'ANNUAL',
@@ -90,7 +89,9 @@ Deno.serve(async (req) => {
       weekly_seasonal: 'WEEKLY',
     }
     const monthNames = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC']
-    const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+
+    // 6 non-breaking spaces for indent (matches v18 pattern)
+    const INDENT = '\u00A0\u00A0\u00A0\u00A0\u00A0\u00A0'
 
     const lineItems1 = (charges ?? []).map((charge: any) => {
       let serviceName: string
@@ -120,37 +121,33 @@ Deno.serve(async (req) => {
       let seasonLabel = ''
       if ((charge.frequency === 'monthly_seasonal' || charge.frequency === 'weekly_seasonal')
           && charge.season_start_month && charge.season_end_month) {
-        seasonLabel = `${monthNames[charge.season_start_month - 1]}\u2013${monthNames[charge.season_end_month - 1]}`
+        seasonLabel = `${monthNames[charge.season_start_month - 1]}-${monthNames[charge.season_end_month - 1]}`
       }
 
-      // Ensure line_items is an array
-      let rawItems = charge.line_items
-      if (typeof rawItems === 'string') {
-        try { rawItems = JSON.parse(rawItems) } catch { rawItems = [] }
-      }
-      if (!Array.isArray(rawItems)) rawItems = []
+      // Build children array (DocsAutomator API uses "children" key, not the template tag name)
+      const rawItems = Array.isArray(charge.line_items) ? charge.line_items : []
 
-      // Map to DocsAutomator nested format with line_letter
-      const subLines = rawItems
-        .filter((li: string) => typeof li === 'string' && li.trim().length > 0)
+      const children = rawItems
+        .filter((li: any) => typeof li === 'string' && li.trim().length > 0)
         .map((li: string, idx: number) => ({
-          line_letter: letters[idx] ?? String(idx + 1),
-          description: li,
+          // Indent + letter goes in line_letter, description is plain uppercase
+          line_letter: `${INDENT}${String.fromCharCode(65 + idx)}.`,
+          description: li.toUpperCase(),
         }))
 
-      console.log('Charge:', costLabel, 'frequency:', frequencyLabel, 'subLines:', JSON.stringify(subLines))
+      // Add cost line as last child (no indent, no letter)
+      children.push({
+        line_letter: '',
+        description: `COST FOR ${costLabel}: ${formattedTotal}`,
+      })
 
       return {
         service_name: serviceName,
-        cost_label: costLabel,
-        service_total: formattedTotal,
         frequency: frequencyLabel,
         season: seasonLabel,
-        line_items_1_1: subLines,
+        children: children,
       }
     })
-
-    console.log('Full payload line_items_1:', JSON.stringify(lineItems1, null, 2))
 
     const payload = {
       docId: DOCSAUTOMATOR_AUTOMATION_ID,
@@ -191,8 +188,7 @@ Deno.serve(async (req) => {
 
     if (!daResponse.ok) {
       const errText = await daResponse.text()
-      console.error('DocsAutomator error:', errText)
-      return errorResponse(`DocsAutomator error: ${daResponse.status}`, 502)
+      return errorResponse(`DocsAutomator error: ${daResponse.status} - ${errText}`, 502)
     }
 
     const daData = await daResponse.json()

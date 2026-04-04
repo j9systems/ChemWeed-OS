@@ -150,9 +150,6 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, t
       body: { agreement_id: agreementId },
     })
 
-    // Debug: log the full response including payload sent to DocsAutomator
-    console.log('Generate proposal response:', JSON.stringify(data, null, 2))
-
     if (error || !data?.success) {
       setGenerateError(data?.error ?? error?.message ?? 'Failed to generate proposal')
     } else if (data.documentUrl) {
