@@ -12,7 +12,8 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
 }
 
 export function SigningStatusBadge({ status }: { status: Status }) {
-  const config = STATUS_CONFIG[status ?? 'not_started'] ?? STATUS_CONFIG.not_started
+  const fallback = STATUS_CONFIG.not_started
+  const config = STATUS_CONFIG[status ?? 'not_started'] ?? fallback
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${config.className}`}>
       {config.label}
