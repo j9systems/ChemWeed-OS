@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
+import { isWorkOrderActionable } from '@/lib/utils'
 import type { WorkOrder, WorkOrderStatus } from '@/types/database'
 
 interface WorkOrderFilters {
   status?: WorkOrderStatus
   client_id?: string
   site_id?: string
+  actionableOnly?: boolean
 }
 
 export function useWorkOrders(filters?: WorkOrderFilters) {
@@ -37,10 +39,14 @@ export function useWorkOrders(filters?: WorkOrderFilters) {
     if (err) {
       setError(err.message)
     } else {
-      setWorkOrders((data ?? []) as WorkOrder[])
+      let results = (data ?? []) as WorkOrder[]
+      if (filters?.actionableOnly) {
+        results = results.filter(isWorkOrderActionable)
+      }
+      setWorkOrders(results)
     }
     setIsLoading(false)
-  }, [filters?.status, filters?.client_id, filters?.site_id])
+  }, [filters?.status, filters?.client_id, filters?.site_id, filters?.actionableOnly])
 
   useEffect(() => { fetch() }, [fetch])
 

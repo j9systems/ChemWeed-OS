@@ -185,10 +185,13 @@ export function AgreementNew() {
       }
     }
 
-    // For one_time line items, generate WOs immediately
-    const hasOneTime = lineItems.some(li => li.frequency === 'one_time' && (li.is_manual_override ? li.description.trim() : li.service_type_id))
-    if (hasOneTime && status === 'active') {
-      await supabase.rpc('generate_work_orders_for_next_month')
+    // Generate all work orders for this agreement upfront
+    const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+      p_agreement_id: sa.id
+    })
+    if (genError) {
+      // Non-fatal -- WOs can be generated later via the manual button
+      console.warn('WO generation warning:', genError.message)
     }
 
     setSubmitting(false)

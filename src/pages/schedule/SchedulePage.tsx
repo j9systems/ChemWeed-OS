@@ -116,7 +116,12 @@ function getFirstDayOfMonth(year: number, month: number): number {
 }
 
 export function SchedulePage() {
-  const { workOrders, refetch } = useWorkOrders()
+  const { workOrders: allWorkOrders, refetch: refetchAll } = useWorkOrders()
+  const { workOrders: actionableWOs, refetch: refetchActionable } = useWorkOrders({ status: 'unscheduled', actionableOnly: true })
+
+  // Combine: use actionable filter for unscheduled queue, all WOs for calendar
+  const workOrders = allWorkOrders
+  const refetch = () => { refetchAll(); refetchActionable() }
 
   const now = new Date()
   const [viewYear, setViewYear] = useState(now.getFullYear())
@@ -128,7 +133,7 @@ export function SchedulePage() {
   // Local optimistic state for WOs (to avoid waiting for refetch on drop)
   const [optimisticUpdates, setOptimisticUpdates] = useState<Record<string, { scheduled_date: string; status: string }>>({})
 
-  const unscheduled = workOrders
+  const unscheduled = actionableWOs
     .filter(wo => {
       const opt = optimisticUpdates[wo.id]
       const status = opt?.status ?? wo.status
