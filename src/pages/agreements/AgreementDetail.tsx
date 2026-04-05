@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2 } from 'lucide-react'
+import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -21,6 +21,7 @@ import { MaterialsSection, type MaterialRow } from '@/components/work-orders/Mat
 import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
 import { AGREEMENT_STATUSES, getUrgencyColors, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
+import { SigningStatusBadge } from '@/components/SigningStatusBadge'
 import type { ServiceAgreement, ServiceAgreementLineItem, ServiceAgreementMaterial, WorkOrder } from '@/types/database'
 
 const TABS = [
@@ -123,6 +124,10 @@ interface EstimateSectionProps {
   materials: ServiceAgreementMaterial[]
   agreementId: string
   agreementStatus: ServiceAgreement['agreement_status']
+  signingStatus?: string | null
+  clientSigningUrl?: string | null
+  signedPdfUrl?: string | null
+  signingCompletedAt?: string | null
   totalAcres?: number | null
   refetchLineItems: () => void
   refetchMaterials: () => void
@@ -154,7 +159,7 @@ function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
   }))
 }
 
-function EstimateSection({ lineItems, materials, agreementId, agreementStatus, totalAcres, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
+function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
@@ -164,6 +169,8 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, t
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [proposalUrl, setProposalUrl] = useState<string | null>(null)
+  const [signingLink, setSigningLink] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
 
   const total = lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0)
   const isDraft = agreementStatus === 'draft'
@@ -180,10 +187,17 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, t
     setError(null)
   }
 
+  function copyToClipboard(text: string) {
+    navigator.clipboard.writeText(text)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }
+
   async function handleGenerateProposal() {
     setGenerating(true)
     setGenerateError(null)
     setProposalUrl(null)
+    setSigningLink(null)
 
     const { data, error } = await supabase.functions.invoke('generate-proposal', {
       body: { agreement_id: agreementId },
@@ -191,12 +205,18 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, t
 
     if (error || !data?.success) {
       setGenerateError(data?.error ?? error?.message ?? 'Failed to generate proposal')
-    } else if (data.documentUrl) {
-      setProposalUrl(data.documentUrl)
-      window.open(data.documentUrl, '_blank')
+    } else {
+      if (data.documentUrl) {
+        setProposalUrl(data.documentUrl)
+        window.open(data.documentUrl, '_blank')
+      }
+      if (data.signingSessionId && data.signingLinks?.length > 0) {
+        setSigningLink(data.signingLinks[0].signingUrl)
+      }
     }
 
     setGenerating(false)
+    refetchLineItems()
   }
 
   async function handleSave() {
@@ -378,30 +398,79 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, t
       </div>
 
       {/* Generate Proposal */}
-      <div className="flex items-center justify-between pt-2">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={handleGenerateProposal}
-            disabled={generating || lineItems.length === 0}
-          >
-            <FileText size={16} />
-            {generating ? 'Generating...' : 'Generate Proposal'}
-          </Button>
-          {proposalUrl && (
-            <a
-              href={proposalUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-brand-green underline"
+      <div className="border-t border-surface-border pt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="secondary"
+              onClick={handleGenerateProposal}
+              disabled={generating || lineItems.length === 0}
             >
-              Open PDF
-            </a>
+              <FileText size={16} />
+              {generating ? 'Generating...' : 'Generate Proposal'}
+            </Button>
+            {proposalUrl && (
+              <a
+                href={proposalUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-brand-green underline"
+              >
+                Open PDF
+              </a>
+            )}
+          </div>
+          {generateError && (
+            <p className="text-sm text-red-600">{generateError}</p>
           )}
         </div>
-        {generateError && (
-          <p className="text-sm text-red-600">{generateError}</p>
+
+        {/* Signing status & actions */}
+        {(signingStatus || signingLink) && (
+          <div className="flex flex-wrap items-center gap-3">
+            <SigningStatusBadge status={signingStatus} />
+
+            {signingStatus === 'completed' && signedPdfUrl && (
+              <a
+                href={signedPdfUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-sm text-brand-green hover:underline"
+              >
+                <Download size={14} />
+                Download Signed PDF
+              </a>
+            )}
+
+            {signingStatus === 'completed' && signingCompletedAt && (
+              <span className="text-xs text-[var(--color-text-muted)]">
+                Signed on {formatDate(signingCompletedAt)}
+              </span>
+            )}
+
+            {(['created', 'pending', 'in_progress'].includes(signingStatus ?? '') && (clientSigningUrl || signingLink)) && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyToClipboard((clientSigningUrl || signingLink)!)}
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? 'Copied!' : 'Copy Signing Link'}
+              </Button>
+            )}
+
+            {signingLink && !signingStatus && (
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => copyToClipboard(signingLink)}
+              >
+                {copied ? <Check size={14} /> : <Copy size={14} />}
+                {copied ? 'Copied!' : 'Copy Signing Link'}
+              </Button>
+            )}
+          </div>
         )}
       </div>
     </div>
@@ -669,7 +738,7 @@ export function AgreementDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsSection agreement={agreement} />}
-          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} totalAcres={agreement.site?.total_acres} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
+          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}
           {activeTab === 'notes' && <NotesSection agreement={agreement} />}

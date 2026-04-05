@@ -114,6 +114,11 @@ export interface ServiceAgreement {
   notes_client: string | null
   notes_internal: string | null
   notes_technician: string | null
+  signing_session_id?: string | null
+  signing_status?: string | null
+  client_signing_url?: string | null
+  signed_pdf_url?: string | null
+  signing_completed_at?: string | null
   created_by: string | null
   created_at: string
   updated_at: string

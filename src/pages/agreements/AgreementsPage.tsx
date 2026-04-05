@@ -10,6 +10,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Badge } from '@/components/ui/Badge'
 import { AGREEMENT_STATUSES, getServiceColor } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
+import { SigningStatusBadge } from '@/components/SigningStatusBadge'
 import type { ServiceAgreement, AgreementStatus } from '@/types/database'
 
 function MobileRow({ agreement }: { agreement: ServiceAgreement }) {
@@ -26,7 +27,10 @@ function MobileRow({ agreement }: { agreement: ServiceAgreement }) {
     >
       <div className="flex items-start justify-between gap-2">
         <p className="font-semibold text-sm truncate">{agreement.client?.name ?? 'Unknown Client'}</p>
-        <Badge agreementStatus={agreement.agreement_status} />
+        <div className="flex items-center gap-1.5">
+          <SigningStatusBadge status={agreement.signing_status} />
+          <Badge agreementStatus={agreement.agreement_status} />
+        </div>
       </div>
 
       <p className="text-xs text-[var(--color-text-muted)] truncate mt-0.5">
@@ -92,6 +96,9 @@ function TableRow({ agreement }: { agreement: ServiceAgreement }) {
         {formatDate(agreement.proposed_start_date)}
       </td>
       <td className="py-3 pr-4">
+        <SigningStatusBadge status={agreement.signing_status} />
+      </td>
+      <td className="py-3 pr-4">
         <Badge agreementStatus={agreement.agreement_status} />
       </td>
     </tr>
@@ -151,6 +158,7 @@ export function AgreementsPage() {
                 <th className="py-3 pr-4 font-medium">Service</th>
                 <th className="py-3 pr-4 font-medium">PCA</th>
                 <th className="py-3 pr-4 font-medium">Start Date</th>
+                <th className="py-3 pr-4 font-medium">eSign</th>
                 <th className="py-3 pr-4 font-medium">Status</th>
               </tr>
             </thead>
