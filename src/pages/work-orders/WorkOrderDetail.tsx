@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { useParams, Link } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck } from 'lucide-react'
+import { useParams, Link, useNavigate } from 'react-router'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField } from '@/lib/roles'
@@ -211,8 +211,10 @@ function NotesTab({ wo }: { wo: WorkOrder }) {
 export function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>()
   const { role } = useAuth()
+  const navigate = useNavigate()
   const { workOrder, isLoading, error, refetch } = useWorkOrder(id)
   const [updating, setUpdating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [activeTab, setActiveTab] = useState('details')
   const [scheduleDate, setScheduleDate] = useState('')
   const [showDatePicker, setShowDatePicker] = useState(false)
@@ -220,6 +222,23 @@ export function WorkOrderDetail() {
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
   if (!workOrder) return <ErrorMessage message="Work order not found." />
+
+  async function deleteWorkOrder() {
+    if (!workOrder) return
+    const confirmed = window.confirm('Are you sure you want to delete this work order?')
+    if (!confirmed) return
+    setDeleting(true)
+    const { error: err } = await supabase
+      .from('work_orders')
+      .delete()
+      .eq('id', workOrder.id)
+    if (err) {
+      alert(getSupabaseErrorMessage(err))
+      setDeleting(false)
+    } else {
+      navigate('/work-orders')
+    }
+  }
 
   async function markScheduled() {
     if (!workOrder || !scheduleDate) return
@@ -329,6 +348,12 @@ export function WorkOrderDetail() {
             <Button size="sm" onClick={completeJob} disabled={updating}>
               <CheckCircle size={16} />
               Complete Job
+            </Button>
+          )}
+          {canEdit(role) && (
+            <Button variant="danger" size="sm" onClick={deleteWorkOrder} disabled={deleting}>
+              <Trash2 size={16} />
+              {deleting ? 'Deleting...' : 'Delete'}
             </Button>
           )}
         </div>

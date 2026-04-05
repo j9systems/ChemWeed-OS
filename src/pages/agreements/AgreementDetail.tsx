@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Edit, CheckCircle, FileText } from 'lucide-react'
+import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -31,9 +31,48 @@ const TABS = [
   { key: 'notes', label: 'Notes' },
 ]
 
+function buildNavigationUrl(agreement: ServiceAgreement) {
+  const site = agreement.site
+  if (!site) return null
+  if (site.latitude != null && site.longitude != null) {
+    return `https://www.google.com/maps/dir/?api=1&destination=${site.latitude},${site.longitude}`
+  }
+  const addr = [site.address_line, site.city, site.state, site.zip].filter(Boolean).join(', ')
+  if (!addr) return null
+  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(addr)}`
+}
+
+function ActionButton({ href, icon, label }: { href: string | null; icon: React.ReactNode; label: string }) {
+  if (!href) {
+    return (
+      <span className="inline-flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-[var(--color-text-muted)] opacity-40 cursor-not-allowed">
+        {icon}
+        <span className="text-[10px]">{label}</span>
+      </span>
+    )
+  }
+  return (
+    <a href={href} className="inline-flex flex-col items-center gap-1 rounded-lg px-3 py-2 text-[var(--color-text-muted)] hover:bg-surface hover:text-[var(--color-text-primary)] transition-colors">
+      {icon}
+      <span className="text-[10px]">{label}</span>
+    </a>
+  )
+}
+
 function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
+  const phone = agreement.client?.billing_phone
+  const email = agreement.client?.billing_email
+  const navUrl = buildNavigationUrl(agreement)
+
   return (
     <div>
+      <div className="flex items-center gap-1 mb-4 border-b border-surface-border pb-3">
+        <ActionButton href={phone ? `tel:${phone}` : null} icon={<Phone size={18} />} label="Call" />
+        <ActionButton href={phone ? `sms:${phone}` : null} icon={<MessageSquare size={18} />} label="Text" />
+        <ActionButton href={email ? `mailto:${email}` : null} icon={<Mail size={18} />} label="Email" />
+        <ActionButton href={navUrl} icon={<Navigation size={18} />} label="Navigate" />
+      </div>
+
       <h2 className="text-sm font-semibold mb-3">Details</h2>
       <dl className="flex flex-wrap gap-x-6 gap-y-3 text-sm">
         <DetailItem label="Client">{agreement.client?.name ?? '—'}</DetailItem>
@@ -524,8 +563,10 @@ export function AgreementDetail() {
   const { workOrders } = useWorkOrders()
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
+  const navigate = useNavigate()
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [activating, setActivating] = useState(false)
+  const [deleting, setDeleting] = useState(false)
 
   // Filter WOs for this agreement
   const agreementWOs = workOrders.filter(wo => wo.service_agreement_id === id)
@@ -533,6 +574,23 @@ export function AgreementDetail() {
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
   if (!agreement) return <ErrorMessage message="Agreement not found." />
+
+  async function deleteAgreement() {
+    if (!agreement) return
+    const confirmed = window.confirm('Are you sure you want to delete this service agreement? This will also delete all associated work orders.')
+    if (!confirmed) return
+    setDeleting(true)
+    const { error: err } = await supabase
+      .from('service_agreements')
+      .delete()
+      .eq('id', agreement.id)
+    if (err) {
+      alert(getSupabaseErrorMessage(err))
+      setDeleting(false)
+    } else {
+      navigate('/agreements')
+    }
+  }
 
   async function activateAgreement() {
     if (!agreement) return
@@ -581,6 +639,12 @@ export function AgreementDetail() {
             <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
               <Edit size={16} />
               Edit
+            </Button>
+          )}
+          {canEdit(role) && (
+            <Button variant="danger" size="sm" onClick={deleteAgreement} disabled={deleting}>
+              <Trash2 size={16} />
+              {deleting ? 'Deleting...' : 'Delete'}
             </Button>
           )}
         </div>
