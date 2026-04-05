@@ -21,6 +21,7 @@ import { MaterialsSection, type MaterialRow } from '@/components/work-orders/Mat
 import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
 import { AGREEMENT_STATUSES, getUrgencyColors, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
+import { GenerateProposalModal } from '@/components/agreements/GenerateProposalModal'
 import { SigningStatusBadge } from '@/components/SigningStatusBadge'
 import type { ServiceAgreement, ServiceAgreementLineItem, ServiceAgreementMaterial, WorkOrder } from '@/types/database'
 
@@ -129,6 +130,9 @@ interface EstimateSectionProps {
   signedPdfUrl?: string | null
   signingCompletedAt?: string | null
   totalAcres?: number | null
+  clientContact: string | null
+  clientEmail: string | null
+  clientPhone: string | null
   refetchLineItems: () => void
   refetchMaterials: () => void
 }
@@ -159,7 +163,7 @@ function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
   }))
 }
 
-function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
+function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, clientContact, clientEmail, clientPhone, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
@@ -171,6 +175,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   const [proposalUrl, setProposalUrl] = useState<string | null>(null)
   const [signingLink, setSigningLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [proposalModalOpen, setProposalModalOpen] = useState(false)
 
   const total = lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0)
   const isDraft = agreementStatus === 'draft'
@@ -193,19 +198,20 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
     setTimeout(() => setCopied(false), 2000)
   }
 
-  async function handleGenerateProposal() {
+  async function handleGenerateProposal(signerName: string, signerEmail: string) {
     setGenerating(true)
     setGenerateError(null)
     setProposalUrl(null)
     setSigningLink(null)
 
     const { data, error } = await supabase.functions.invoke('generate-proposal', {
-      body: { agreement_id: agreementId },
+      body: { agreement_id: agreementId, signer_name: signerName, signer_email: signerEmail },
     })
 
     if (error || !data?.success) {
       setGenerateError(data?.error ?? error?.message ?? 'Failed to generate proposal')
     } else {
+      setProposalModalOpen(false)
       if (data.documentUrl) {
         setProposalUrl(data.documentUrl)
         window.open(data.documentUrl, '_blank')
@@ -404,11 +410,11 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
             <Button
               size="sm"
               variant="secondary"
-              onClick={handleGenerateProposal}
+              onClick={() => { setGenerateError(null); setProposalModalOpen(true) }}
               disabled={generating || lineItems.length === 0}
             >
               <FileText size={16} />
-              {generating ? 'Generating...' : 'Generate Proposal'}
+              Generate Proposal
             </Button>
             {proposalUrl && (
               <a
@@ -473,6 +479,17 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
           </div>
         )}
       </div>
+
+      <GenerateProposalModal
+        open={proposalModalOpen}
+        onClose={() => setProposalModalOpen(false)}
+        onConfirm={handleGenerateProposal}
+        clientContact={clientContact}
+        clientEmail={clientEmail}
+        clientPhone={clientPhone}
+        generating={generating}
+        error={generateError}
+      />
     </div>
   )
 }
@@ -738,7 +755,7 @@ export function AgreementDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsSection agreement={agreement} />}
-          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
+          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} clientContact={agreement.client?.billing_contact ?? null} clientEmail={agreement.client?.billing_email ?? null} clientPhone={agreement.client?.billing_phone ?? null} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}
           {activeTab === 'notes' && <NotesSection agreement={agreement} />}

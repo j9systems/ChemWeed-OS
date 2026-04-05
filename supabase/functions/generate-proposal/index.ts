@@ -29,6 +29,10 @@ Deno.serve(async (req) => {
       return errorResponse('agreement_id is required', 400)
     }
 
+    // Optional signer overrides from the confirmation modal
+    const body_signer_name: string | undefined = body.signer_name
+    const body_signer_email: string | undefined = body.signer_email
+
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     const { data: wo, error: woErr } = await supabase
@@ -167,6 +171,9 @@ Deno.serve(async (req) => {
         client_contact: wo.client?.billing_contact ?? '',
         client_phone: wo.client?.billing_phone ?? '',
         client_email: wo.client?.billing_email ?? '',
+
+        signer_name: body_signer_name ?? wo.client?.billing_contact ?? '',
+        signer_email: body_signer_email ?? wo.client?.billing_email ?? '',
 
         date: dateStr,
         contract_type: wo.frequency_type ?? lineItems1[0]?.frequency ?? '1X',
