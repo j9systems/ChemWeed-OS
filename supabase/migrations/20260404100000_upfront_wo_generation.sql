@@ -47,18 +47,24 @@ BEGIN
   LOOP
 
     IF li.frequency = 'one_time' THEN
-      -- Single WO, no period
-      INSERT INTO public.work_orders (
-        service_agreement_id, agreement_line_item_id,
-        client_id, site_id, service_type_id,
-        pca_id, po_number, status
-      ) VALUES (
-        sa.id, li.id,
-        sa.client_id, sa.site_id, li.service_type_id,
-        sa.pca_id, sa.po_number, 'unscheduled'
-      )
-      ON CONFLICT DO NOTHING;
-      wo_count := wo_count + 1;
+      -- Use NOT EXISTS because period columns are NULL for one_time items,
+      -- and Postgres treats NULLs as distinct in unique indexes,
+      -- so ON CONFLICT DO NOTHING would not prevent duplicates here.
+      IF NOT EXISTS (
+        SELECT 1 FROM public.work_orders
+        WHERE agreement_line_item_id = li.id AND status != 'cancelled'
+      ) THEN
+        INSERT INTO public.work_orders (
+          service_agreement_id, agreement_line_item_id,
+          client_id, site_id, service_type_id,
+          pca_id, po_number, status
+        ) VALUES (
+          sa.id, li.id,
+          sa.client_id, sa.site_id, li.service_type_id,
+          sa.pca_id, sa.po_number, 'unscheduled'
+        );
+        wo_count := wo_count + 1;
+      END IF;
 
     ELSIF li.frequency = 'annual' THEN
       -- One WO per year in the window
@@ -151,5 +157,135 @@ BEGIN
     total := total + (result->>'work_orders_generated')::integer;
   END LOOP;
   RETURN jsonb_build_object('work_orders_generated', total);
+END;
+$$;
+
+-- ============================================================
+-- Re-apply the corrected generate_work_orders_for_agreement
+-- function so the live DB stays in sync with this migration.
+-- The one_time dedup fix uses NOT EXISTS instead of
+-- ON CONFLICT DO NOTHING (NULLs in period columns defeat
+-- the unique index).
+-- ============================================================
+CREATE OR REPLACE FUNCTION public.generate_work_orders_for_agreement(p_agreement_id uuid)
+RETURNS jsonb LANGUAGE plpgsql AS $$
+DECLARE
+  sa record;
+  li record;
+  gen_year integer;
+  gen_month smallint;
+  gen_week smallint;
+  start_year integer;
+  end_year integer;
+  wo_count integer := 0;
+BEGIN
+  -- Load the agreement
+  SELECT * INTO sa FROM public.service_agreements WHERE id = p_agreement_id;
+  IF NOT FOUND OR sa.agreement_status NOT IN ('active', 'draft') THEN
+    RETURN jsonb_build_object('work_orders_generated', 0, 'reason', 'agreement not found or inactive');
+  END IF;
+
+  -- Determine generation window
+  start_year := COALESCE(
+    EXTRACT(YEAR FROM sa.contract_start_date)::integer,
+    EXTRACT(YEAR FROM CURRENT_DATE)::integer
+  );
+
+  end_year := COALESCE(
+    EXTRACT(YEAR FROM sa.contract_end_date)::integer,
+    EXTRACT(YEAR FROM CURRENT_DATE)::integer + 1
+  );
+
+  -- Loop each line item
+  FOR li IN
+    SELECT * FROM public.service_agreement_line_items
+    WHERE agreement_id = p_agreement_id
+  LOOP
+
+    IF li.frequency = 'one_time' THEN
+      -- Use NOT EXISTS because period columns are NULL for one_time items,
+      -- and Postgres treats NULLs as distinct in unique indexes,
+      -- so ON CONFLICT DO NOTHING would not prevent duplicates here.
+      IF NOT EXISTS (
+        SELECT 1 FROM public.work_orders
+        WHERE agreement_line_item_id = li.id AND status != 'cancelled'
+      ) THEN
+        INSERT INTO public.work_orders (
+          service_agreement_id, agreement_line_item_id,
+          client_id, site_id, service_type_id,
+          pca_id, po_number, status
+        ) VALUES (
+          sa.id, li.id,
+          sa.client_id, sa.site_id, li.service_type_id,
+          sa.pca_id, sa.po_number, 'unscheduled'
+        );
+        wo_count := wo_count + 1;
+      END IF;
+
+    ELSIF li.frequency = 'annual' THEN
+      FOR gen_year IN start_year..end_year LOOP
+        INSERT INTO public.work_orders (
+          service_agreement_id, agreement_line_item_id,
+          client_id, site_id, service_type_id,
+          period_year, pca_id, po_number, status
+        ) VALUES (
+          sa.id, li.id,
+          sa.client_id, sa.site_id, li.service_type_id,
+          gen_year, sa.pca_id, sa.po_number, 'unscheduled'
+        )
+        ON CONFLICT DO NOTHING;
+        wo_count := wo_count + 1;
+      END LOOP;
+
+    ELSIF li.frequency = 'monthly_seasonal' THEN
+      IF li.season_start_month IS NULL OR li.season_end_month IS NULL THEN
+        CONTINUE;
+      END IF;
+      FOR gen_year IN start_year..end_year LOOP
+        FOR gen_month IN li.season_start_month..li.season_end_month LOOP
+          INSERT INTO public.work_orders (
+            service_agreement_id, agreement_line_item_id,
+            client_id, site_id, service_type_id,
+            period_year, period_month,
+            pca_id, po_number, status
+          ) VALUES (
+            sa.id, li.id,
+            sa.client_id, sa.site_id, li.service_type_id,
+            gen_year, gen_month,
+            sa.pca_id, sa.po_number, 'unscheduled'
+          )
+          ON CONFLICT DO NOTHING;
+          wo_count := wo_count + 1;
+        END LOOP;
+      END LOOP;
+
+    ELSIF li.frequency = 'weekly_seasonal' THEN
+      IF li.season_start_month IS NULL OR li.season_end_month IS NULL THEN
+        CONTINUE;
+      END IF;
+      FOR gen_year IN start_year..end_year LOOP
+        FOR gen_month IN li.season_start_month..li.season_end_month LOOP
+          FOR gen_week IN 1..4 LOOP
+            INSERT INTO public.work_orders (
+              service_agreement_id, agreement_line_item_id,
+              client_id, site_id, service_type_id,
+              period_year, period_month, period_week,
+              pca_id, po_number, status
+            ) VALUES (
+              sa.id, li.id,
+              sa.client_id, sa.site_id, li.service_type_id,
+              gen_year, gen_month, gen_week,
+              sa.pca_id, sa.po_number, 'unscheduled'
+            )
+            ON CONFLICT DO NOTHING;
+            wo_count := wo_count + 1;
+          END LOOP;
+        END LOOP;
+      END LOOP;
+    END IF;
+
+  END LOOP;
+
+  RETURN jsonb_build_object('work_orders_generated', wo_count);
 END;
 $$;
