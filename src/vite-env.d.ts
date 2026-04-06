@@ -24,6 +24,16 @@ declare namespace google.maps {
     lat(): number
     lng(): number
   }
+  class Geocoder {
+    constructor()
+    geocode(
+      request: { address: string },
+      callback: (results: GeocoderResult[] | null, status: string) => void,
+    ): void
+  }
+  interface GeocoderResult {
+    geometry: { location: LatLng }
+  }
   class InfoWindow {
     constructor(opts?: { content?: string })
     open(map: Map, anchor?: Marker): void
