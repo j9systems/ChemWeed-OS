@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router'
 import { Plus, Send } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
@@ -45,9 +45,28 @@ export function TeamPage() {
   const [showActiveOnly, setShowActiveOnly] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [resendingEmail, setResendingEmail] = useState<string | null>(null)
+  const [pendingInvites, setPendingInvites] = useState<Set<string>>(new Set())
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const isAdmin = role === 'admin'
+
+  // Fetch which team member emails have not yet accepted their invite
+  useEffect(() => {
+    if (!isAdmin || members.length === 0) return
+    const emails = members
+      .filter((m) => m.is_active && m.email)
+      .map((m) => m.email!)
+
+    if (emails.length === 0) return
+
+    supabase.functions.invoke('check-invite-status', { body: { emails } })
+      .then(({ data }) => {
+        if (data?.pending) {
+          setPendingInvites(new Set(data.pending.map((e: string) => e.toLowerCase())))
+        }
+      })
+      .catch(() => { /* silently fail — button just won't show */ })
+  }, [isAdmin, members])
 
   const filtered = members.filter((m) => {
     if (roleFilter !== 'all' && m.role !== roleFilter) return false
@@ -211,7 +230,7 @@ export function TeamPage() {
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3">
-                          {member.is_active && member.email && (
+                          {member.is_active && member.email && pendingInvites.has(member.email.toLowerCase()) && (
                             <button
                               onClick={(e) => {
                                 e.preventDefault()
