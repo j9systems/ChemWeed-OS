@@ -7,15 +7,26 @@ const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
 
 // ── Google Maps loader ────────────────────────────────────────────────
 let mapsPromise: Promise<void> | null = null
+let mapsAuthError = false
+
 function loadGoogleMaps(): Promise<void> {
+  if (mapsAuthError) return Promise.reject(new Error('Google Maps API error — enable the Maps JavaScript API and Geocoding API in Google Cloud Console.'))
   if (window.google?.maps) return Promise.resolve()
   if (mapsPromise) return mapsPromise
   mapsPromise = new Promise((resolve, reject) => {
+    // Listen for Google Maps auth errors (fires before script.onload)
+    ;(window as any).gm_authFailure = () => {
+      mapsAuthError = true
+      mapsPromise = null
+      reject(new Error('Google Maps API error — enable the Maps JavaScript API and Geocoding API in Google Cloud Console.'))
+    }
     const script = document.createElement('script')
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker,geocoding`
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${GOOGLE_MAPS_KEY}&libraries=marker`
     script.async = true
     script.defer = true
-    script.onload = () => resolve()
+    script.onload = () => {
+      if (!mapsAuthError) resolve()
+    }
     script.onerror = () => { mapsPromise = null; reject(new Error('Failed to load Google Maps')) }
     document.head.appendChild(script)
   })
@@ -133,8 +144,8 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
     async function runMap() {
       try {
         await loadGoogleMaps()
-      } catch {
-        if (!cancelled) setMapError('Failed to load map')
+      } catch (err) {
+        if (!cancelled) setMapError(err instanceof Error ? err.message : 'Failed to load map')
         return
       }
       if (cancelled || !mapDivRef.current) return
@@ -235,7 +246,9 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
   }
 
   const mapPlaceholder = mapError ? (
-    <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">{mapError}</div>
+    <div className="flex flex-col items-center justify-center h-full px-6 text-center gap-2">
+      <p className="text-sm text-[var(--color-text-muted)]">{mapError}</p>
+    </div>
   ) : mappableWOs.length === 0 ? (
     <div className="flex items-center justify-center h-full text-sm text-[var(--color-text-muted)]">
       No jobs with addresses for this day.
