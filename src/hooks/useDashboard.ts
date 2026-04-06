@@ -53,7 +53,7 @@ async function fetchStats(): Promise<DashboardStats> {
     supabase
       .from('service_agreements')
       .select('id', { count: 'exact', head: true })
-      .in('signing_status', ['created', 'pending']),
+      .in('signing_status', ['created', 'sent', 'pending']),
     supabase
       .from('service_agreements')
       .select('id', { count: 'exact', head: true })
@@ -76,7 +76,7 @@ async function fetchProposals(): Promise<AttentionProposal[]> {
   const { data, error } = await supabase
     .from('service_agreements')
     .select('id, agreement_number, signing_status, signing_completed_at, created_at, client:clients(name), site:sites(address_line, city)')
-    .in('signing_status', ['not_sent', 'created', 'pending'])
+    .in('signing_status', ['not_sent', 'created', 'sent', 'pending'])
     .order('created_at', { ascending: true })
     .limit(10)
 

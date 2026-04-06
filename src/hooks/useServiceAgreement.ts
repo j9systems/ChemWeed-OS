@@ -45,5 +45,32 @@ export function useServiceAgreement(id: string | undefined) {
 
   useEffect(() => { fetch() }, [fetch])
 
+  // Subscribe to realtime changes on this agreement row (e.g. signing_status
+  // updated by the esign-webhook edge function) so the UI reflects updates
+  // without a manual refresh.
+  useEffect(() => {
+    if (!id) return
+
+    const channel = supabase
+      .channel(`agreement-${id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'service_agreements',
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          setAgreement((prev) => (prev ? { ...prev, ...payload.new } as ServiceAgreement : prev))
+        },
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
+  }, [id])
+
   return { agreement, lineItems, isLoading, error, refetch: fetch }
 }

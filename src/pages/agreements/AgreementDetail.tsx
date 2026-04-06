@@ -181,7 +181,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   const [emailSentTo, setEmailSentTo] = useState<string | null>(null)
 
   // Sync localSigningStatus when prop changes (e.g. after refetch)
-  if (signingStatus !== undefined && signingStatus !== localSigningStatus && localSigningStatus !== 'pending') {
+  if (signingStatus !== undefined && signingStatus !== localSigningStatus && localSigningStatus !== 'sent') {
     setLocalSigningStatus(signingStatus)
   }
 
@@ -494,7 +494,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
           onSent={(email) => {
             setSendModalOpen(false)
             setEmailSentTo(email)
-            setLocalSigningStatus('pending')
+            setLocalSigningStatus('sent')
           }}
         />
       )}
