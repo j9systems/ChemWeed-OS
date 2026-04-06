@@ -309,14 +309,14 @@ export function WorkOrderDetail() {
     <div>
       <Link to="/work-orders" className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4">
         <ArrowLeft size={16} />
-        Back to Work Orders
+        Back to Jobs
       </Link>
 
       {/* Header */}
       <div className="flex items-start justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold">
-            {workOrder.work_order_number ?? 'Work Order'}
+            {workOrder.work_order_number ?? 'Job'}
           </h1>
           <p className="text-sm text-[var(--color-text-muted)]">
             {workOrder.client?.name} — {workOrder.site?.name}
