@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download } from 'lucide-react'
+import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download, Send } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -22,6 +22,7 @@ import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/compone
 import { AGREEMENT_STATUSES, getUrgencyColors, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
 import { GenerateProposalModal } from '@/components/agreements/GenerateProposalModal'
+import { SendProposalModal } from '@/components/agreements/SendProposalModal'
 import { SigningStatusBadge } from '@/components/SigningStatusBadge'
 import type { ServiceAgreement, ServiceAgreementLineItem, ServiceAgreementMaterial, WorkOrder } from '@/types/database'
 
@@ -133,6 +134,7 @@ interface EstimateSectionProps {
   clientContact: string | null
   clientEmail: string | null
   clientPhone: string | null
+  clientName: string
   refetchLineItems: () => void
   refetchMaterials: () => void
 }
@@ -163,7 +165,7 @@ function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
   }))
 }
 
-function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, clientContact, clientEmail, clientPhone, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
+function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, clientContact, clientEmail, clientPhone, clientName, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
@@ -172,13 +174,22 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
-  const [proposalUrl, setProposalUrl] = useState<string | null>(null)
-  const [signingLink, setSigningLink] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [proposalModalOpen, setProposalModalOpen] = useState(false)
+  const [sendModalOpen, setSendModalOpen] = useState(false)
+  const [localSigningStatus, setLocalSigningStatus] = useState<string | null | undefined>(signingStatus)
+  const [emailSentTo, setEmailSentTo] = useState<string | null>(null)
+
+  // Sync localSigningStatus when prop changes (e.g. after refetch)
+  if (signingStatus !== undefined && signingStatus !== localSigningStatus && localSigningStatus !== 'pending') {
+    setLocalSigningStatus(signingStatus)
+  }
 
   const total = lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0)
   const isDraft = agreementStatus === 'draft'
+  const hasSigningUrl = !!clientSigningUrl
+
+  const documentName = `Proposal - ${clientName} - ${formatDate(new Date().toISOString())}`
 
   function handleEdit() {
     setMaterialRows(toMaterialRows(materials))
@@ -201,8 +212,6 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   async function handleGenerateProposal(signerName: string, signerEmail: string) {
     setGenerating(true)
     setGenerateError(null)
-    setProposalUrl(null)
-    setSigningLink(null)
 
     const { data, error } = await supabase.functions.invoke('generate-proposal', {
       body: { agreement_id: agreementId, signer_name: signerName, signer_email: signerEmail },
@@ -210,17 +219,11 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
 
     if (error || !data?.success) {
       setGenerateError(data?.error ?? error?.message ?? 'Failed to generate proposal')
-    } else {
-      setProposalModalOpen(false)
-      if (data.documentUrl) {
-        setProposalUrl(data.documentUrl)
-        window.open(data.documentUrl, '_blank')
-      }
-      if (data.signingSessionId && data.signingLinks?.length > 0) {
-        setSigningLink(data.signingLinks[0].signingUrl)
-      }
+      setGenerating(false)
+      return
     }
 
+    setProposalModalOpen(false)
     setGenerating(false)
     refetchLineItems()
   }
@@ -403,80 +406,67 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
         )}
       </div>
 
-      {/* Generate Proposal */}
+      {/* Agreement actions */}
       <div className="border-t border-surface-border pt-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
+        {!hasSigningUrl ? (
+          <div>
             <Button
               size="sm"
-              variant="secondary"
               onClick={() => { setGenerateError(null); setProposalModalOpen(true) }}
               disabled={generating || lineItems.length === 0}
+              style={{ backgroundColor: '#2a6b2a', color: '#fff' }}
             >
               <FileText size={16} />
-              Generate Proposal
+              Create Agreement
             </Button>
-            {proposalUrl && (
-              <a
-                href={proposalUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-sm text-brand-green underline"
-              >
-                Open PDF
-              </a>
-            )}
           </div>
-          {generateError && (
-            <p className="text-sm text-red-600">{generateError}</p>
-          )}
-        </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-center gap-3">
+              <SigningStatusBadge status={localSigningStatus} />
 
-        {/* Signing status & actions */}
-        {(signingStatus || signingLink) && (
-          <div className="flex flex-wrap items-center gap-3">
-            <SigningStatusBadge status={signingStatus} />
-
-            {signingStatus === 'completed' && signedPdfUrl && (
-              <a
-                href={signedPdfUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1 text-sm text-brand-green hover:underline"
+              <button
+                type="button"
+                onClick={() => { setEmailSentTo(null); setSendModalOpen(true) }}
+                className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors hover:opacity-90"
+                style={{ backgroundColor: '#2a6b2a' }}
               >
-                <Download size={14} />
-                Download Signed PDF
-              </a>
-            )}
+                <Send size={14} />
+                Preview &amp; Send
+              </button>
 
-            {signingStatus === 'completed' && signingCompletedAt && (
-              <span className="text-xs text-[var(--color-text-muted)]">
-                Signed on {formatDate(signingCompletedAt)}
-              </span>
-            )}
-
-            {(['created', 'pending', 'in_progress'].includes(signingStatus ?? '') && (clientSigningUrl || signingLink)) && (
               <Button
                 size="sm"
-                variant="ghost"
-                onClick={() => copyToClipboard((clientSigningUrl || signingLink)!)}
+                variant="secondary"
+                onClick={() => copyToClipboard(clientSigningUrl!)}
               >
                 {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied ? 'Copied!' : 'Copy Signing Link'}
+                {copied ? 'Copied!' : 'Copy Link'}
               </Button>
-            )}
 
-            {signingLink && !signingStatus && (
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={() => copyToClipboard(signingLink)}
-              >
-                {copied ? <Check size={14} /> : <Copy size={14} />}
-                {copied ? 'Copied!' : 'Copy Signing Link'}
-              </Button>
+              {localSigningStatus === 'completed' && signedPdfUrl && (
+                <a
+                  href={signedPdfUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-sm text-brand-green hover:underline"
+                >
+                  <Download size={14} />
+                  Download Signed PDF
+                </a>
+              )}
+
+              {localSigningStatus === 'completed' && signingCompletedAt && (
+                <span className="text-xs text-[var(--color-text-muted)]">
+                  Signed on {formatDate(signingCompletedAt)}
+                </span>
+              )}
+            </div>
+
+            {emailSentTo && (
+              <p className="text-sm text-green-700">Email sent to {emailSentTo}</p>
             )}
-          </div>
+          </>
         )}
       </div>
 
@@ -486,10 +476,28 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
         onConfirm={handleGenerateProposal}
         clientContact={clientContact}
         clientEmail={clientEmail}
-        clientPhone={clientPhone}
         generating={generating}
         error={generateError}
       />
+
+      {hasSigningUrl && (
+        <SendProposalModal
+          open={sendModalOpen}
+          onClose={() => setSendModalOpen(false)}
+          agreementId={agreementId}
+          signingUrl={clientSigningUrl!}
+          documentName={documentName}
+          clientContact={clientContact}
+          clientEmail={clientEmail}
+          clientPhone={clientPhone}
+          companyName="Chem-Weed"
+          onSent={(email) => {
+            setSendModalOpen(false)
+            setEmailSentTo(email)
+            setLocalSigningStatus('pending')
+          }}
+        />
+      )}
     </div>
   )
 }
@@ -755,7 +763,7 @@ export function AgreementDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsSection agreement={agreement} />}
-          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} clientContact={agreement.client?.billing_contact ?? null} clientEmail={agreement.client?.billing_email ?? null} clientPhone={agreement.client?.billing_phone ?? null} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
+          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} clientContact={agreement.client?.billing_contact ?? null} clientEmail={agreement.client?.billing_email ?? null} clientPhone={agreement.client?.billing_phone ?? null} clientName={agreement.client?.name ?? ''} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}
           {activeTab === 'notes' && <NotesSection agreement={agreement} />}
