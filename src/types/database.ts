@@ -244,12 +244,14 @@ export interface TeamMember {
   id: string
   first_name: string
   last_name: string
-  email: string | null
-  personal_email: string | null
-  photo: string | null
   role: Role
-  phone: number | null
-  active: string | null
+  pesticide_license_number: string | null
+  license_expiry_date: string | null
+  phone: string | null
+  email: string | null
+  is_active: boolean
+  notes: string | null
+  created_at: string
 }
 
 export interface FieldCompletion {
