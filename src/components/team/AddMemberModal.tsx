@@ -73,14 +73,12 @@ export function AddMemberModal({ open, onClose, onSuccess }: AddMemberModalProps
     setIsSubmitting(false)
 
     if (fnError) {
-      // Try to extract the error message from the response body
-      const detail = typeof data === 'object' && data?.error ? data.error : fnError.message
-      setError(detail)
+      setError(fnError.message)
       return
     }
 
-    if (data?.error) {
-      setError(data.error)
+    if (!data?.success) {
+      setError(data?.error ?? 'Failed to invite team member.')
       return
     }
 

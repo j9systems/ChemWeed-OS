@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
     // Validate required fields
     if (!first_name?.trim() || !last_name?.trim() || !role?.trim() || !email?.trim()) {
-      return jsonResponse({ success: false, error: 'first_name, last_name, role, and email are required.' }, 400)
+      return jsonResponse({ success: false, error: 'first_name, last_name, role, and email are required.' })
     }
 
     const supabase = createClient(
@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     if (insertErr) {
       console.error('Team insert error:', insertErr.message)
-      return jsonResponse({ success: false, error: insertErr.message }, 400)
+      return jsonResponse({ success: false, error: insertErr.message })
     }
 
     // Invite auth user so they receive a password-setup email
@@ -72,6 +72,6 @@ Deno.serve(async (req) => {
   } catch (err) {
     const message = err instanceof Error ? err.message : 'Unknown error'
     console.error('Unhandled error:', message)
-    return jsonResponse({ success: false, error: message }, 500)
+    return jsonResponse({ success: false, error: message })
   }
 })
