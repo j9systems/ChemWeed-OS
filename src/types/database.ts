@@ -251,6 +251,7 @@ export interface TeamMember {
   email: string | null
   is_active: boolean
   notes: string | null
+  photo_url: string | null
   created_at: string
 }
 

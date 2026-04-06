@@ -16,6 +16,21 @@ export async function uploadPhoto(
   return data.publicUrl
 }
 
+export async function uploadProfilePhoto(
+  teamMemberId: string,
+  blob: Blob
+): Promise<string> {
+  const path = `profile-photos/${teamMemberId}.jpg`
+  const { error } = await supabase.storage
+    .from('field-photos')
+    .upload(path, blob, { contentType: 'image/jpeg', upsert: true })
+
+  if (error) throw new Error(`Profile photo upload failed: ${error.message}`)
+
+  const { data } = supabase.storage.from('field-photos').getPublicUrl(path)
+  return data.publicUrl
+}
+
 export async function uploadSignature(
   workOrderId: string,
   blob: Blob
