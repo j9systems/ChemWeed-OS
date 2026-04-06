@@ -14,6 +14,7 @@ import { ClientDetail } from '@/pages/clients/ClientDetail'
 import { FieldCompletionForm } from '@/pages/field/FieldCompletionForm'
 import { SiteDetail } from '@/pages/sites/SiteDetail'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
+import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 
 function RootLayout() {
   return (
@@ -34,7 +35,8 @@ const router = createBrowserRouter([
           {
             element: <AppShell />,
             children: [
-              { index: true, element: <Navigate to="/agreements" replace /> },
+              { index: true, element: <Navigate to="/dashboard" replace /> },
+              { path: 'dashboard', element: <DashboardPage /> },
               { path: 'agreements', element: <AgreementsPage /> },
               { path: 'agreements/new', element: <AgreementNew /> },
               { path: 'agreements/:id', element: <AgreementDetail /> },
