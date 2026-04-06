@@ -17,6 +17,7 @@ export function LoginPage() {
   const [resetSent, setResetSent] = useState(false)
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard'
+  const urlError = new URLSearchParams(location.search).get('error')
 
   if (!isLoading && user) {
     return <Navigate to={from} replace />
@@ -69,6 +70,13 @@ export function LoginPage() {
           />
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">Vegetation Management Operations</p>
         </div>
+
+        {urlError === 'invalid_link' && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            This invite link is invalid or has expired. Contact your administrator to resend the
+            invite.
+          </div>
+        )}
 
         {forgotPassword ? (
           resetSent ? (
