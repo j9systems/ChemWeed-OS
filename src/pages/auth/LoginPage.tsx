@@ -13,7 +13,7 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/work-orders'
+  const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard'
 
   if (!isLoading && user) {
     return <Navigate to={from} replace />

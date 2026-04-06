@@ -25,9 +25,9 @@ export default defineConfig({
         display: 'standalone',
         orientation: 'portrait',
         icons: [
-          { src: 'icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: 'icons/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: 'https://res.cloudinary.com/duy32f0q4/image/upload/c_fill,w_192,h_192/q_auto/f_png/v1775451528/qt_q_95_-_Edited_bgoifl.png', sizes: '192x192', type: 'image/png' },
+          { src: 'https://res.cloudinary.com/duy32f0q4/image/upload/c_fill,w_512,h_512/q_auto/f_png/v1775451528/qt_q_95_-_Edited_bgoifl.png', sizes: '512x512', type: 'image/png' },
+          { src: 'https://res.cloudinary.com/duy32f0q4/image/upload/c_fill,w_512,h_512/q_auto/f_png/v1775451528/qt_q_95_-_Edited_bgoifl.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
       workbox: {
