@@ -215,9 +215,13 @@ export function TeamMemberDetail() {
 
   async function handleDelete() {
     if (!id || hasCrewRecords) return
-    const { error: err } = await supabase.from('team').delete().eq('id', id)
+    const { data, error: err } = await supabase.functions.invoke('delete-team-member', {
+      body: { team_member_id: id, email: email || null },
+    })
     if (err) {
       setToast({ message: err.message, type: 'error' })
+    } else if (data?.error) {
+      setToast({ message: data.error, type: 'error' })
     } else {
       navigate('/team')
     }
