@@ -6,9 +6,18 @@ export function AuthCallback() {
   const navigate = useNavigate()
 
   useEffect(() => {
+    const hash = window.location.hash
+    const params = new URLSearchParams(hash.replace('#', ''))
+    const type = params.get('type')
+    const isPasswordFlow = type === 'invite' || type === 'recovery'
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) {
-        navigate('/', { replace: true })
+        if (isPasswordFlow) {
+          navigate('/set-password', { replace: true })
+        } else {
+          navigate('/', { replace: true })
+        }
       } else {
         navigate('/login?error=invalid_link', { replace: true })
       }
