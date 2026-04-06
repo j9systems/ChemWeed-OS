@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Navigate, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '@/hooks/useAuth'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -12,6 +13,8 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [forgotPassword, setForgotPassword] = useState(false)
+  const [resetSent, setResetSent] = useState(false)
 
   const from = (location.state as { from?: { pathname: string } })?.from?.pathname ?? '/dashboard'
 
@@ -36,6 +39,25 @@ export function LoginPage() {
     }
   }
 
+  async function handleResetPassword(e: FormEvent) {
+    e.preventDefault()
+    if (!email) {
+      setError('Please enter your email address.')
+      return
+    }
+    setError(null)
+    setSubmitting(true)
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/auth/callback`,
+    })
+    setSubmitting(false)
+    if (resetError) {
+      setError(resetError.message)
+    } else {
+      setResetSent(true)
+    }
+  }
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm">
@@ -48,36 +70,106 @@ export function LoginPage() {
           <p className="mt-1 text-sm text-[var(--color-text-muted)]">Vegetation Management Operations</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="you@chemweed.com"
-            autoComplete="email"
-            required
-          />
-          <Input
-            label="Password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder="••••••••"
-            autoComplete="current-password"
-            required
-          />
-
-          {error && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-              {error}
+        {forgotPassword ? (
+          resetSent ? (
+            <div className="space-y-4 text-center">
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Check your email for a password reset link.
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotPassword(false)
+                  setResetSent(false)
+                  setError(null)
+                }}
+                className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+              >
+                Back to Sign In
+              </button>
             </div>
-          )}
+          ) : (
+            <form onSubmit={handleResetPassword} className="space-y-4">
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Enter your email and we'll send you a reset link.
+              </p>
+              <Input
+                label="Email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@chemweed.com"
+                autoComplete="email"
+                required
+              />
 
-          <Button type="submit" disabled={submitting} className="w-full">
-            {submitting ? 'Signing in...' : 'Sign In'}
-          </Button>
-        </form>
+              {error && (
+                <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  {error}
+                </div>
+              )}
+
+              <Button type="submit" disabled={submitting} className="w-full">
+                {submitting ? 'Sending...' : 'Send Reset Email'}
+              </Button>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setForgotPassword(false)
+                    setError(null)
+                  }}
+                  className="text-sm font-medium text-[var(--color-primary)] hover:underline"
+                >
+                  Back to Sign In
+                </button>
+              </div>
+            </form>
+          )
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <Input
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="you@chemweed.com"
+              autoComplete="email"
+              required
+            />
+            <Input
+              label="Password"
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              autoComplete="current-password"
+              required
+            />
+
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <Button type="submit" disabled={submitting} className="w-full">
+              {submitting ? 'Signing in...' : 'Sign In'}
+            </Button>
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={() => {
+                  setForgotPassword(true)
+                  setError(null)
+                }}
+                className="text-sm text-[var(--color-text-muted)] hover:underline"
+              >
+                Forgot password?
+              </button>
+            </div>
+          </form>
+        )}
       </div>
     </div>
   )
