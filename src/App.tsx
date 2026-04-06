@@ -15,6 +15,8 @@ import { FieldCompletionForm } from '@/pages/field/FieldCompletionForm'
 import { SiteDetail } from '@/pages/sites/SiteDetail'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
+import { TeamPage } from '@/pages/team/TeamPage'
+import { TeamMemberDetail } from '@/pages/team/TeamMemberDetail'
 
 function RootLayout() {
   return (
@@ -47,6 +49,8 @@ const router = createBrowserRouter([
               { path: 'clients', element: <ClientsPage /> },
               { path: 'clients/:id', element: <ClientDetail /> },
               { path: 'sites/:id', element: <SiteDetail /> },
+              { path: 'team', element: <TeamPage /> },
+              { path: 'team/:id', element: <TeamMemberDetail /> },
               { path: 'settings', element: <SettingsPage /> },
             ],
           },

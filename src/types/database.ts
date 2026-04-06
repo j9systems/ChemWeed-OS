@@ -248,8 +248,12 @@ export interface TeamMember {
   personal_email: string | null
   photo: string | null
   role: Role
-  phone: number | null
+  phone: string | null
   active: string | null
+  pesticide_license_number: string | null
+  license_expiry_date: string | null
+  notes: string | null
+  created_at: string | null
 }
 
 export interface FieldCompletion {

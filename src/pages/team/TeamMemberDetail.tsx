@@ -1,0 +1,407 @@
+import { useState, useEffect, useCallback } from 'react'
+import { useParams, useNavigate, Link } from 'react-router'
+import { ArrowLeft } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
+import { useAuth } from '@/hooks/useAuth'
+import { ROLES, WO_STATUS_COLORS, WORK_ORDER_STATUSES } from '@/lib/constants'
+import { Button } from '@/components/ui/Button'
+import { Input } from '@/components/ui/Input'
+import { Select } from '@/components/ui/Select'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { Toast } from '@/components/ui/Toast'
+import type { TeamMember, Role, WorkOrderStatus } from '@/types/database'
+
+const ROLE_COLORS: Record<Role, string> = {
+  admin: '#2a6b2a',
+  manager: '#3d8f3d',
+  tech: '#1a6b9a',
+  pca: '#7a4a1a',
+}
+
+const ROLE_OPTIONS = Object.entries(ROLES).map(([value, label]) => ({ value, label }))
+
+interface CrewAssignment {
+  crew_role: string
+  work_order_id: string
+  work_order_number: string
+  scheduled_date: string | null
+  completion_date: string | null
+  status: WorkOrderStatus
+  address_line: string | null
+  city: string | null
+}
+
+function isLicenseExpired(date: string): boolean {
+  return new Date(date) < new Date()
+}
+
+function isLicenseExpiringSoon(date: string): boolean {
+  const expiry = new Date(date)
+  const now = new Date()
+  const sixtyDays = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000)
+  return expiry >= now && expiry <= sixtyDays
+}
+
+export function TeamMemberDetail() {
+  const { id } = useParams<{ id: string }>()
+  const navigate = useNavigate()
+  const { role: authRole } = useAuth()
+  const isAdmin = authRole === 'admin'
+
+  const [member, setMember] = useState<TeamMember | null>(null)
+  const [assignments, setAssignments] = useState<CrewAssignment[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [isSaving, setIsSaving] = useState(false)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [hasCrewRecords, setHasCrewRecords] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+
+  // Form state
+  const [firstName, setFirstName] = useState('')
+  const [lastName, setLastName] = useState('')
+  const [memberRole, setMemberRole] = useState<Role>('tech')
+  const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
+  const [active, setActive] = useState(true)
+  const [notes, setNotes] = useState('')
+  const [licenseNumber, setLicenseNumber] = useState('')
+  const [licenseExpiry, setLicenseExpiry] = useState('')
+
+  const fetchMember = useCallback(async () => {
+    if (!id) return
+    setIsLoading(true)
+    setError(null)
+
+    const [memberRes, crewRes, crewCountRes] = await Promise.all([
+      supabase.from('team').select('*').eq('id', id).single(),
+      supabase
+        .from('work_order_crew')
+        .select(`
+          role,
+          work_order_id,
+          work_orders!inner (
+            id,
+            work_order_number,
+            scheduled_date,
+            completion_date,
+            status,
+            sites!inner ( address_line, city )
+          )
+        `)
+        .eq('team_member_id', id)
+        .order('created_at', { ascending: false })
+        .limit(5),
+      supabase
+        .from('work_order_crew')
+        .select('id', { count: 'exact', head: true })
+        .eq('team_member_id', id),
+    ])
+
+    if (memberRes.error) {
+      setError(memberRes.error.message)
+      setIsLoading(false)
+      return
+    }
+
+    const m = memberRes.data as TeamMember
+    setMember(m)
+    setFirstName(m.first_name)
+    setLastName(m.last_name)
+    setMemberRole(m.role)
+    setPhone(m.phone?.toString() ?? '')
+    setEmail(m.email ?? '')
+    setActive(m.active === 'true')
+    setNotes(m.notes ?? '')
+    setLicenseNumber(m.pesticide_license_number ?? '')
+    setLicenseExpiry(m.license_expiry_date ?? '')
+
+    setHasCrewRecords((crewCountRes.count ?? 0) > 0)
+
+    if (!crewRes.error && crewRes.data) {
+      const mapped = crewRes.data.map((row: any) => {
+        const wo = row.work_orders
+        const site = wo?.sites
+        return {
+          crew_role: row.role,
+          work_order_id: wo?.id,
+          work_order_number: wo?.work_order_number,
+          scheduled_date: wo?.scheduled_date,
+          completion_date: wo?.completion_date,
+          status: wo?.status,
+          address_line: site?.address_line,
+          city: site?.city,
+        }
+      })
+      // Sort by completion_date or scheduled_date desc
+      mapped.sort((a: CrewAssignment, b: CrewAssignment) => {
+        const dateA = a.completion_date ?? a.scheduled_date ?? ''
+        const dateB = b.completion_date ?? b.scheduled_date ?? ''
+        return dateB.localeCompare(dateA)
+      })
+      setAssignments(mapped)
+    }
+
+    setIsLoading(false)
+  }, [id])
+
+  useEffect(() => { fetchMember() }, [fetchMember])
+
+  async function handleSave() {
+    if (!id) return
+    setIsSaving(true)
+
+    const updates: Record<string, unknown> = {
+      first_name: firstName.trim(),
+      last_name: lastName.trim(),
+      role: memberRole,
+      phone: phone.trim() || null,
+      email: email.trim() || null,
+      active: active ? 'true' : 'false',
+      notes: notes.trim() || null,
+    }
+
+    if (memberRole === 'pca' || memberRole === 'tech') {
+      updates.pesticide_license_number = licenseNumber.trim() || null
+      updates.license_expiry_date = licenseExpiry || null
+    }
+
+    const { error: err } = await supabase.from('team').update(updates).eq('id', id)
+    setIsSaving(false)
+
+    if (err) {
+      setToast({ message: err.message, type: 'error' })
+    } else {
+      setToast({ message: 'Changes saved.', type: 'success' })
+      fetchMember()
+    }
+  }
+
+  async function handleDelete() {
+    if (!id || hasCrewRecords) return
+    const { error: err } = await supabase.from('team').delete().eq('id', id)
+    if (err) {
+      setToast({ message: err.message, type: 'error' })
+    } else {
+      navigate('/team')
+    }
+  }
+
+  function handleToggleActive() {
+    setActive(!active)
+  }
+
+  if (isLoading) return <LoadingSpinner message="Loading team member…" />
+  if (error) return <ErrorMessage message={error} onRetry={fetchMember} />
+  if (!member) return <ErrorMessage message="Team member not found." />
+
+  const showLicenseSection = memberRole === 'pca' || memberRole === 'tech'
+  const licenseExpired = licenseExpiry && isLicenseExpired(licenseExpiry)
+  const licenseExpiringSoon = licenseExpiry && !licenseExpired && isLicenseExpiringSoon(licenseExpiry)
+
+  return (
+    <div className="pb-20 md:pb-0 max-w-2xl">
+      {/* Back button */}
+      <Link to="/team" className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4 min-h-[44px]">
+        <ArrowLeft size={16} />
+        Back to Team
+      </Link>
+
+      {/* Header */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+            {member.first_name} {member.last_name}
+          </h1>
+          <span
+            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+            style={{
+              backgroundColor: `${ROLE_COLORS[member.role]}18`,
+              color: ROLE_COLORS[member.role],
+            }}
+          >
+            {ROLES[member.role]}
+          </span>
+          {member.active !== 'true' && (
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+              Inactive
+            </span>
+          )}
+        </div>
+        {isAdmin && (
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={handleToggleActive}>
+              {active ? 'Deactivate' : 'Activate'}
+            </Button>
+            <Button size="sm" onClick={handleSave} disabled={isSaving}>
+              {isSaving ? 'Saving…' : 'Save Changes'}
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Edit Form */}
+      <div className="rounded-[20px] bg-surface-raised shadow-card p-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Input
+            label="First Name"
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            disabled={!isAdmin}
+            required
+          />
+          <Input
+            label="Last Name"
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            disabled={!isAdmin}
+            required
+          />
+        </div>
+
+        <div className="mt-4">
+          <Select
+            label="Role"
+            value={memberRole}
+            onChange={(e) => setMemberRole(e.target.value as Role)}
+            options={ROLE_OPTIONS}
+            disabled={!isAdmin}
+          />
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+          <Input
+            label="Phone"
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            disabled={!isAdmin}
+            type="tel"
+          />
+          <Input
+            label="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={!isAdmin}
+            type="email"
+          />
+        </div>
+
+        <div className="mt-4">
+          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Notes</label>
+          <textarea
+            className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-[var(--color-text-primary)] placeholder:text-[var(--color-text-muted)] min-h-[80px] transition-colors focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            disabled={!isAdmin}
+          />
+        </div>
+
+        {/* License section */}
+        {showLicenseSection && (
+          <div className="mt-6 border-t border-surface-border pt-4">
+            <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">License Info</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <Input
+                label="Pesticide License #"
+                value={licenseNumber}
+                onChange={(e) => setLicenseNumber(e.target.value)}
+                disabled={!isAdmin}
+              />
+              <Input
+                label="License Expiry Date"
+                type="date"
+                value={licenseExpiry}
+                onChange={(e) => setLicenseExpiry(e.target.value)}
+                disabled={!isAdmin}
+              />
+            </div>
+            {licenseExpired && (
+              <span className="mt-2 inline-flex items-center rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-700">
+                License Expired
+              </span>
+            )}
+            {licenseExpiringSoon && (
+              <span className="mt-2 inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-700">
+                Expiring Soon
+              </span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Recent Work Orders */}
+      <div className="rounded-[20px] bg-surface-raised shadow-card p-4 mb-6">
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Recent Jobs</h3>
+        {assignments.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)]">No work orders recorded yet.</p>
+        ) : (
+          <div className="divide-y divide-surface-border">
+            {assignments.map((a, i) => {
+              const statusColor = WO_STATUS_COLORS[a.status]
+              const displayDate = a.completion_date ?? a.scheduled_date
+              return (
+                <Link
+                  key={i}
+                  to={`/work-orders/${a.work_order_id}`}
+                  className="flex items-center justify-between py-2.5 hover:bg-surface-border/30 -mx-2 px-2 rounded-lg transition-colors min-h-[44px]"
+                >
+                  <div>
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {a.work_order_number}
+                    </p>
+                    <p className="text-xs text-[var(--color-text-muted)]">
+                      {[a.address_line, a.city].filter(Boolean).join(', ')}
+                    </p>
+                  </div>
+                  <div className="text-right flex items-center gap-2">
+                    {displayDate && (
+                      <span className="text-xs text-[var(--color-text-muted)]">
+                        {new Date(displayDate).toLocaleDateString()}
+                      </span>
+                    )}
+                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${statusColor?.bg ?? ''} ${statusColor?.text ?? ''}`}>
+                      {WORK_ORDER_STATUSES[a.status] ?? a.status}
+                    </span>
+                  </div>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Delete button (admin only) */}
+      {isAdmin && (
+        <div className="rounded-[20px] bg-surface-raised shadow-card p-4">
+          {hasCrewRecords ? (
+            <div>
+              <Button variant="danger" size="md" disabled>
+                Delete Member
+              </Button>
+              <p className="mt-2 text-xs text-[var(--color-text-muted)]">
+                Cannot delete — member has job history. Deactivate instead.
+              </p>
+            </div>
+          ) : showDeleteConfirm ? (
+            <div className="flex items-center gap-3">
+              <p className="text-sm text-red-700">Are you sure? This cannot be undone.</p>
+              <Button variant="danger" size="sm" onClick={handleDelete}>
+                Confirm Delete
+              </Button>
+              <Button variant="secondary" size="sm" onClick={() => setShowDeleteConfirm(false)}>
+                Cancel
+              </Button>
+            </div>
+          ) : (
+            <Button variant="danger" size="md" onClick={() => setShowDeleteConfirm(true)}>
+              Delete Member
+            </Button>
+          )}
+        </div>
+      )}
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
+    </div>
+  )
+}
