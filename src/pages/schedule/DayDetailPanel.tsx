@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { X, MapPin, Clock, Check } from 'lucide-react'
+import { X, MapPin, Clock, Check, Undo2 } from 'lucide-react'
 import { getServiceColor, WO_STATUS_COLORS, WORK_ORDER_STATUSES } from '@/lib/constants'
 import type { WorkOrder, WorkOrderStatus } from '@/types/database'
 
@@ -26,10 +26,12 @@ export function DayJobList({
   workOrders,
   assigneeColorMap,
   onConfirmSchedule,
+  onUnschedule,
 }: {
   workOrders: WorkOrder[]
   assigneeColorMap: Map<string, string>
   onConfirmSchedule?: (woId: string) => void
+  onUnschedule?: (woId: string) => void
 }) {
   const navigate = useNavigate()
 
@@ -105,6 +107,17 @@ export function DayJobList({
                 Confirm Schedule
               </button>
             )}
+
+            {/* Unschedule button for jobs on or before today */}
+            {(wo.status === 'tentative' || wo.status === 'scheduled') && wo.scheduled_date && wo.scheduled_date <= new Date().toISOString().slice(0, 10) && onUnschedule && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onUnschedule(wo.id) }}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gray-100 text-gray-700 px-3 py-1.5 text-xs font-medium hover:bg-gray-200 transition-colors"
+              >
+                <Undo2 size={14} />
+                Unschedule
+              </button>
+            )}
           </div>
         )
       })}
@@ -119,10 +132,11 @@ interface DayDetailPanelProps {
   onClose: () => void
   assigneeColorMap: Map<string, string>
   onConfirmSchedule?: (woId: string) => void
+  onUnschedule?: (woId: string) => void
 }
 
 /** Desktop-only right slide panel showing scheduled jobs for a day. Hidden on mobile. */
-export function DayDetailPanel({ dateStr, workOrders, open, onClose, assigneeColorMap, onConfirmSchedule }: DayDetailPanelProps) {
+export function DayDetailPanel({ dateStr, workOrders, open, onClose, assigneeColorMap, onConfirmSchedule, onUnschedule }: DayDetailPanelProps) {
   const dateLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -152,7 +166,7 @@ export function DayDetailPanel({ dateStr, workOrders, open, onClose, assigneeCol
 
       {/* Work order list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <DayJobList workOrders={workOrders} assigneeColorMap={assigneeColorMap} onConfirmSchedule={onConfirmSchedule} />
+        <DayJobList workOrders={workOrders} assigneeColorMap={assigneeColorMap} onConfirmSchedule={onConfirmSchedule} onUnschedule={onUnschedule} />
       </div>
     </div>
   )

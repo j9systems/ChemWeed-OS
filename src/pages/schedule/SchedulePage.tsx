@@ -219,6 +219,26 @@ export function SchedulePage() {
     refetch()
   }
 
+  async function unschedule(woId: string) {
+    setOptimisticUpdates(prev => ({ ...prev, [woId]: { scheduled_date: '', status: 'unscheduled' } }))
+
+    const { error } = await supabase
+      .from('work_orders')
+      .update({ status: 'unscheduled', scheduled_date: null })
+      .eq('id', woId)
+
+    if (error) {
+      setOptimisticUpdates(prev => {
+        const next = { ...prev }
+        delete next[woId]
+        return next
+      })
+      showToast(`Error: ${getSupabaseErrorMessage(error)}`)
+    } else {
+      refetch()
+    }
+  }
+
   const daysInMonth = getDaysInMonth(viewYear, viewMonth)
   const firstDay = getFirstDayOfMonth(viewYear, viewMonth)
   const dayHeaders = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -366,6 +386,7 @@ export function SchedulePage() {
         onClose={closeDetailPanels}
         assigneeColorMap={assigneeColorMap}
         onConfirmSchedule={confirmSchedule}
+        onUnschedule={unschedule}
       />
 
       {/* Day map panel (slides from bottom) */}
@@ -376,6 +397,7 @@ export function SchedulePage() {
         onClose={closeDetailPanels}
         assigneeColorMap={assigneeColorMap}
         onConfirmSchedule={confirmSchedule}
+        onUnschedule={unschedule}
       />
     </div>
   )
