@@ -72,15 +72,23 @@ export function AddMemberModal({ open, onClose, onSuccess }: AddMemberModalProps
 
     setIsSubmitting(false)
 
-    if (fnError || data?.error) {
-      setError(fnError?.message ?? data?.error ?? 'Failed to invite team member.')
+    if (fnError) {
+      // Try to extract the error message from the response body
+      const detail = typeof data === 'object' && data?.error ? data.error : fnError.message
+      setError(detail)
       return
     }
 
-    setToast({
-      message: `Invite sent to ${email.trim()}. They'll receive an email to set their password.`,
-      type: 'success',
-    })
+    if (data?.error) {
+      setError(data.error)
+      return
+    }
+
+    const toastMsg = data?.warning
+      ? `Team member created. Note: ${data.warning}`
+      : `Invite sent to ${email.trim()}. They'll receive an email to set their password.`
+
+    setToast({ message: toastMsg, type: 'success' })
     resetForm()
     onSuccess()
 
