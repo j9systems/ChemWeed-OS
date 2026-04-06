@@ -1,4 +1,4 @@
-import { useRef, useEffect, useState, useCallback } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { X, ChevronDown } from 'lucide-react'
 import { DayJobList } from './DayDetailPanel'
 import type { WorkOrder } from '@/types/database'
