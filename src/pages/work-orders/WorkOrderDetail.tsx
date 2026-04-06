@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2 } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField } from '@/lib/roles'
@@ -252,6 +252,18 @@ export function WorkOrderDetail() {
     setUpdating(false)
   }
 
+  async function unscheduleJob() {
+    if (!workOrder) return
+    setUpdating(true)
+    const { error: err } = await supabase
+      .from('work_orders')
+      .update({ status: 'unscheduled', scheduled_date: null })
+      .eq('id', workOrder.id)
+    if (err) alert(getSupabaseErrorMessage(err))
+    else refetch()
+    setUpdating(false)
+  }
+
   async function confirmSchedule() {
     if (!workOrder) return
     setUpdating(true)
@@ -354,6 +366,12 @@ export function WorkOrderDetail() {
             <Button size="sm" onClick={confirmSchedule} disabled={updating}>
               <CalendarCheck size={16} />
               Confirm Schedule
+            </Button>
+          )}
+          {(workOrder.status === 'tentative' || workOrder.status === 'scheduled') && workOrder.scheduled_date && workOrder.scheduled_date <= new Date().toISOString().slice(0, 10) && canEdit(role) && (
+            <Button size="sm" variant="secondary" onClick={unscheduleJob} disabled={updating}>
+              <Undo2 size={16} />
+              Unschedule
             </Button>
           )}
           {(workOrder.status === 'scheduled' || workOrder.status === 'tentative') && canCompleteField(role) && (
