@@ -5,7 +5,7 @@ export function canEdit(role: Role | null): boolean {
 }
 
 export function canCompleteField(role: Role | null): boolean {
-  return role === 'admin' || role === 'tech'
+  return role === 'admin' || role === 'technician'
 }
 
 export function canViewClients(role: Role | null): boolean {

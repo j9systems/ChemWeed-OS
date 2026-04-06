@@ -9,11 +9,11 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-function errorResponse(message: string, status: number) {
-  return new Response(
-    JSON.stringify({ success: false, error: message }),
-    { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-  )
+function jsonResponse(body: Record<string, unknown>, status = 200) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+  })
 }
 
 Deno.serve(async (req) => {
@@ -27,7 +27,7 @@ Deno.serve(async (req) => {
 
     // Validate required fields
     if (!first_name?.trim() || !last_name?.trim() || !role?.trim() || !email?.trim()) {
-      return errorResponse('first_name, last_name, role, and email are required.', 400)
+      return jsonResponse({ success: false, error: 'first_name, last_name, role, and email are required.' })
     }
 
     const supabase = createClient(
@@ -49,7 +49,8 @@ Deno.serve(async (req) => {
     })
 
     if (insertErr) {
-      return errorResponse(insertErr.message, 500)
+      console.error('Team insert error:', insertErr.message)
+      return jsonResponse({ success: false, error: insertErr.message })
     }
 
     // Invite auth user so they receive a password-setup email
@@ -58,14 +59,19 @@ Deno.serve(async (req) => {
     })
 
     if (inviteErr) {
-      return errorResponse(inviteErr.message, 500)
+      console.error('Invite error:', inviteErr.message)
+      // Team record was created successfully — don't fail the whole request.
+      // The admin can resend the invite from the Supabase dashboard.
+      return jsonResponse({
+        success: true,
+        warning: `Team member created but invite email failed: ${inviteErr.message}`,
+      })
     }
 
-    return new Response(
-      JSON.stringify({ success: true }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
-    )
+    return jsonResponse({ success: true })
   } catch (err) {
-    return errorResponse(err instanceof Error ? err.message : 'Unknown error', 500)
+    const message = err instanceof Error ? err.message : 'Unknown error'
+    console.error('Unhandled error:', message)
+    return jsonResponse({ success: false, error: message })
   }
 })
