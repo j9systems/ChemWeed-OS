@@ -123,10 +123,10 @@ export function FieldCompletionForm() {
         className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4"
       >
         <ArrowLeft size={16} />
-        Back to Work Order
+        Back to Job
       </Link>
 
-      <h1 className="text-2xl font-bold mb-2">Complete Work Order</h1>
+      <h1 className="text-2xl font-bold mb-2">Complete Job</h1>
       <p className="text-sm text-[var(--color-text-muted)] mb-6">
         {workOrder.client?.name} — {workOrder.site?.name}
       </p>
@@ -298,7 +298,7 @@ export function FieldCompletionForm() {
           disabled={isSubmitting}
           className="w-full"
         >
-          {isSubmitting ? 'Submitting...' : 'Complete Work Order'}
+          {isSubmitting ? 'Submitting...' : 'Complete Job'}
         </Button>
       </form>
     </div>

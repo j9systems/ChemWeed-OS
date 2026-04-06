@@ -416,7 +416,7 @@ export function TeamMemberDetail() {
       <div className="rounded-[20px] bg-surface-raised shadow-card p-4 mb-6">
         <h3 className="text-sm font-semibold text-[var(--color-text-primary)] mb-3">Recent Jobs</h3>
         {assignments.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)]">No work orders recorded yet.</p>
+          <p className="text-sm text-[var(--color-text-muted)]">No jobs recorded yet.</p>
         ) : (
           <div className="divide-y divide-surface-border">
             {assignments.map((a, i) => {

@@ -171,7 +171,7 @@ export function SiteDetail() {
           className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4"
         >
           <ArrowLeft size={16} />
-          Back to Work Order
+          Back to Job
         </Link>
       ) : site.client ? (
         <Link
@@ -506,7 +506,7 @@ export function SiteDetail() {
 
       {/* Work Orders for this site */}
       <Card>
-        <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-3">Work Orders</h3>
+        <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)] mb-3">Jobs</h3>
         {siteWorkOrders.length === 0 ? (
           <p className="text-sm text-[var(--color-text-muted)]">No work orders for this site.</p>
         ) : (

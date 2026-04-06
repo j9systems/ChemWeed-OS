@@ -140,11 +140,11 @@ export function WorkOrdersPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Work Orders</h1>
+        <h1 className="text-2xl font-bold">Jobs</h1>
         {canEdit(role) && (
           <Button size="md" variant="secondary" onClick={handleGenerate} disabled={generating}>
             <RefreshCw size={16} className={generating ? 'animate-spin' : ''} />
-            {generating ? 'Generating...' : 'Generate Work Orders'}
+            {generating ? 'Generating...' : 'Generate Jobs'}
           </Button>
         )}
       </div>
@@ -174,9 +174,9 @@ export function WorkOrdersPage() {
         </div>
       )}
 
-      {/* All Work Orders */}
+      {/* All Jobs */}
       <div>
-        <h2 className="text-lg font-semibold mb-3">All Work Orders</h2>
+        <h2 className="text-lg font-semibold mb-3">All Jobs</h2>
         <div className="mb-4">
           <select
             value={statusFilter}
