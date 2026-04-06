@@ -66,7 +66,10 @@ export function TeamPage() {
       } else if (data?.error) {
         setToast({ message: data.error, type: 'error' })
       } else {
-        setToast({ message: 'Invitation resent successfully.', type: 'success' })
+        const msg = data?.already_registered
+          ? `Login link sent to ${email}`
+          : `Invite sent to ${email}`
+        setToast({ message: msg, type: 'success' })
       }
     } catch {
       setToast({ message: 'Failed to resend invite.', type: 'error' })
