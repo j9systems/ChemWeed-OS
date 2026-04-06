@@ -1,9 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Camera } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
 import { ROLES, WO_STATUS_COLORS, WORK_ORDER_STATUSES } from '@/lib/constants'
+import { uploadProfilePhoto } from '@/lib/storage'
+import { compressImage } from '@/lib/image-compression'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -48,12 +50,14 @@ export function TeamMemberDetail() {
   const navigate = useNavigate()
   const { role: authRole } = useAuth()
   const isAdmin = authRole === 'admin'
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [member, setMember] = useState<TeamMember | null>(null)
   const [assignments, setAssignments] = useState<CrewAssignment[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [isSaving, setIsSaving] = useState(false)
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const [hasCrewRecords, setHasCrewRecords] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
@@ -68,6 +72,7 @@ export function TeamMemberDetail() {
   const [notes, setNotes] = useState('')
   const [licenseNumber, setLicenseNumber] = useState('')
   const [licenseExpiry, setLicenseExpiry] = useState('')
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null)
 
   const fetchMember = useCallback(async () => {
     if (!id) return
@@ -116,6 +121,7 @@ export function TeamMemberDetail() {
     setNotes(m.notes ?? '')
     setLicenseNumber(m.pesticide_license_number ?? '')
     setLicenseExpiry(m.license_expiry_date ?? '')
+    setPhotoUrl(m.photo_url ?? null)
 
     setHasCrewRecords((crewCountRes.count ?? 0) > 0)
 
@@ -178,6 +184,35 @@ export function TeamMemberDetail() {
     }
   }
 
+  async function handlePhotoUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (!file || !id) return
+
+    setIsUploadingPhoto(true)
+    try {
+      const compressed = await compressImage(file, 400, 0.8)
+      const url = await uploadProfilePhoto(id, compressed)
+
+      const { error: err } = await supabase
+        .from('team')
+        .update({ photo_url: url })
+        .eq('id', id)
+
+      if (err) {
+        setToast({ message: `Failed to save photo: ${err.message}`, type: 'error' })
+      } else {
+        setPhotoUrl(url + '?t=' + Date.now())
+        setToast({ message: 'Profile photo updated.', type: 'success' })
+      }
+    } catch (err) {
+      setToast({ message: err instanceof Error ? err.message : 'Photo upload failed.', type: 'error' })
+    } finally {
+      setIsUploadingPhoto(false)
+      // Reset file input so re-selecting same file triggers change
+      if (fileInputRef.current) fileInputRef.current.value = ''
+    }
+  }
+
   async function handleDelete() {
     if (!id || hasCrewRecords) return
     const { error: err } = await supabase.from('team').delete().eq('id', id)
@@ -208,37 +243,80 @@ export function TeamMemberDetail() {
         Back to Team
       </Link>
 
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
-            {member.first_name} {member.last_name}
-          </h1>
-          <span
-            className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
-            style={{
-              backgroundColor: `${ROLE_COLORS[member.role]}18`,
-              color: ROLE_COLORS[member.role],
-            }}
-          >
-            {ROLES[member.role]}
-          </span>
-          {!member.is_active && (
-            <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
-              Inactive
-            </span>
+      {/* Header with photo */}
+      <div className="flex items-start gap-4 mb-6">
+        {/* Profile Photo */}
+        <div className="relative flex-shrink-0">
+          <div className="w-20 h-20 rounded-full overflow-hidden bg-surface-border flex items-center justify-center">
+            {photoUrl ? (
+              <img
+                src={photoUrl}
+                alt={`${member.first_name} ${member.last_name}`}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <span className="text-2xl font-bold text-[var(--color-text-muted)]">
+                {member.first_name.charAt(0)}{member.last_name.charAt(0)}
+              </span>
+            )}
+          </div>
+          {isAdmin && (
+            <>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isUploadingPhoto}
+                className="absolute -bottom-1 -right-1 w-8 h-8 rounded-full bg-brand-green text-white flex items-center justify-center shadow-md hover:bg-brand-green/90 transition-colors disabled:opacity-50"
+                title="Upload photo"
+              >
+                <Camera size={14} />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                onChange={handlePhotoUpload}
+                className="hidden"
+              />
+            </>
+          )}
+          {isUploadingPhoto && (
+            <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+            </div>
           )}
         </div>
-        {isAdmin && (
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={handleToggleActive}>
-              {active ? 'Deactivate' : 'Activate'}
-            </Button>
-            <Button size="sm" onClick={handleSave} disabled={isSaving}>
-              {isSaving ? 'Saving…' : 'Save Changes'}
-            </Button>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
+              {member.first_name} {member.last_name}
+            </h1>
+            <span
+              className="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium"
+              style={{
+                backgroundColor: `${ROLE_COLORS[member.role]}18`,
+                color: ROLE_COLORS[member.role],
+              }}
+            >
+              {ROLES[member.role]}
+            </span>
+            {!member.is_active && (
+              <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
+                Inactive
+              </span>
+            )}
           </div>
-        )}
+          {isAdmin && (
+            <div className="flex items-center gap-2 mt-2">
+              <Button variant="secondary" size="sm" onClick={handleToggleActive}>
+                {active ? 'Deactivate' : 'Activate'}
+              </Button>
+              <Button size="sm" onClick={handleSave} disabled={isSaving}>
+                {isSaving ? 'Saving…' : 'Save Changes'}
+              </Button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Edit Form */}

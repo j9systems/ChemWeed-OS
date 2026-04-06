@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { Search } from 'lucide-react'
 import { useClients } from '@/hooks/useClients'
-import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 
@@ -12,7 +11,8 @@ export function ClientsPage() {
 
   const filtered = clients.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
-    (c.billing_contact ?? '').toLowerCase().includes(search.toLowerCase())
+    (c.billing_contact ?? '').toLowerCase().includes(search.toLowerCase()) ||
+    (c.billing_email ?? '').toLowerCase().includes(search.toLowerCase())
   )
 
   return (
@@ -33,28 +33,78 @@ export function ClientsPage() {
       {isLoading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} onRetry={refetch} />}
       {!isLoading && !error && (
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((client) => (
-            <Link key={client.id} to={`/clients/${client.id}`}>
-              <Card className="hover:border-brand-green/30 transition-colors">
-                <p className="font-medium">{client.name}</p>
-                {client.billing_contact && (
-                  <p className="text-sm text-[var(--color-text-muted)]">{client.billing_contact}</p>
-                )}
-                <div className="mt-2 flex items-center gap-2">
-                  <span className="inline-flex items-center rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
-                    {client.site_count} site{client.site_count !== 1 ? 's' : ''}
-                  </span>
-                </div>
-              </Card>
-            </Link>
-          ))}
-          {filtered.length === 0 && (
-            <p className="col-span-full py-8 text-center text-[var(--color-text-muted)]">
+        <>
+          {filtered.length === 0 ? (
+            <p className="py-8 text-center text-[var(--color-text-muted)]">
               No clients found.
             </p>
+          ) : (
+            <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-surface-border text-left text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+                      <th className="px-4 py-3">Client</th>
+                      <th className="px-4 py-3 hidden sm:table-cell">Contact</th>
+                      <th className="px-4 py-3 hidden md:table-cell">Email</th>
+                      <th className="px-4 py-3 hidden md:table-cell">Phone</th>
+                      <th className="px-4 py-3 hidden lg:table-cell">City</th>
+                      <th className="px-4 py-3 hidden lg:table-cell">Payment</th>
+                      <th className="px-4 py-3 text-center">Sites</th>
+                      <th className="px-4 py-3 hidden xl:table-cell text-center">PO Req.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-surface-border">
+                    {filtered.map((client) => (
+                      <tr
+                        key={client.id}
+                        className="hover:bg-surface-border/30 transition-colors"
+                      >
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/clients/${client.id}`}
+                            className="font-medium text-[var(--color-text-primary)] hover:text-brand-green transition-colors"
+                          >
+                            {client.name}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3 hidden sm:table-cell text-[var(--color-text-muted)]">
+                          {client.billing_contact || '—'}
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell text-[var(--color-text-muted)]">
+                          {client.billing_email || '—'}
+                        </td>
+                        <td className="px-4 py-3 hidden md:table-cell text-[var(--color-text-muted)]">
+                          {client.billing_phone || '—'}
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell text-[var(--color-text-muted)]">
+                          {client.billing_city || '—'}
+                        </td>
+                        <td className="px-4 py-3 hidden lg:table-cell text-[var(--color-text-muted)]">
+                          {client.payment_method || '—'}
+                        </td>
+                        <td className="px-4 py-3 text-center">
+                          <span className="inline-flex items-center rounded-full bg-brand-green/10 px-2 py-0.5 text-xs font-medium text-brand-green">
+                            {client.site_count}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 hidden xl:table-cell text-center">
+                          {client.po_required ? (
+                            <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                              Yes
+                            </span>
+                          ) : (
+                            <span className="text-[var(--color-text-muted)]">No</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           )}
-        </div>
+        </>
       )}
     </div>
   )

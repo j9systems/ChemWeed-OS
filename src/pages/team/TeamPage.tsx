@@ -1,12 +1,14 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Plus } from 'lucide-react'
+import { Plus, Send } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTeamMembers } from '@/hooks/useTeam'
+import { supabase } from '@/lib/supabase'
 import { ROLES } from '@/lib/constants'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { Toast } from '@/components/ui/Toast'
 import { AddMemberModal } from '@/components/team/AddMemberModal'
 import type { Role } from '@/types/database'
 
@@ -42,6 +44,8 @@ export function TeamPage() {
   const [roleFilter, setRoleFilter] = useState<Role | 'all'>('all')
   const [showActiveOnly, setShowActiveOnly] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
+  const [resendingEmail, setResendingEmail] = useState<string | null>(null)
+  const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const isAdmin = role === 'admin'
 
@@ -50,6 +54,26 @@ export function TeamPage() {
     if (showActiveOnly && !m.is_active) return false
     return true
   })
+
+  async function handleResendInvite(email: string) {
+    setResendingEmail(email)
+    try {
+      const { data, error: err } = await supabase.functions.invoke('resend-invite', {
+        body: { email },
+      })
+      if (err) {
+        setToast({ message: `Failed to resend invite: ${err.message}`, type: 'error' })
+      } else if (data?.error) {
+        setToast({ message: data.error, type: 'error' })
+      } else {
+        setToast({ message: 'Invitation resent successfully.', type: 'success' })
+      }
+    } catch {
+      setToast({ message: 'Failed to resend invite.', type: 'error' })
+    } finally {
+      setResendingEmail(null)
+    }
+  }
 
   return (
     <div className="pb-20 md:pb-0">
@@ -99,65 +123,118 @@ export function TeamPage() {
       )}
 
       {!isLoading && !error && filtered.length > 0 && (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {filtered.map((member) => {
-            const isInactive = !member.is_active
-            const showLicense = (member.role === 'pca' || member.role === 'technician') && member.license_expiry_date
-            const expired = showLicense && isLicenseExpired(member.license_expiry_date!)
-            const expiringSoon = showLicense && !expired && isLicenseExpiringSoon(member.license_expiry_date!)
+        <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-surface-border text-left text-xs font-semibold text-[var(--color-text-muted)] uppercase tracking-wider">
+                  <th className="px-4 py-3">Name</th>
+                  <th className="px-4 py-3">Role</th>
+                  <th className="px-4 py-3 hidden sm:table-cell">Phone</th>
+                  <th className="px-4 py-3 hidden md:table-cell">Email</th>
+                  <th className="px-4 py-3 hidden lg:table-cell">License</th>
+                  <th className="px-4 py-3">Status</th>
+                  {isAdmin && <th className="px-4 py-3 w-10"></th>}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-surface-border">
+                {filtered.map((member) => {
+                  const isInactive = !member.is_active
+                  const showLicense = (member.role === 'pca' || member.role === 'technician') && member.license_expiry_date
+                  const expired = showLicense && isLicenseExpired(member.license_expiry_date!)
+                  const expiringSoon = showLicense && !expired && isLicenseExpiringSoon(member.license_expiry_date!)
 
-            return (
-              <Link
-                key={member.id}
-                to={`/team/${member.id}`}
-                className="block"
-              >
-                <div
-                  className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden hover:border-brand-green/30 border border-transparent transition-colors cursor-pointer h-full"
-                  style={{
-                    borderLeft: `4px solid ${ROLE_COLORS[member.role]}`,
-                    opacity: isInactive ? 0.5 : 1,
-                  }}
-                >
-                  <div className="p-3">
-                    <p className="font-semibold text-sm text-[var(--color-text-primary)] truncate">
-                      {member.first_name} {member.last_name}
-                    </p>
-                    <span
-                      className="mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                      style={{
-                        backgroundColor: `${ROLE_COLORS[member.role]}18`,
-                        color: ROLE_COLORS[member.role],
-                      }}
+                  return (
+                    <tr
+                      key={member.id}
+                      className="hover:bg-surface-border/30 transition-colors"
+                      style={{ opacity: isInactive ? 0.5 : 1 }}
                     >
-                      {ROLES[member.role]}
-                    </span>
-                    {isInactive && (
-                      <span className="ml-1 inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                        Inactive
-                      </span>
-                    )}
-                    {member.phone && (
-                      <p className="mt-1.5 text-xs text-[var(--color-text-muted)] truncate">{member.phone}</p>
-                    )}
-                    {member.email && (
-                      <p className="text-xs text-[var(--color-text-muted)] truncate">{member.email}</p>
-                    )}
-                    {expired && (
-                      <span className="mt-1.5 inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
-                        License Expired
-                      </span>
-                    )}
-                    {expiringSoon && (
-                      <span className="mt-1.5 inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
-                        Expiring Soon
-                      </span>
-                    )}
-                  </div>
-                </div>
-              </Link>
-            )
-          })}
+                      <td className="px-4 py-3">
+                        <Link
+                          to={`/team/${member.id}`}
+                          className="font-medium text-[var(--color-text-primary)] hover:text-brand-green transition-colors"
+                        >
+                          {member.first_name} {member.last_name}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span
+                          className="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                          style={{
+                            backgroundColor: `${ROLE_COLORS[member.role]}18`,
+                            color: ROLE_COLORS[member.role],
+                          }}
+                        >
+                          {ROLES[member.role]}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 hidden sm:table-cell text-[var(--color-text-muted)]">
+                        {member.phone || '—'}
+                      </td>
+                      <td className="px-4 py-3 hidden md:table-cell text-[var(--color-text-muted)]">
+                        {member.email || '—'}
+                      </td>
+                      <td className="px-4 py-3 hidden lg:table-cell">
+                        {showLicense ? (
+                          <>
+                            {expired && (
+                              <span className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-xs font-medium text-red-700">
+                                Expired
+                              </span>
+                            )}
+                            {expiringSoon && (
+                              <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700">
+                                Expiring Soon
+                              </span>
+                            )}
+                            {!expired && !expiringSoon && (
+                              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                                Valid
+                              </span>
+                            )}
+                          </>
+                        ) : (
+                          <span className="text-[var(--color-text-muted)]">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {isInactive ? (
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                            Inactive
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                            Active
+                          </span>
+                        )}
+                      </td>
+                      {isAdmin && (
+                        <td className="px-4 py-3">
+                          {member.is_active && member.email && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault()
+                                handleResendInvite(member.email!)
+                              }}
+                              disabled={resendingEmail === member.email}
+                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--color-text-muted)] hover:text-brand-green hover:bg-brand-green/10 transition-colors disabled:opacity-50 min-h-[36px]"
+                              title="Resend app invitation"
+                            >
+                              <Send size={14} />
+                              <span className="hidden xl:inline">
+                                {resendingEmail === member.email ? 'Sending…' : 'Resend Invite'}
+                              </span>
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 
@@ -167,6 +244,8 @@ export function TeamPage() {
         onClose={() => setShowAddModal(false)}
         onSuccess={refetch}
       />
+
+      {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </div>
   )
 }
