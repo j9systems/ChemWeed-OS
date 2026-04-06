@@ -109,7 +109,7 @@ export function DayJobList({
             )}
 
             {/* Unschedule button for jobs on or before today */}
-            {(wo.status === 'tentative' || wo.status === 'scheduled') && wo.scheduled_date && wo.scheduled_date! <= new Date().toISOString().split('T')[0] && onUnschedule && (
+            {(wo.status === 'tentative' || wo.status === 'scheduled') && wo.scheduled_date && (wo.scheduled_date as string) <= new Date().toISOString().split('T')[0] && onUnschedule && (
               <button
                 onClick={(e) => { e.stopPropagation(); onUnschedule(wo.id) }}
                 className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-gray-100 text-gray-700 px-3 py-1.5 text-xs font-medium hover:bg-gray-200 transition-colors"
