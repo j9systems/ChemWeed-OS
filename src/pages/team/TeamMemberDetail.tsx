@@ -15,7 +15,7 @@ import type { TeamMember, Role, WorkOrderStatus } from '@/types/database'
 const ROLE_COLORS: Record<Role, string> = {
   admin: '#2a6b2a',
   manager: '#3d8f3d',
-  tech: '#1a6b9a',
+  technician: '#1a6b9a',
   pca: '#7a4a1a',
 }
 
@@ -61,7 +61,7 @@ export function TeamMemberDetail() {
   // Form state
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [memberRole, setMemberRole] = useState<Role>('tech')
+  const [memberRole, setMemberRole] = useState<Role>('technician')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [active, setActive] = useState(true)
@@ -162,7 +162,7 @@ export function TeamMemberDetail() {
       notes: notes.trim() || null,
     }
 
-    if (memberRole === 'pca' || memberRole === 'tech') {
+    if (memberRole === 'pca' || memberRole === 'technician') {
       updates.pesticide_license_number = licenseNumber.trim() || null
       updates.license_expiry_date = licenseExpiry || null
     }
@@ -196,7 +196,7 @@ export function TeamMemberDetail() {
   if (error) return <ErrorMessage message={error} onRetry={fetchMember} />
   if (!member) return <ErrorMessage message="Team member not found." />
 
-  const showLicenseSection = memberRole === 'pca' || memberRole === 'tech'
+  const showLicenseSection = memberRole === 'pca' || memberRole === 'technician'
   const licenseExpired = licenseExpiry && isLicenseExpired(licenseExpiry)
   const licenseExpiringSoon = licenseExpiry && !licenseExpired && isLicenseExpiringSoon(licenseExpiry)
 

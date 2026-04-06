@@ -13,7 +13,7 @@ import type { Role } from '@/types/database'
 const ROLE_COLORS: Record<Role, string> = {
   admin: '#2a6b2a',
   manager: '#3d8f3d',
-  tech: '#1a6b9a',
+  technician: '#1a6b9a',
   pca: '#7a4a1a',
 }
 
@@ -21,7 +21,7 @@ const ROLE_FILTERS: Array<{ value: Role | 'all'; label: string }> = [
   { value: 'all', label: 'All' },
   { value: 'admin', label: 'Admin' },
   { value: 'manager', label: 'Manager' },
-  { value: 'tech', label: 'Technician' },
+  { value: 'technician', label: 'Technician' },
   { value: 'pca', label: 'PCA' },
 ]
 
@@ -102,7 +102,7 @@ export function TeamPage() {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {filtered.map((member) => {
             const isInactive = !member.is_active
-            const showLicense = (member.role === 'pca' || member.role === 'tech') && member.license_expiry_date
+            const showLicense = (member.role === 'pca' || member.role === 'technician') && member.license_expiry_date
             const expired = showLicense && isLicenseExpired(member.license_expiry_date!)
             const expiringSoon = showLicense && !expired && isLicenseExpiringSoon(member.license_expiry_date!)
 

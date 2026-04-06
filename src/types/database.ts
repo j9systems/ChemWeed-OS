@@ -1,4 +1,4 @@
-export type Role = 'admin' | 'manager' | 'tech' | 'pca'
+export type Role = 'admin' | 'manager' | 'technician' | 'pca'
 
 export type AgreementStatus = 'draft' | 'active' | 'completed' | 'cancelled'
 

@@ -3,7 +3,7 @@ import type { Role, AgreementStatus, WorkOrderStatus, WindDirection, FrequencyTy
 export const ROLES: Record<Role, string> = {
   admin: 'Admin',
   manager: 'Manager',
-  tech: 'Technician',
+  technician: 'Technician',
   pca: 'PCA',
 }
 

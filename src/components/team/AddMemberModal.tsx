@@ -19,7 +19,7 @@ interface AddMemberModalProps {
 export function AddMemberModal({ open, onClose, onSuccess }: AddMemberModalProps) {
   const [firstName, setFirstName] = useState('')
   const [lastName, setLastName] = useState('')
-  const [role, setRole] = useState<Role>('tech')
+  const [role, setRole] = useState<Role>('technician')
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [licenseNumber, setLicenseNumber] = useState('')
@@ -29,12 +29,12 @@ export function AddMemberModal({ open, onClose, onSuccess }: AddMemberModalProps
   const [error, setError] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
-  const showLicense = role === 'pca' || role === 'tech'
+  const showLicense = role === 'pca' || role === 'technician'
 
   function resetForm() {
     setFirstName('')
     setLastName('')
-    setRole('tech')
+    setRole('technician')
     setPhone('')
     setEmail('')
     setLicenseNumber('')
