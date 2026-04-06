@@ -1,10 +1,12 @@
-import { useState } from 'react'
+import { useState, useCallback } from 'react'
 import { useNavigate } from 'react-router'
 import { ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
 import { getServiceColor, formatPeriodLabel, MONTH_NAMES } from '@/lib/constants'
+import { DayDetailPanel, getAssigneeColorMap } from './DayDetailPanel'
+import { DayMapPanel } from './DayMapPanel'
 import type { WorkOrder } from '@/types/database'
 
 function DaysSincePill({ days }: { days: number | null }) {
@@ -129,6 +131,7 @@ export function SchedulePage() {
   const [dragOverDate, setDragOverDate] = useState<string | null>(null)
   const [queueOpen, setQueueOpen] = useState(true)
   const [toastMsg, setToastMsg] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string | null>(null)
 
   // Local optimistic state for WOs (to avoid waiting for refetch on drop)
   const [optimisticUpdates, setOptimisticUpdates] = useState<Record<string, { scheduled_date: string; status: string }>>({})
@@ -228,6 +231,11 @@ export function SchedulePage() {
 
   const todayStr = now.toISOString().split('T')[0]
 
+  const selectedDayWOs = selectedDate ? getWOsForDate(selectedDate) : []
+  const assigneeColorMap = getAssigneeColorMap(selectedDayWOs)
+
+  const closeDetailPanels = useCallback(() => setSelectedDate(null), [])
+
   return (
     <div className="flex flex-col md:flex-row gap-4 min-h-0">
       {/* Left Panel — Unscheduled Queue */}
@@ -309,6 +317,7 @@ export function SchedulePage() {
             return (
               <div
                 key={dateStr}
+                onClick={() => setSelectedDate(dateStr)}
                 onDragOver={(e) => { e.preventDefault(); setDragOverDate(dateStr) }}
                 onDragLeave={() => setDragOverDate(null)}
                 onDrop={(e) => {
@@ -316,9 +325,9 @@ export function SchedulePage() {
                   const woId = e.dataTransfer.getData('text/plain')
                   if (woId) handleDrop(dateStr, woId)
                 }}
-                className={`bg-white min-h-[80px] md:min-h-[100px] p-1 transition-colors ${
+                className={`bg-white min-h-[80px] md:min-h-[100px] p-1 transition-colors cursor-pointer hover:bg-gray-50 ${
                   isOver ? 'bg-emerald-50 ring-2 ring-inset ring-emerald-400' : ''
-                }`}
+                } ${selectedDate === dateStr ? 'ring-2 ring-inset ring-brand-green bg-emerald-50/50' : ''}`}
               >
                 <div className={`text-xs font-medium mb-0.5 ${isToday ? 'text-white bg-brand-green rounded-full w-5 h-5 flex items-center justify-center' : 'text-[var(--color-text-muted)]'}`}>
                   {day}
@@ -336,10 +345,36 @@ export function SchedulePage() {
 
       {/* Toast */}
       {toastMsg && (
-        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-50 rounded-lg bg-gray-800 text-white px-4 py-2 text-sm shadow-lg">
+        <div className="fixed bottom-20 md:bottom-6 left-1/2 -translate-x-1/2 z-[60] rounded-lg bg-gray-800 text-white px-4 py-2 text-sm shadow-lg">
           {toastMsg}
         </div>
       )}
+
+      {/* Backdrop overlay — click to close panels */}
+      {selectedDate && (
+        <div
+          className="fixed inset-0 bg-black/20 z-40 transition-opacity duration-300"
+          onClick={closeDetailPanels}
+        />
+      )}
+
+      {/* Day detail panel (slides from right) */}
+      <DayDetailPanel
+        dateStr={selectedDate ?? ''}
+        workOrders={selectedDayWOs}
+        open={!!selectedDate}
+        onClose={closeDetailPanels}
+        assigneeColorMap={assigneeColorMap}
+      />
+
+      {/* Day map panel (slides from bottom) */}
+      <DayMapPanel
+        dateStr={selectedDate ?? ''}
+        workOrders={selectedDayWOs}
+        open={!!selectedDate}
+        onClose={closeDetailPanels}
+        assigneeColorMap={assigneeColorMap}
+      />
     </div>
   )
 }
