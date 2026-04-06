@@ -3,15 +3,18 @@ import { useAuth } from '@/hooks/useAuth'
 import { NAV_ITEMS } from '@/lib/navigation'
 import { cn } from '@/lib/utils'
 
+const MAX_BOTTOM_NAV_ITEMS = 6
+
 export function BottomNav() {
   const { role } = useAuth()
 
   const visibleItems = NAV_ITEMS.filter((item) => role && item.roles.includes(role))
+  const bottomItems = visibleItems.slice(0, MAX_BOTTOM_NAV_ITEMS)
 
   return (
     <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-surface-border bg-white pb-[env(safe-area-inset-bottom)]">
       <div className="flex items-center justify-around">
-        {visibleItems.map((item) => (
+        {bottomItems.map((item) => (
           <NavLink
             key={item.path}
             to={item.path}
