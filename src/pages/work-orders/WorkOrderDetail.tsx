@@ -368,7 +368,7 @@ export function WorkOrderDetail() {
               Confirm Schedule
             </Button>
           )}
-          {(workOrder.status === 'tentative' || workOrder.status === 'scheduled') && workOrder.scheduled_date && workOrder.scheduled_date <= new Date().toISOString().slice(0, 10) && canEdit(role) && (
+          {(workOrder.status === 'tentative' || workOrder.status === 'scheduled') && canEdit(role) && (
             <Button size="sm" variant="secondary" onClick={unscheduleJob} disabled={updating}>
               <Undo2 size={16} />
               Unschedule
