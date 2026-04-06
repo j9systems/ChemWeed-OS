@@ -3,6 +3,7 @@ import { AuthProvider } from '@/context/AuthContext'
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/auth/LoginPage'
+import { AuthCallback } from '@/pages/auth/AuthCallback'
 import { AgreementsPage } from '@/pages/agreements/AgreementsPage'
 import { AgreementNew } from '@/pages/agreements/AgreementNew'
 import { AgreementDetail } from '@/pages/agreements/AgreementDetail'
@@ -57,6 +58,7 @@ const router = createBrowserRouter([
         ],
       },
       { path: '/login', element: <LoginPage /> },
+      { path: '/auth/callback', element: <AuthCallback /> },
     ],
   },
 ])
