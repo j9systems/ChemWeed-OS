@@ -230,7 +230,7 @@ export function TeamPage() {
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3">
-                          {member.is_active && member.email && pendingInvites.has(member.email.toLowerCase()) && (
+                          {member.email && (
                             <button
                               onClick={(e) => {
                                 e.preventDefault()
@@ -238,11 +238,11 @@ export function TeamPage() {
                               }}
                               disabled={resendingEmail === member.email}
                               className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--color-text-muted)] hover:text-brand-green hover:bg-brand-green/10 transition-colors disabled:opacity-50 min-h-[36px]"
-                              title="Resend app invitation"
+                              title="Send app invitation"
                             >
                               <Send size={14} />
                               <span className="hidden xl:inline">
-                                {resendingEmail === member.email ? 'Sending…' : 'Resend Invite'}
+                                {resendingEmail === member.email ? 'Sending…' : 'Invite to App'}
                               </span>
                             </button>
                           )}

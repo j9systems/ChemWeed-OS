@@ -365,6 +365,7 @@ export function SchedulePage() {
         open={!!selectedDate}
         onClose={closeDetailPanels}
         assigneeColorMap={assigneeColorMap}
+        onConfirmSchedule={confirmSchedule}
       />
 
       {/* Day map panel (slides from bottom) */}
@@ -374,6 +375,7 @@ export function SchedulePage() {
         open={!!selectedDate}
         onClose={closeDetailPanels}
         assigneeColorMap={assigneeColorMap}
+        onConfirmSchedule={confirmSchedule}
       />
     </div>
   )

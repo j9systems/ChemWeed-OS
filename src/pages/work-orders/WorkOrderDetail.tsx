@@ -252,6 +252,18 @@ export function WorkOrderDetail() {
     setUpdating(false)
   }
 
+  async function confirmSchedule() {
+    if (!workOrder) return
+    setUpdating(true)
+    const { error: err } = await supabase
+      .from('work_orders')
+      .update({ status: 'scheduled' })
+      .eq('id', workOrder.id)
+    if (err) alert(getSupabaseErrorMessage(err))
+    else refetch()
+    setUpdating(false)
+  }
+
   async function startJob() {
     if (!workOrder) return
     setUpdating(true)
@@ -337,6 +349,12 @@ export function WorkOrderDetail() {
                 </Button>
               )}
             </>
+          )}
+          {workOrder.status === 'tentative' && canEdit(role) && (
+            <Button size="sm" onClick={confirmSchedule} disabled={updating}>
+              <CalendarCheck size={16} />
+              Confirm Schedule
+            </Button>
           )}
           {(workOrder.status === 'scheduled' || workOrder.status === 'tentative') && canCompleteField(role) && (
             <Button size="sm" onClick={startJob} disabled={updating}>

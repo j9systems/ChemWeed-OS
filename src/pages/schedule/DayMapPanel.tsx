@@ -78,9 +78,10 @@ interface DayMapPanelProps {
   open: boolean
   onClose: () => void
   assigneeColorMap: Map<string, string>
+  onConfirmSchedule?: (woId: string) => void
 }
 
-export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorMap }: DayMapPanelProps) {
+export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorMap, onConfirmSchedule }: DayMapPanelProps) {
   const mapElRef = useRef<HTMLDivElement | null>(null)
   const mapInstanceRef = useRef<google.maps.Map | null>(null)
   const markersRef = useRef<google.maps.Marker[]>([])
@@ -291,7 +292,7 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
 
         {/* Job list (top portion) */}
         <div className="overflow-y-auto p-3 space-y-2 border-b border-surface-border" style={{ maxHeight: '45%' }}>
-          <DayJobList workOrders={workOrders} assigneeColorMap={assigneeColorMap} />
+          <DayJobList workOrders={workOrders} assigneeColorMap={assigneeColorMap} onConfirmSchedule={onConfirmSchedule} />
         </div>
 
         {/* Legend */}

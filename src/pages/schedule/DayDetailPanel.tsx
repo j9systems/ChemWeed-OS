@@ -1,5 +1,5 @@
 import { useNavigate } from 'react-router'
-import { X, MapPin, Clock } from 'lucide-react'
+import { X, MapPin, Clock, Check } from 'lucide-react'
 import { getServiceColor, WO_STATUS_COLORS, WORK_ORDER_STATUSES } from '@/lib/constants'
 import type { WorkOrder, WorkOrderStatus } from '@/types/database'
 
@@ -25,9 +25,11 @@ export function getAssigneeColorMap(workOrders: WorkOrder[]): Map<string, string
 export function DayJobList({
   workOrders,
   assigneeColorMap,
+  onConfirmSchedule,
 }: {
   workOrders: WorkOrder[]
   assigneeColorMap: Map<string, string>
+  onConfirmSchedule?: (woId: string) => void
 }) {
   const navigate = useNavigate()
 
@@ -92,6 +94,17 @@ export function DayJobList({
                 </div>
               )}
             </div>
+
+            {/* Confirm button for tentative work orders */}
+            {wo.status === 'tentative' && onConfirmSchedule && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onConfirmSchedule(wo.id) }}
+                className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-emerald-500 text-white px-3 py-1.5 text-xs font-medium hover:bg-emerald-600 transition-colors"
+              >
+                <Check size={14} />
+                Confirm Schedule
+              </button>
+            )}
           </div>
         )
       })}
@@ -105,10 +118,11 @@ interface DayDetailPanelProps {
   open: boolean
   onClose: () => void
   assigneeColorMap: Map<string, string>
+  onConfirmSchedule?: (woId: string) => void
 }
 
 /** Desktop-only right slide panel showing scheduled jobs for a day. Hidden on mobile. */
-export function DayDetailPanel({ dateStr, workOrders, open, onClose, assigneeColorMap }: DayDetailPanelProps) {
+export function DayDetailPanel({ dateStr, workOrders, open, onClose, assigneeColorMap, onConfirmSchedule }: DayDetailPanelProps) {
   const dateLabel = new Date(dateStr + 'T00:00:00').toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'long',
@@ -138,7 +152,7 @@ export function DayDetailPanel({ dateStr, workOrders, open, onClose, assigneeCol
 
       {/* Work order list */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <DayJobList workOrders={workOrders} assigneeColorMap={assigneeColorMap} />
+        <DayJobList workOrders={workOrders} assigneeColorMap={assigneeColorMap} onConfirmSchedule={onConfirmSchedule} />
       </div>
     </div>
   )
