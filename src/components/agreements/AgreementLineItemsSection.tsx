@@ -36,7 +36,7 @@ export function emptyCalculatedRow(): LineItemRow {
     amount: '',
     line_items: [],
     frequency: 'one_time',
-    season_start_month: 5,
+    season_start_month: 2,
     season_end_month: 9,
   }
 }
@@ -52,7 +52,7 @@ export function emptyManualRow(): LineItemRow {
     amount: '',
     line_items: [],
     frequency: 'one_time',
-    season_start_month: 5,
+    season_start_month: 2,
     season_end_month: 9,
   }
 }

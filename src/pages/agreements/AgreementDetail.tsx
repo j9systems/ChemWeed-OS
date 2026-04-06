@@ -160,7 +160,7 @@ function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
     amount: c.amount != null ? String(c.amount) : '',
     line_items: Array.isArray(c.line_items) ? c.line_items : [],
     frequency: c.frequency ?? 'one_time',
-    season_start_month: c.season_start_month ?? 5,
+    season_start_month: c.season_start_month ?? 2,
     season_end_month: c.season_end_month ?? 9,
   }))
 }
