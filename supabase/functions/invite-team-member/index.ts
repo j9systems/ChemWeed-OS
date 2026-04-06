@@ -42,7 +42,7 @@ Deno.serve(async (req) => {
       role: role.trim(),
       phone: phone?.trim() || null,
       email: email.trim(),
-      active: 'true',
+      is_active: true,
       pesticide_license_number: pesticide_license_number?.trim() || null,
       license_expiry_date: license_expiry_date || null,
       notes: notes?.trim() || null,

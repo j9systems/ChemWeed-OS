@@ -17,7 +17,7 @@ export function useTeamMembers(activeOnly = true) {
       .order('last_name')
 
     if (activeOnly) {
-      query = query.eq('active', 'true')
+      query = query.eq('is_active', true)
     }
 
     const { data, error: err } = await query

@@ -47,7 +47,7 @@ export function TeamPage() {
 
   const filtered = members.filter((m) => {
     if (roleFilter !== 'all' && m.role !== roleFilter) return false
-    if (showActiveOnly && m.active !== 'true') return false
+    if (showActiveOnly && !m.is_active) return false
     return true
   })
 
@@ -101,7 +101,7 @@ export function TeamPage() {
       {!isLoading && !error && filtered.length > 0 && (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
           {filtered.map((member) => {
-            const isInactive = member.active !== 'true'
+            const isInactive = !member.is_active
             const showLicense = (member.role === 'pca' || member.role === 'tech') && member.license_expiry_date
             const expired = showLicense && isLicenseExpired(member.license_expiry_date!)
             const expiringSoon = showLicense && !expired && isLicenseExpiringSoon(member.license_expiry_date!)

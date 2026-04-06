@@ -112,7 +112,7 @@ export function TeamMemberDetail() {
     setMemberRole(m.role)
     setPhone(m.phone?.toString() ?? '')
     setEmail(m.email ?? '')
-    setActive(m.active === 'true')
+    setActive(m.is_active)
     setNotes(m.notes ?? '')
     setLicenseNumber(m.pesticide_license_number ?? '')
     setLicenseExpiry(m.license_expiry_date ?? '')
@@ -158,7 +158,7 @@ export function TeamMemberDetail() {
       role: memberRole,
       phone: phone.trim() || null,
       email: email.trim() || null,
-      active: active ? 'true' : 'false',
+      is_active: active,
       notes: notes.trim() || null,
     }
 
@@ -223,7 +223,7 @@ export function TeamMemberDetail() {
           >
             {ROLES[member.role]}
           </span>
-          {member.active !== 'true' && (
+          {!member.is_active && (
             <span className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-xs font-medium text-gray-500">
               Inactive
             </span>
