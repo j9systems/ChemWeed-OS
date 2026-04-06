@@ -697,11 +697,14 @@ export function AgreementDetail() {
       alert(getSupabaseErrorMessage(err))
     } else {
       // Generate all WOs for the agreement upfront
-      const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
-        p_agreement_id: agreement.id
-      })
+      const { data: genData, error: genError } = await supabase.rpc(
+        'generate_work_orders_for_agreement',
+        { p_agreement_id: agreement.id }
+      )
       if (genError) {
         console.warn('WO generation warning:', genError.message)
+      } else {
+        console.log('WO generation result:', genData)
       }
       refetch()
     }
