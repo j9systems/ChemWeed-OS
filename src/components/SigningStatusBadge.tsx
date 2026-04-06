@@ -2,7 +2,8 @@ type Status = 'not_started' | 'created' | 'pending' | 'in_progress' | 'completed
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   not_started: { label: 'Not Sent', className: 'bg-gray-100 text-gray-600' },
-  created: { label: 'Sent', className: 'bg-blue-100 text-blue-700' },
+  created: { label: 'Created', className: 'bg-gray-100 text-gray-600' },
+  sent: { label: 'Sent', className: 'bg-blue-100 text-blue-700' },
   pending: { label: 'Pending', className: 'bg-yellow-100 text-yellow-700' },
   in_progress: { label: 'In Progress', className: 'bg-blue-100 text-blue-700' },
   completed: { label: 'Signed', className: 'bg-green-100 text-green-700' },

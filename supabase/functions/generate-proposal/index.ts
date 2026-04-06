@@ -200,11 +200,30 @@ Deno.serve(async (req) => {
 
     const daData = await daResponse.json()
 
+    const signingUrl = daData.signingUrl ?? daData.documentUrl ?? daData.pdfUrl ?? daData.url ?? null
+    const documentId = daData.documentId ?? daData.id ?? null
+
+    // Save signing session data to the service_agreements table.
+    // Status is 'created' (document generated, not yet emailed to client).
+    const { error: updateErr } = await supabase
+      .from('service_agreements')
+      .update({
+        client_signing_url: signingUrl,
+        signing_session_id: documentId,
+        signing_status: 'created',
+      })
+      .eq('id', agreement_id)
+
+    if (updateErr) {
+      console.error('Failed to save signing data:', updateErr)
+      return errorResponse('Document created but failed to save signing data', 500)
+    }
+
     return new Response(
       JSON.stringify({
         success: true,
-        documentUrl: daData.documentUrl ?? daData.pdfUrl ?? daData.url ?? null,
-        documentId: daData.documentId ?? null,
+        documentUrl: signingUrl,
+        documentId,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
