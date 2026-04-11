@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, ClipboardList } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, ClipboardList, Send } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField, canAssignCrew } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
-import { getSupabaseErrorMessage, formatDate, todayPacific } from '@/lib/utils'
+import { getSupabaseErrorMessage, formatDate, formatDateTime, todayPacific } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -155,6 +155,18 @@ function DetailsTab({ wo, onAssignCrew }: { wo: WorkOrder; onAssignCrew?: () => 
   )
 }
 
+interface FieldCompletionRecord {
+  id: string
+  submitted_at: string
+  temperature_f: number | null
+  wind_speed_mph: number | null
+  wind_direction: string | null
+  notes: string | null
+  photo_urls: string[]
+  crew_ids: string[]
+  completed_by: string
+}
+
 function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
   const { role } = useAuth()
   const navigate = useNavigate()
@@ -166,6 +178,21 @@ function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
   const [tanks, setTanks] = useState(wo.tanks_used != null ? String(wo.tanks_used) : '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [logs, setLogs] = useState<FieldCompletionRecord[]>([])
+  const [logsLoading, setLogsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchLogs() {
+      const { data } = await supabase
+        .from('field_completions')
+        .select('id, submitted_at, temperature_f, wind_speed_mph, wind_direction, notes, photo_urls, crew_ids, completed_by')
+        .eq('work_order_id', wo.id)
+        .order('submitted_at', { ascending: false })
+      setLogs(data ?? [])
+      setLogsLoading(false)
+    }
+    fetchLogs()
+  }, [wo.id])
 
   async function handleSave() {
     setSaving(true)
@@ -227,6 +254,43 @@ function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
           {error && <span className="text-sm text-red-600">{error}</span>}
         </div>
       )}
+
+      {/* Field completion logs */}
+      <div className="border-t border-surface-border pt-4 mt-4">
+        <h2 className="text-sm font-semibold mb-3">Field Logs</h2>
+        {logsLoading ? (
+          <p className="text-sm text-[var(--color-text-muted)]">Loading...</p>
+        ) : logs.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)]">No field logs yet.</p>
+        ) : (
+          <div className="space-y-3">
+            {logs.map((log) => (
+              <div key={log.id} className="rounded-lg border border-surface-border p-3 text-sm">
+                <p className="text-xs text-[var(--color-text-muted)] mb-2">
+                  {formatDateTime(log.submitted_at)}
+                </p>
+                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
+                  {log.temperature_f != null && <span>Temp: {log.temperature_f}°F</span>}
+                  {log.wind_speed_mph != null && <span>Wind: {log.wind_speed_mph} mph</span>}
+                  {log.wind_direction && <span>Dir: {log.wind_direction}</span>}
+                </div>
+                {log.notes && (
+                  <p className="mt-2 text-sm whitespace-pre-wrap">{log.notes}</p>
+                )}
+                {log.photo_urls.length > 0 && (
+                  <div className="mt-2 flex gap-2 flex-wrap">
+                    {log.photo_urls.map((url, i) => (
+                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-16 h-16 rounded border border-surface-border overflow-hidden">
+                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                      </a>
+                    ))}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -319,27 +383,115 @@ function HistoryTab({ wo }: { wo: WorkOrder }) {
   )
 }
 
-function NotesTab({ wo }: { wo: WorkOrder }) {
-  const hasAny = wo.notes_client || wo.notes_internal || wo.notes_technician
+interface WONote {
+  id: string
+  body: string
+  created_at: string
+  author: { first_name: string; last_name: string } | null
+}
 
-  if (!hasAny) {
-    return <p className="text-sm text-[var(--color-text-muted)]">No notes for this work order.</p>
+function NotesTab({ wo }: { wo: WorkOrder }) {
+  const { teamMember } = useAuth()
+  const hasStaticNotes = wo.notes_client || wo.notes_internal || wo.notes_technician
+
+  const [notes, setNotes] = useState<WONote[]>([])
+  const [notesLoading, setNotesLoading] = useState(true)
+  const [newNote, setNewNote] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  const fetchNotes = useCallback(async () => {
+    const { data } = await supabase
+      .from('work_order_notes')
+      .select('id, body, created_at, author:team!work_order_notes_author_id_fkey(first_name, last_name)')
+      .eq('work_order_id', wo.id)
+      .order('created_at', { ascending: false })
+    setNotes(
+      (data ?? []).map((n: Record<string, unknown>) => ({
+        id: n.id as string,
+        body: n.body as string,
+        created_at: n.created_at as string,
+        author: n.author as { first_name: string; last_name: string } | null,
+      }))
+    )
+    setNotesLoading(false)
+  }, [wo.id])
+
+  useEffect(() => { fetchNotes() }, [fetchNotes])
+
+  async function handleAdd() {
+    if (!newNote.trim() || !teamMember) return
+    setSaving(true)
+    const { error } = await supabase.from('work_order_notes').insert({
+      work_order_id: wo.id,
+      author_id: teamMember.id,
+      body: newNote.trim(),
+    })
+    if (!error) {
+      setNewNote('')
+      fetchNotes()
+    }
+    setSaving(false)
   }
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-sm font-semibold mb-2">Client Notes</h2>
-        <p className="text-sm whitespace-pre-wrap">{wo.notes_client || <span className="text-[var(--color-text-muted)]">—</span>}</p>
+      {/* Static notes from the work order */}
+      {hasStaticNotes && (
+        <>
+          <div>
+            <h2 className="text-sm font-semibold mb-2">Client Notes</h2>
+            <p className="text-sm whitespace-pre-wrap">{wo.notes_client || <span className="text-[var(--color-text-muted)]">—</span>}</p>
+          </div>
+          <div className="border-t border-surface-border pt-4">
+            <h2 className="text-sm font-semibold mb-2">Internal Notes</h2>
+            <p className="text-sm whitespace-pre-wrap">{wo.notes_internal || <span className="text-[var(--color-text-muted)]">—</span>}</p>
+          </div>
+          <div className="border-t border-surface-border pt-4">
+            <h2 className="text-sm font-semibold mb-2">Tech Instructions</h2>
+            <p className="text-sm whitespace-pre-wrap">{wo.notes_technician || <span className="text-[var(--color-text-muted)]">—</span>}</p>
+          </div>
+        </>
+      )}
+
+      {/* Add note form */}
+      <div className={hasStaticNotes ? 'border-t border-surface-border pt-4' : ''}>
+        <h2 className="text-sm font-semibold mb-2">Notes</h2>
+        <div className="flex gap-2">
+          <textarea
+            value={newNote}
+            onChange={(e) => setNewNote(e.target.value)}
+            rows={2}
+            placeholder="Add a note..."
+            className="flex-1 rounded-lg border border-surface-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+          />
+          <Button size="sm" onClick={handleAdd} disabled={saving || !newNote.trim()}>
+            <Send size={16} />
+          </Button>
+        </div>
       </div>
-      <div className="border-t border-surface-border pt-4">
-        <h2 className="text-sm font-semibold mb-2">Internal Notes</h2>
-        <p className="text-sm whitespace-pre-wrap">{wo.notes_internal || <span className="text-[var(--color-text-muted)]">—</span>}</p>
-      </div>
-      <div className="border-t border-surface-border pt-4">
-        <h2 className="text-sm font-semibold mb-2">Tech Instructions</h2>
-        <p className="text-sm whitespace-pre-wrap">{wo.notes_technician || <span className="text-[var(--color-text-muted)]">—</span>}</p>
-      </div>
+
+      {/* Notes list */}
+      {notesLoading ? (
+        <p className="text-sm text-[var(--color-text-muted)]">Loading...</p>
+      ) : notes.length === 0 && !hasStaticNotes ? (
+        <p className="text-sm text-[var(--color-text-muted)]">No notes yet.</p>
+      ) : (
+        <div className="space-y-3">
+          {notes.map((note) => (
+            <div key={note.id} className="rounded-lg border border-surface-border p-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium">
+                  {note.author ? `${note.author.first_name} ${note.author.last_name}` : 'Unknown'}
+                </span>
+                <span className="text-xs text-[var(--color-text-muted)]">
+                  {formatDateTime(note.created_at)}
+                </span>
+              </div>
+              <p className="text-sm whitespace-pre-wrap">{note.body}</p>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
