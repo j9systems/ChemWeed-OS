@@ -37,7 +37,6 @@ interface TeamMemberRow {
 const CREW_ROLES = [
   { value: '', label: '—' },
   { value: 'lead', label: 'Lead' },
-  { value: 'technician', label: 'Technician' },
   { value: 'assistant', label: 'Assistant' },
 ]
 
