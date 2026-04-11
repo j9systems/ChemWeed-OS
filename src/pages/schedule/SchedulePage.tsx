@@ -387,6 +387,7 @@ export function SchedulePage() {
         assigneeColorMap={assigneeColorMap}
         onConfirmSchedule={confirmSchedule}
         onUnschedule={unschedule}
+        onCrewSaved={refetch}
       />
 
       {/* Day map panel (slides from bottom) */}

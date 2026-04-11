@@ -177,6 +177,7 @@ export interface WorkOrder {
   created_by: string | null
   created_at: string
   updated_at: string
+  work_order_crew?: WorkOrderCrewMember[]
 }
 
 export interface Chemical {
@@ -288,6 +289,27 @@ export interface SitePhoto {
   uploaded_by: string | null
 }
 
+export interface WorkOrderCrewMember {
+  id: string
+  work_order_id: string
+  team_member_id: string
+  role: string | null
+  team_member?: TeamMember
+}
+
+export interface TeamUnavailability {
+  id: string
+  team_member_id: string
+  start_date: string
+  end_date: string
+  all_day: boolean
+  start_time: string | null
+  end_time: string | null
+  reason: string | null
+  created_by: string | null
+  created_at: string
+}
+
 export interface SiteObservationLog {
   id: string
   site_id: string
@@ -320,6 +342,8 @@ export interface Database {
       site_observation_logs: { Row: SiteObservationLog; Insert: Omit<SiteObservationLog, 'id'>; Update: Partial<Omit<SiteObservationLog, 'id'>> }
       site_photos: { Row: SitePhoto; Insert: Omit<SitePhoto, 'id' | 'uploaded_at'>; Update: Partial<Omit<SitePhoto, 'id'>> }
       urgency_levels: { Row: UrgencyLevel; Insert: Omit<UrgencyLevel, 'id' | 'created_at'>; Update: Partial<Omit<UrgencyLevel, 'id'>> }
+      work_order_crew: { Row: WorkOrderCrewMember; Insert: Omit<WorkOrderCrewMember, 'id'>; Update: Partial<Omit<WorkOrderCrewMember, 'id'>> }
+      team_unavailability: { Row: TeamUnavailability; Insert: Omit<TeamUnavailability, 'id' | 'created_at'>; Update: Partial<Omit<TeamUnavailability, 'id'>> }
     }
   }
 }
