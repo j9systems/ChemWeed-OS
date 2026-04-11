@@ -1,5 +1,5 @@
 import { useState, useRef, type FormEvent } from 'react'
-import { useParams, Navigate, Link, useNavigate } from 'react-router'
+import { useParams, useSearchParams, Navigate, Link, useNavigate } from 'react-router'
 import { ArrowLeft, Camera, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
@@ -113,6 +113,8 @@ function PhotoBucket({
 
 export function FieldCompletionForm() {
   const { id } = useParams<{ id: string }>()
+  const [searchParams] = useSearchParams()
+  const isLogOnly = searchParams.get('mode') === 'log'
   const navigate = useNavigate()
   const { role, teamMember } = useAuth()
   const { workOrder, isLoading: woLoading } = useWorkOrder(id)
@@ -206,21 +208,23 @@ export function FieldCompletionForm() {
     setBeforeError(null)
     setAfterError(null)
 
-    // Validate photos
-    let hasValidationError = false
-    if (beforePhotos.length < 1) {
-      setBeforeError('At least one before photo is required')
-      hasValidationError = true
-    }
-    if (afterPhotos.length < 1) {
-      setAfterError('At least one after photo is required')
-      hasValidationError = true
-    }
-    if (hasValidationError) return
+    // Validate photos & signature (required only when completing)
+    if (!isLogOnly) {
+      let hasValidationError = false
+      if (beforePhotos.length < 1) {
+        setBeforeError('At least one before photo is required')
+        hasValidationError = true
+      }
+      if (afterPhotos.length < 1) {
+        setAfterError('At least one after photo is required')
+        hasValidationError = true
+      }
+      if (hasValidationError) return
 
-    if (!signatureCaptured || !signatureBlob) {
-      setFormError('Please provide a signature before submitting.')
-      return
+      if (!signatureCaptured || !signatureBlob) {
+        setFormError('Please provide a signature before submitting.')
+        return
+      }
     }
 
     const woId = workOrder.id
@@ -238,12 +242,13 @@ export function FieldCompletionForm() {
       crewIds,
       notes,
       photos: allPhotos,
-      signatureBlob,
+      signatureBlob: signatureBlob ?? null,
       materialActuals: materialActuals.map((m) => ({
         materialId: m.materialId,
         actualAmountUsed: m.actualAmountUsed ? parseFloat(m.actualAmountUsed) : null,
         tanksUsed: m.tanksUsed ? parseFloat(m.tanksUsed) : null,
       })),
+      markComplete: !isLogOnly,
     })
 
     if (success) {
@@ -261,7 +266,7 @@ export function FieldCompletionForm() {
         Back to Job
       </Link>
 
-      <h1 className="text-2xl font-bold mb-2">Complete Job</h1>
+      <h1 className="text-2xl font-bold mb-2">{isLogOnly ? 'Field Log' : 'Complete Job'}</h1>
       <p className="text-sm text-[var(--color-text-muted)] mb-6">
         {workOrder.client?.name} — {workOrder.site?.name}
       </p>
@@ -480,7 +485,7 @@ export function FieldCompletionForm() {
           disabled={isSubmitting}
           className="w-full"
         >
-          {isSubmitting ? 'Submitting...' : 'Complete Job'}
+          {isSubmitting ? 'Submitting...' : isLogOnly ? 'Save Field Log' : 'Complete Job'}
         </Button>
       </form>
     </div>

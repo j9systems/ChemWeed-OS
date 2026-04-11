@@ -17,6 +17,8 @@ interface FieldCompletionData {
   photos: File[]
   signatureBlob: Blob | null
   materialActuals: { materialId: string; actualAmountUsed: number | null; tanksUsed: number | null }[]
+  /** When true the work order status is set to 'completed'. Default: true. */
+  markComplete?: boolean
 }
 
 export function useFieldCompletion() {
@@ -78,14 +80,16 @@ export function useFieldCompletion() {
         }
       }
 
-      // 5. Update work order status
-      setProgress('Updating work order...')
-      const { error: statusErr } = await supabase
-        .from('work_orders')
-        .update({ status: 'completed', completion_date: todayPacific() })
-        .eq('id', data.workOrderId)
+      // 5. Update work order status (only when completing the job)
+      if (data.markComplete !== false) {
+        setProgress('Updating work order...')
+        const { error: statusErr } = await supabase
+          .from('work_orders')
+          .update({ status: 'completed', completion_date: todayPacific() })
+          .eq('id', data.workOrderId)
 
-      if (statusErr) throw new Error(getSupabaseErrorMessage(statusErr))
+        if (statusErr) throw new Error(getSupabaseErrorMessage(statusErr))
+      }
 
       setProgress('')
       setIsSubmitting(false)

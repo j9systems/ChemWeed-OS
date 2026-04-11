@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, ClipboardList } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField, canAssignCrew } from '@/lib/roles'
@@ -157,6 +157,7 @@ function DetailsTab({ wo, onAssignCrew }: { wo: WorkOrder; onAssignCrew?: () => 
 
 function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
   const { role } = useAuth()
+  const navigate = useNavigate()
   const isEditable = canCompleteField(role) || canEdit(role)
 
   const [windSpeed, setWindSpeed] = useState(wo.wind_speed_mph != null ? String(wo.wind_speed_mph) : '')
@@ -213,8 +214,16 @@ function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
         </div>
       )}
       {isEditable && (
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Field Data'}</Button>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => navigate(`/work-orders/${wo.id}/complete?mode=log`)}
+          >
+            <ClipboardList size={16} />
+            Log Field Data
+          </Button>
           {error && <span className="text-sm text-red-600">{error}</span>}
         </div>
       )}
