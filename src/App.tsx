@@ -19,6 +19,7 @@ import { SettingsPage } from '@/pages/settings/SettingsPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
 import { TeamPage } from '@/pages/team/TeamPage'
 import { TeamMemberDetail } from '@/pages/team/TeamMemberDetail'
+import { ProfilePage } from '@/pages/profile/ProfilePage'
 
 function RootLayout() {
   return (
@@ -54,6 +55,7 @@ const router = createBrowserRouter([
               { path: 'team', element: <TeamPage /> },
               { path: 'team/:id', element: <TeamMemberDetail /> },
               { path: 'settings', element: <SettingsPage /> },
+              { path: 'profile', element: <ProfilePage /> },
             ],
           },
         ],

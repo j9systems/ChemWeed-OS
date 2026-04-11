@@ -1,6 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useRef, type FormEvent } from 'react'
 import { useParams, Navigate, Link, useNavigate } from 'react-router'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Camera, X, ChevronDown, ChevronUp } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -13,7 +13,6 @@ import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { SignatureCanvas } from '@/components/field/SignatureCanvas'
-import { PhotoCapture } from '@/components/field/PhotoCapture'
 
 interface MaterialActual {
   materialId: string
@@ -22,6 +21,94 @@ interface MaterialActual {
   recommendedUnit: string | null
   actualAmountUsed: string
   tanksUsed: string
+}
+
+interface PhotoWithType {
+  file: File
+  type: 'before' | 'after' | 'during' | 'other'
+}
+
+function PhotoBucket({
+  label,
+  required,
+  photos,
+  photoType,
+  onAdd,
+  onRemove,
+  error,
+}: {
+  label: string
+  required?: boolean
+  photos: PhotoWithType[]
+  photoType: 'before' | 'after' | 'during' | 'other'
+  onAdd: (file: File, type: 'before' | 'after' | 'during' | 'other') => void
+  onRemove: (index: number) => void
+  error?: string | null
+}) {
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    if (file) {
+      onAdd(file, photoType)
+    }
+    if (inputRef.current) {
+      inputRef.current.value = ''
+    }
+  }
+
+  return (
+    <div className="space-y-2">
+      <label className="block text-sm font-medium">
+        {label}
+        {required && <span className="text-red-500 ml-1">*</span>}
+      </label>
+
+      {photos.length > 0 && (
+        <div className="grid grid-cols-3 gap-2">
+          {photos.map((photo, i) => (
+            <div key={i} className="relative rounded-lg overflow-hidden border border-surface-border">
+              <img
+                src={URL.createObjectURL(photo.file)}
+                alt={`${label} ${i + 1}`}
+                className="w-full h-24 object-cover"
+              />
+              <button
+                type="button"
+                onClick={() => onRemove(i)}
+                className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-black/80 min-h-[28px] min-w-[28px] flex items-center justify-center"
+              >
+                <X size={14} />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        onChange={handleFileChange}
+        className="hidden"
+      />
+
+      <Button
+        variant="secondary"
+        size="sm"
+        type="button"
+        onClick={() => inputRef.current?.click()}
+      >
+        <Camera size={16} />
+        Add {label.replace(' Photos', '')} Photo{photos.length > 0 ? ` (${photos.length})` : ''}
+      </Button>
+
+      {error && (
+        <p className="text-sm text-red-600">{error}</p>
+      )}
+    </div>
+  )
 }
 
 export function FieldCompletionForm() {
@@ -41,11 +128,14 @@ export function FieldCompletionForm() {
   const [windDirection, setWindDirection] = useState('')
   const [crewIds, setCrewIds] = useState<string[]>([])
   const [notes, setNotes] = useState('')
-  const [photos, setPhotos] = useState<File[]>([])
+  const [typedPhotos, setTypedPhotos] = useState<PhotoWithType[]>([])
   const [signatureBlob, setSignatureBlob] = useState<Blob | null>(null)
   const [signatureCaptured, setSignatureCaptured] = useState(false)
   const [materialActuals, setMaterialActuals] = useState<MaterialActual[]>([])
   const [formError, setFormError] = useState<string | null>(null)
+  const [beforeError, setBeforeError] = useState<string | null>(null)
+  const [afterError, setAfterError] = useState<string | null>(null)
+  const [showAdditionalPhotos, setShowAdditionalPhotos] = useState(false)
 
   // Initialize material actuals when data loads
   if (woMaterials.length > 0 && materialActuals.length === 0) {
@@ -68,6 +158,33 @@ export function FieldCompletionForm() {
   if (woLoading || matLoading) return <LoadingSpinner />
   if (!workOrder) return <ErrorMessage message="Work order not found." />
 
+  const beforePhotos = typedPhotos.filter(p => p.type === 'before')
+  const afterPhotos = typedPhotos.filter(p => p.type === 'after')
+  const duringPhotos = typedPhotos.filter(p => p.type === 'during')
+  const otherPhotos = typedPhotos.filter(p => p.type === 'other')
+
+  function addPhoto(file: File, type: PhotoWithType['type']) {
+    setTypedPhotos(prev => [...prev, { file, type }])
+    // Clear errors when photo added
+    if (type === 'before') setBeforeError(null)
+    if (type === 'after') setAfterError(null)
+  }
+
+  function removePhotoByTypeIndex(type: PhotoWithType['type'], typeIndex: number) {
+    // Find the global index of the nth photo of this type
+    let count = 0
+    const globalIndex = typedPhotos.findIndex(p => {
+      if (p.type === type) {
+        if (count === typeIndex) return true
+        count++
+      }
+      return false
+    })
+    if (globalIndex >= 0) {
+      setTypedPhotos(prev => prev.filter((_, i) => i !== globalIndex))
+    }
+  }
+
   function toggleCrew(memberId: string) {
     setCrewIds((prev) =>
       prev.includes(memberId)
@@ -86,6 +203,20 @@ export function FieldCompletionForm() {
     e.preventDefault()
     if (!workOrder) return
     setFormError(null)
+    setBeforeError(null)
+    setAfterError(null)
+
+    // Validate photos
+    let hasValidationError = false
+    if (beforePhotos.length < 1) {
+      setBeforeError('At least one before photo is required')
+      hasValidationError = true
+    }
+    if (afterPhotos.length < 1) {
+      setAfterError('At least one after photo is required')
+      hasValidationError = true
+    }
+    if (hasValidationError) return
 
     if (!signatureCaptured || !signatureBlob) {
       setFormError('Please provide a signature before submitting.')
@@ -93,6 +224,10 @@ export function FieldCompletionForm() {
     }
 
     const woId = workOrder.id
+    // For the existing submit function, pass all photos as File[] (the hook handles upload)
+    // We need to pass photo_type metadata — for now the hook uploads all photos,
+    // we'll pass only the File objects and handle types separately
+    const allPhotos = typedPhotos.map(p => p.file)
     const success = await submit({
       workOrderId: woId,
       completedBy: teamMember?.id ?? '',
@@ -102,7 +237,7 @@ export function FieldCompletionForm() {
       windDirection: windDirection || null,
       crewIds,
       notes,
-      photos,
+      photos: allPhotos,
       signatureBlob,
       materialActuals: materialActuals.map((m) => ({
         materialId: m.materialId,
@@ -255,13 +390,60 @@ export function FieldCompletionForm() {
           />
         </Card>
 
-        {/* Photos */}
+        {/* Before Photos */}
         <Card>
-          <PhotoCapture
-            photos={photos}
-            onAdd={(file) => setPhotos((prev) => [...prev, file])}
-            onRemove={(index) => setPhotos((prev) => prev.filter((_, i) => i !== index))}
+          <PhotoBucket
+            label="Before Photos"
+            required
+            photos={beforePhotos}
+            photoType="before"
+            onAdd={addPhoto}
+            onRemove={(i) => removePhotoByTypeIndex('before', i)}
+            error={beforeError}
           />
+        </Card>
+
+        {/* After Photos */}
+        <Card>
+          <PhotoBucket
+            label="After Photos"
+            required
+            photos={afterPhotos}
+            photoType="after"
+            onAdd={addPhoto}
+            onRemove={(i) => removePhotoByTypeIndex('after', i)}
+            error={afterError}
+          />
+        </Card>
+
+        {/* Additional Photos (collapsible) */}
+        <Card>
+          <button
+            type="button"
+            onClick={() => setShowAdditionalPhotos(!showAdditionalPhotos)}
+            className="flex items-center justify-between w-full text-sm font-medium min-h-[44px]"
+          >
+            <span>Additional Photos (optional)</span>
+            {showAdditionalPhotos ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+          </button>
+          {showAdditionalPhotos && (
+            <div className="mt-3 space-y-4">
+              <PhotoBucket
+                label="During Photos"
+                photos={duringPhotos}
+                photoType="during"
+                onAdd={addPhoto}
+                onRemove={(i) => removePhotoByTypeIndex('during', i)}
+              />
+              <PhotoBucket
+                label="Other Photos"
+                photos={otherPhotos}
+                photoType="other"
+                onAdd={addPhoto}
+                onRemove={(i) => removePhotoByTypeIndex('other', i)}
+              />
+            </div>
+          )}
         </Card>
 
         {/* Signature */}

@@ -1,11 +1,13 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate, Link } from 'react-router'
-import { ArrowLeft, Camera } from 'lucide-react'
+import { ArrowLeft, Camera, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/hooks/useAuth'
+import { useTeamUnavailability } from '@/hooks/useTeamUnavailability'
 import { ROLES, WO_STATUS_COLORS, WORK_ORDER_STATUSES } from '@/lib/constants'
 import { uploadProfilePhoto } from '@/lib/storage'
 import { compressImage } from '@/lib/image-compression'
+import { formatDate } from '@/lib/utils'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -45,11 +47,207 @@ function isLicenseExpiringSoon(date: string): boolean {
   return expiry >= now && expiry <= sixtyDays
 }
 
+function AvailabilitySection({ teamMemberId, canDelete }: { teamMemberId: string; canDelete: boolean }) {
+  const { teamMember: authMember } = useAuth()
+  const { blocks, isLoading, error, addBlock, deleteBlock } = useTeamUnavailability(teamMemberId)
+  const [showForm, setShowForm] = useState(false)
+  const [startDate, setStartDate] = useState('')
+  const [endDate, setEndDate] = useState('')
+  const [allDay, setAllDay] = useState(true)
+  const [startTime, setStartTime] = useState('')
+  const [endTime, setEndTime] = useState('')
+  const [reason, setReason] = useState('')
+  const [saving, setSaving] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+
+  function resetForm() {
+    setStartDate('')
+    setEndDate('')
+    setAllDay(true)
+    setStartTime('')
+    setEndTime('')
+    setReason('')
+    setFormError(null)
+    setShowForm(false)
+  }
+
+  async function handleSave() {
+    if (!startDate) {
+      setFormError('Start date is required.')
+      return
+    }
+    setSaving(true)
+    setFormError(null)
+
+    const result = await addBlock({
+      team_member_id: teamMemberId,
+      start_date: startDate,
+      end_date: endDate || startDate,
+      all_day: allDay,
+      start_time: allDay ? null : (startTime || null),
+      end_time: allDay ? null : (endTime || null),
+      reason: reason.trim() || null,
+      created_by: authMember?.id ?? null,
+    })
+
+    if (result.error) {
+      setFormError(result.error)
+    } else {
+      resetForm()
+    }
+    setSaving(false)
+  }
+
+  async function handleDelete(blockId: string) {
+    setDeleteError(null)
+    const result = await deleteBlock(blockId)
+    if (result.error) {
+      setDeleteError(result.error)
+    }
+  }
+
+  return (
+    <div className="rounded-[20px] bg-surface-raised shadow-card p-4 mb-6">
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-[var(--color-text-primary)]">Availability</h3>
+        {!showForm && (
+          <Button variant="secondary" size="sm" onClick={() => setShowForm(true)}>
+            Add Block
+          </Button>
+        )}
+      </div>
+
+      {deleteError && (
+        <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          {deleteError}
+        </div>
+      )}
+
+      {isLoading ? (
+        <LoadingSpinner />
+      ) : error ? (
+        <p className="text-sm text-red-600">{error}</p>
+      ) : blocks.length === 0 && !showForm ? (
+        <p className="text-sm text-[var(--color-text-muted)]">No unavailability blocks set.</p>
+      ) : (
+        <div className="space-y-2 mb-3">
+          {blocks.map((block) => (
+            <div
+              key={block.id}
+              className="flex items-center justify-between rounded-lg border border-surface-border px-3 py-2 min-h-[44px]"
+            >
+              <div>
+                <p className="text-sm font-medium">
+                  {formatDate(block.start_date)}
+                  {block.end_date !== block.start_date && ` – ${formatDate(block.end_date)}`}
+                </p>
+                <p className="text-xs text-[var(--color-text-muted)]">
+                  {block.all_day
+                    ? 'Full day'
+                    : `${block.start_time ?? '?'} – ${block.end_time ?? '?'}`}
+                  {block.reason && ` — ${block.reason}`}
+                </p>
+              </div>
+              {canDelete && (
+                <button
+                  type="button"
+                  onClick={() => handleDelete(block.id)}
+                  className="rounded-lg p-2 text-[var(--color-text-muted)] hover:text-red-600 hover:bg-red-50 transition-colors min-h-[44px] min-w-[44px] flex items-center justify-center"
+                >
+                  <Trash2 size={16} />
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {showForm && (
+        <div className="border-t border-surface-border pt-3 mt-3">
+          <div className="grid grid-cols-2 gap-3">
+            <Input
+              label="Start Date"
+              type="date"
+              value={startDate}
+              onChange={(e) => {
+                setStartDate(e.target.value)
+                if (!endDate) setEndDate(e.target.value)
+              }}
+              required
+            />
+            <Input
+              label="End Date"
+              type="date"
+              value={endDate}
+              onChange={(e) => setEndDate(e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="mt-3">
+            <label className="flex items-center gap-3 rounded-lg px-3 py-2 min-h-[44px] cursor-pointer">
+              <input
+                type="checkbox"
+                checked={allDay}
+                onChange={(e) => setAllDay(e.target.checked)}
+                className="h-5 w-5 rounded border-surface-border text-brand-green focus:ring-brand-green"
+              />
+              <span className="text-sm">Full day</span>
+            </label>
+          </div>
+
+          {!allDay && (
+            <div className="grid grid-cols-2 gap-3 mt-2">
+              <Input
+                label="Start Time"
+                type="time"
+                value={startTime}
+                onChange={(e) => setStartTime(e.target.value)}
+              />
+              <Input
+                label="End Time"
+                type="time"
+                value={endTime}
+                onChange={(e) => setEndTime(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="mt-3">
+            <Input
+              label="Reason (optional)"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Vacation, appointment, etc."
+            />
+          </div>
+
+          {formError && (
+            <p className="mt-2 text-sm text-red-600">{formError}</p>
+          )}
+
+          <div className="flex gap-2 mt-3">
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save'}
+            </Button>
+            <Button variant="secondary" size="sm" onClick={resetForm}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function TeamMemberDetail() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
-  const { role: authRole } = useAuth()
+  const { role: authRole, teamMember: authTeamMember } = useAuth()
   const isAdmin = authRole === 'admin'
+  const isManager = authRole === 'manager'
+  const isAdminOrManager = isAdmin || isManager
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [member, setMember] = useState<TeamMember | null>(null)
@@ -238,6 +436,11 @@ export function TeamMemberDetail() {
   const showLicenseSection = memberRole === 'pca' || memberRole === 'technician'
   const licenseExpired = licenseExpiry && isLicenseExpired(licenseExpiry)
   const licenseExpiringSoon = licenseExpiry && !licenseExpired && isLicenseExpiringSoon(licenseExpiry)
+
+  // Show availability if admin/manager, or if tech viewing their own profile
+  const showAvailability = isAdminOrManager || (authRole === 'technician' && authTeamMember?.id === id)
+  // Admin/manager can delete any block; techs can delete their own
+  const canDeleteBlocks = isAdminOrManager || (authRole === 'technician' && authTeamMember?.id === id)
 
   return (
     <div className="pb-20 md:pb-0 max-w-2xl">
@@ -452,6 +655,11 @@ export function TeamMemberDetail() {
           </div>
         )}
       </div>
+
+      {/* Availability section */}
+      {showAvailability && id && (
+        <AvailabilitySection teamMemberId={id} canDelete={canDeleteBlocks} />
+      )}
 
       {/* Delete button (admin only) */}
       {isAdmin && (

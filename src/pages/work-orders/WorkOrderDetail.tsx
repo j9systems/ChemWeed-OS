@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2 } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
-import { canEdit, canCompleteField } from '@/lib/roles'
+import { canEdit, canCompleteField, canAssignCrew } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage, formatDate } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
@@ -13,12 +13,14 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Card } from '@/components/ui/Card'
 import { TabBar } from './components/TabBar'
-import { WORK_ORDER_STATUSES, WIND_DIRECTIONS, formatPeriodLabel, getUrgencyColors } from '@/lib/constants'
+import { AssignCrewModal } from '@/components/work-orders/AssignCrewModal'
+import { WORK_ORDER_STATUSES, WIND_DIRECTIONS, formatPeriodLabel, getUrgencyColors, getServiceColor } from '@/lib/constants'
 import type { WorkOrder } from '@/types/database'
 
 const TABS = [
   { key: 'details', label: 'Details' },
   { key: 'field', label: 'Field' },
+  { key: 'history', label: 'History' },
   { key: 'notes', label: 'Notes' },
 ]
 
@@ -59,7 +61,47 @@ function DetailItem({ label, children }: { label: string; children: React.ReactN
   )
 }
 
-function DetailsTab({ wo }: { wo: WorkOrder }) {
+function CrewCard({ wo, onAssign }: { wo: WorkOrder; onAssign?: () => void }) {
+  const { role } = useAuth()
+  const crew = wo.work_order_crew ?? []
+
+  return (
+    <div className="mt-6 border-t border-surface-border pt-4">
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-sm font-semibold">Crew</h2>
+        {canAssignCrew(role) && onAssign && (
+          <Button size="sm" variant="secondary" onClick={onAssign}>
+            <Users size={14} />
+            Assign Crew
+          </Button>
+        )}
+      </div>
+      {crew.length === 0 ? (
+        <p className="text-sm italic text-[var(--color-text-muted)]">No crew assigned.</p>
+      ) : (
+        <div className="space-y-2">
+          {crew.map((c) => (
+            <div key={c.id} className="flex items-center gap-3 py-1">
+              <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-gray-200 text-xs font-semibold text-gray-700">
+                {c.team_member ? `${c.team_member.first_name.charAt(0)}${c.team_member.last_name.charAt(0)}` : '??'}
+              </span>
+              <div>
+                <p className="text-sm font-medium">
+                  {c.team_member ? `${c.team_member.first_name} ${c.team_member.last_name}` : 'Unknown'}
+                </p>
+                {c.role && (
+                  <p className="text-xs text-[var(--color-text-muted)] capitalize">{c.role}</p>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function DetailsTab({ wo, onAssignCrew }: { wo: WorkOrder; onAssignCrew?: () => void }) {
   const phone = wo.client?.billing_phone
   const email = wo.client?.billing_email
   const navUrl = buildNavigationUrl(wo)
@@ -107,6 +149,8 @@ function DetailsTab({ wo }: { wo: WorkOrder }) {
           <DetailItem label="Days Since Last Service">{wo.days_since_last_service}</DetailItem>
         )}
       </dl>
+
+      <CrewCard wo={wo} onAssign={onAssignCrew} />
     </div>
   )
 }
@@ -183,6 +227,94 @@ function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
   )
 }
 
+interface SiteHistoryItem {
+  id: string
+  completion_date: string | null
+  service_type_name: string | null
+  work_order_crew: { id: string; team_member: { first_name: string; last_name: string } | null }[]
+}
+
+function HistoryTab({ wo }: { wo: WorkOrder }) {
+  const navigate = useNavigate()
+  const [history, setHistory] = useState<SiteHistoryItem[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+
+  const fetchHistory = useCallback(async () => {
+    if (!wo.site_id) {
+      setIsLoading(false)
+      return
+    }
+    const { data } = await supabase
+      .from('work_orders')
+      .select('id, completion_date, service_type:service_types(name), work_order_crew(id, team_member:team(first_name, last_name))')
+      .eq('site_id', wo.site_id)
+      .eq('status', 'completed')
+      .neq('id', wo.id)
+      .order('completion_date', { ascending: false })
+      .limit(20)
+
+    if (data) {
+      setHistory(data.map((d: any) => ({
+        id: d.id,
+        completion_date: d.completion_date,
+        service_type_name: d.service_type?.name ?? null,
+        work_order_crew: d.work_order_crew ?? [],
+      })))
+    }
+    setIsLoading(false)
+  }, [wo.site_id, wo.id])
+
+  useEffect(() => { fetchHistory() }, [fetchHistory])
+
+  if (isLoading) return <LoadingSpinner />
+
+  if (history.length === 0) {
+    return <p className="text-sm text-[var(--color-text-muted)]">No previous completed jobs for this site.</p>
+  }
+
+  return (
+    <div className="space-y-1">
+      <h2 className="text-sm font-semibold mb-3">Site History</h2>
+      {history.map((item) => {
+        const sc = getServiceColor(item.service_type_name ?? undefined)
+        const crewInitials = item.work_order_crew
+          .slice(0, 3)
+          .map((c) => c.team_member ? `${c.team_member.first_name.charAt(0)}${c.team_member.last_name.charAt(0)}` : '??')
+
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => navigate(`/work-orders/${item.id}`)}
+            className="w-full flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-surface-raised transition-colors min-h-[44px]"
+          >
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-[var(--color-text-muted)] w-24 shrink-0">
+                {formatDate(item.completion_date)}
+              </span>
+              {item.service_type_name && (
+                <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
+                  {item.service_type_name}
+                </span>
+              )}
+              {crewInitials.length > 0 && (
+                <div className="flex -space-x-1">
+                  {crewInitials.map((init, i) => (
+                    <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-[9px] font-semibold text-gray-700 ring-1 ring-white">
+                      {init}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+            <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 function NotesTab({ wo }: { wo: WorkOrder }) {
   const hasAny = wo.notes_client || wo.notes_internal || wo.notes_technician
 
@@ -210,7 +342,7 @@ function NotesTab({ wo }: { wo: WorkOrder }) {
 
 export function WorkOrderDetail() {
   const { id } = useParams<{ id: string }>()
-  const { role } = useAuth()
+  const { role, teamMember } = useAuth()
   const navigate = useNavigate()
   const { workOrder, isLoading, error, refetch } = useWorkOrder(id)
   const [updating, setUpdating] = useState(false)
@@ -218,10 +350,14 @@ export function WorkOrderDetail() {
   const [activeTab, setActiveTab] = useState('details')
   const [scheduleDate, setScheduleDate] = useState('')
   const [showDatePicker, setShowDatePicker] = useState(false)
+  const [showAssignModal, setShowAssignModal] = useState(false)
 
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
   if (!workOrder) return <ErrorMessage message="Work order not found." />
+
+  const isTechnician = role === 'technician'
+  const isAssignedToMe = isTechnician && teamMember && workOrder.work_order_crew?.some(c => c.team_member_id === teamMember.id)
 
   async function deleteWorkOrder() {
     if (!workOrder) return
@@ -278,11 +414,14 @@ export function WorkOrderDetail() {
 
   async function startJob() {
     if (!workOrder) return
+    const confirmed = window.confirm('Start this job now?')
+    if (!confirmed) return
     setUpdating(true)
     const today = new Date().toISOString().split('T')[0]
+    const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
     const { error: err } = await supabase
       .from('work_orders')
-      .update({ status: 'in_progress', actual_start_date: today })
+      .update({ status: 'in_progress', actual_start_date: today, actual_start_time: now })
       .eq('id', workOrder.id)
     if (err) alert(getSupabaseErrorMessage(err))
     else refetch()
@@ -291,10 +430,14 @@ export function WorkOrderDetail() {
 
   async function completeJob() {
     if (!workOrder) return
+    // For technicians, navigate to the FieldCompletionForm
+    if (isTechnician) {
+      navigate(`/work-orders/${workOrder.id}/complete`)
+      return
+    }
     setUpdating(true)
     const today = new Date().toISOString().split('T')[0]
 
-    // Complete this WO
     const { error: err } = await supabase
       .from('work_orders')
       .update({ status: 'completed', completion_date: today, last_serviced_date: today })
@@ -306,7 +449,6 @@ export function WorkOrderDetail() {
       return
     }
 
-    // Update last_serviced_date on sibling WOs for same line item
     await supabase
       .from('work_orders')
       .update({ last_serviced_date: today })
@@ -317,8 +459,17 @@ export function WorkOrderDetail() {
     setUpdating(false)
   }
 
+  // Determine which action button to show for technician sticky bar
+  const techAction = (() => {
+    if (!isTechnician || !isAssignedToMe) return null
+    if (workOrder.status === 'scheduled') return 'start'
+    if (workOrder.status === 'in_progress') return 'complete'
+    if (workOrder.status === 'completed') return 'done'
+    return null
+  })()
+
   return (
-    <div>
+    <div className={techAction && techAction !== 'done' ? 'pb-24 md:pb-0' : ''}>
       <Link to="/work-orders" className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] mb-4">
         <ArrowLeft size={16} />
         Back to Jobs
@@ -339,70 +490,120 @@ export function WorkOrderDetail() {
           </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          {workOrder.status === 'unscheduled' && canEdit(role) && (
-            <>
-              {showDatePicker ? (
-                <div className="flex items-center gap-2">
-                  <input
-                    type="date"
-                    value={scheduleDate}
-                    onChange={(e) => setScheduleDate(e.target.value)}
-                    className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px]"
-                  />
-                  <Button size="sm" onClick={markScheduled} disabled={updating || !scheduleDate}>
-                    Confirm
+        {/* Admin / Manager action buttons */}
+        {!isTechnician && (
+          <div className="flex flex-wrap items-center gap-2">
+            {workOrder.status === 'unscheduled' && canEdit(role) && (
+              <>
+                {showDatePicker ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={scheduleDate}
+                      onChange={(e) => setScheduleDate(e.target.value)}
+                      className="rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px]"
+                    />
+                    <Button size="sm" onClick={markScheduled} disabled={updating || !scheduleDate}>
+                      Confirm
+                    </Button>
+                  </div>
+                ) : (
+                  <Button size="sm" variant="secondary" onClick={() => setShowDatePicker(true)}>
+                    <CalendarCheck size={16} />
+                    Schedule
                   </Button>
-                </div>
-              ) : (
-                <Button size="sm" variant="secondary" onClick={() => setShowDatePicker(true)}>
-                  <CalendarCheck size={16} />
-                  Schedule
-                </Button>
-              )}
-            </>
-          )}
-          {workOrder.status === 'tentative' && canEdit(role) && (
-            <Button size="sm" onClick={confirmSchedule} disabled={updating}>
-              <CalendarCheck size={16} />
-              Confirm Schedule
-            </Button>
-          )}
-          {(workOrder.status === 'tentative' || workOrder.status === 'scheduled') && canEdit(role) && (
-            <Button size="sm" variant="secondary" onClick={unscheduleJob} disabled={updating}>
-              <Undo2 size={16} />
-              Unschedule
-            </Button>
-          )}
-          {(workOrder.status === 'scheduled' || workOrder.status === 'tentative') && canCompleteField(role) && (
-            <Button size="sm" onClick={startJob} disabled={updating}>
-              <Play size={16} />
-              Start Job
-            </Button>
-          )}
-          {workOrder.status === 'in_progress' && canCompleteField(role) && (
-            <Button size="sm" onClick={completeJob} disabled={updating}>
-              <CheckCircle size={16} />
-              Complete Job
-            </Button>
-          )}
-          {canEdit(role) && (
-            <Button variant="danger" size="sm" onClick={deleteWorkOrder} disabled={deleting}>
-              <Trash2 size={16} />
-              {deleting ? 'Deleting...' : 'Delete'}
-            </Button>
-          )}
-        </div>
+                )}
+              </>
+            )}
+            {workOrder.status === 'tentative' && canEdit(role) && (
+              <Button size="sm" onClick={confirmSchedule} disabled={updating}>
+                <CalendarCheck size={16} />
+                Confirm Schedule
+              </Button>
+            )}
+            {(workOrder.status === 'tentative' || workOrder.status === 'scheduled') && canEdit(role) && (
+              <Button size="sm" variant="secondary" onClick={unscheduleJob} disabled={updating}>
+                <Undo2 size={16} />
+                Unschedule
+              </Button>
+            )}
+            {(workOrder.status === 'scheduled' || workOrder.status === 'tentative') && canCompleteField(role) && (
+              <Button size="sm" onClick={startJob} disabled={updating}>
+                <Play size={16} />
+                Start Job
+              </Button>
+            )}
+            {workOrder.status === 'in_progress' && canCompleteField(role) && (
+              <Button size="sm" onClick={completeJob} disabled={updating}>
+                <CheckCircle size={16} />
+                Complete Job
+              </Button>
+            )}
+            {canEdit(role) && (
+              <Button variant="danger" size="sm" onClick={deleteWorkOrder} disabled={deleting}>
+                <Trash2 size={16} />
+                {deleting ? 'Deleting...' : 'Delete'}
+              </Button>
+            )}
+          </div>
+        )}
       </div>
 
       <Card padding={false}>
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
-          {activeTab === 'details' && <DetailsTab wo={workOrder} />}
+          {activeTab === 'details' && <DetailsTab wo={workOrder} onAssignCrew={() => setShowAssignModal(true)} />}
           {activeTab === 'field' && <FieldTab wo={workOrder} onUpdate={refetch} />}
+          {activeTab === 'history' && <HistoryTab wo={workOrder} />}
           {activeTab === 'notes' && <NotesTab wo={workOrder} />}
         </div>
       </Card>
+
+      {/* Technician sticky bottom bar */}
+      {techAction === 'start' && (
+        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-30 bg-white border-t border-surface-border p-3 md:hidden">
+          <Button size="lg" className="w-full bg-emerald-600 hover:bg-emerald-700" onClick={startJob} disabled={updating}>
+            <Play size={18} />
+            {updating ? 'Starting...' : 'Start Job'}
+          </Button>
+        </div>
+      )}
+      {techAction === 'complete' && (
+        <div className="fixed bottom-16 md:bottom-0 left-0 right-0 z-30 bg-white border-t border-surface-border p-3 md:hidden">
+          <Button size="lg" className="w-full" onClick={completeJob} disabled={updating}>
+            <CheckCircle size={18} />
+            Complete Job
+          </Button>
+        </div>
+      )}
+      {techAction === 'done' && (
+        <div className="mt-4">
+          <div className="flex items-center gap-2 text-sm text-emerald-700 bg-emerald-50 rounded-lg px-4 py-3">
+            <CheckCircle size={16} />
+            Completed {formatDate(workOrder.completion_date)}
+          </div>
+        </div>
+      )}
+
+      {/* Assign Crew Modal */}
+      {showAssignModal && (
+        <AssignCrewModal
+          workOrderId={workOrder.id}
+          scheduledDate={workOrder.scheduled_date}
+          currentCrew={(workOrder.work_order_crew ?? []).map(c => ({
+            id: c.id,
+            team_member_id: c.team_member_id,
+            role: c.role,
+            team_member: c.team_member ? {
+              id: c.team_member.id,
+              first_name: c.team_member.first_name,
+              last_name: c.team_member.last_name,
+            } : { id: '', first_name: 'Unknown', last_name: '' },
+          }))}
+          onClose={() => setShowAssignModal(false)}
+          onSaved={() => { setShowAssignModal(false); refetch() }}
+        />
+      )}
     </div>
   )
 }
