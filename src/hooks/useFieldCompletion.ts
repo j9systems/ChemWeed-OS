@@ -3,7 +3,7 @@ import { supabase } from '@/lib/supabase'
 import { compressImage } from '@/lib/image-compression'
 import { uploadPhoto, uploadSignature } from '@/lib/storage'
 import { enqueueSubmission } from '@/lib/offline-queue'
-import { getSupabaseErrorMessage } from '@/lib/utils'
+import { getSupabaseErrorMessage, todayPacific } from '@/lib/utils'
 
 interface FieldCompletionData {
   workOrderId: string
@@ -82,7 +82,7 @@ export function useFieldCompletion() {
       setProgress('Updating work order...')
       const { error: statusErr } = await supabase
         .from('work_orders')
-        .update({ status: 'completed', completion_date: new Date().toISOString().split('T')[0] })
+        .update({ status: 'completed', completion_date: todayPacific() })
         .eq('id', data.workOrderId)
 
       if (statusErr) throw new Error(getSupabaseErrorMessage(statusErr))

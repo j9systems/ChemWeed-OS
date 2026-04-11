@@ -2,9 +2,21 @@ export function cn(...classes: (string | boolean | undefined | null)[]): string 
   return classes.filter(Boolean).join(' ')
 }
 
+/**
+ * Parse a date-only string (YYYY-MM-DD) into a Date in local time.
+ * new Date("2026-04-11") parses as UTC midnight, which shifts to the
+ * previous day in US Pacific and other negative-offset timezones.
+ * This helper avoids that by constructing via year/month/day parts.
+ */
+export function parseLocalDate(dateStr: string): Date {
+  const [y, m, d] = dateStr.split('-').map(Number)
+  return new Date(y!, m! - 1, d)
+}
+
 export function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleDateString('en-US', {
+  const d = dateStr.length === 10 ? parseLocalDate(dateStr) : new Date(dateStr)
+  return d.toLocaleDateString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
@@ -13,13 +25,19 @@ export function formatDate(dateStr: string | null | undefined): string {
 
 export function formatDateTime(dateStr: string | null | undefined): string {
   if (!dateStr) return '—'
-  return new Date(dateStr).toLocaleString('en-US', {
+  const d = dateStr.length === 10 ? parseLocalDate(dateStr) : new Date(dateStr)
+  return d.toLocaleString('en-US', {
     month: 'short',
     day: 'numeric',
     year: 'numeric',
     hour: 'numeric',
     minute: '2-digit',
   })
+}
+
+/** Return today's date as YYYY-MM-DD in the America/Los_Angeles timezone. */
+export function todayPacific(): string {
+  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 }
 
 export function formatCurrency(amount: number): string {

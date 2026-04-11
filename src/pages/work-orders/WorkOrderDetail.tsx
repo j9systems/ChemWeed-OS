@@ -5,7 +5,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField, canAssignCrew } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
-import { getSupabaseErrorMessage, formatDate } from '@/lib/utils'
+import { getSupabaseErrorMessage, formatDate, todayPacific } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -157,8 +157,7 @@ function DetailsTab({ wo, onAssignCrew }: { wo: WorkOrder; onAssignCrew?: () => 
 
 function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
   const { role } = useAuth()
-  const isFieldVisible = wo.status === 'in_progress' || wo.status === 'completed'
-  const isEditable = wo.status === 'in_progress' && (canCompleteField(role) || canEdit(role))
+  const isEditable = canCompleteField(role) || canEdit(role)
 
   const [windSpeed, setWindSpeed] = useState(wo.wind_speed_mph != null ? String(wo.wind_speed_mph) : '')
   const [windDir, setWindDir] = useState(wo.wind_direction ?? '')
@@ -166,10 +165,6 @@ function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
   const [tanks, setTanks] = useState(wo.tanks_used != null ? String(wo.tanks_used) : '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  if (!isFieldVisible) {
-    return <p className="text-sm text-[var(--color-text-muted)]">Field data is available once a job is started.</p>
-  }
 
   async function handleSave() {
     setSaving(true)
@@ -417,8 +412,8 @@ export function WorkOrderDetail() {
     const confirmed = window.confirm('Start this job now?')
     if (!confirmed) return
     setUpdating(true)
-    const today = new Date().toISOString().split('T')[0]
-    const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit' })
+    const today = todayPacific()
+    const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', timeZone: 'America/Los_Angeles' })
     const { error: err } = await supabase
       .from('work_orders')
       .update({ status: 'in_progress', actual_start_date: today, actual_start_time: now })
@@ -436,7 +431,7 @@ export function WorkOrderDetail() {
       return
     }
     setUpdating(true)
-    const today = new Date().toISOString().split('T')[0]
+    const today = todayPacific()
 
     const { error: err } = await supabase
       .from('work_orders')
