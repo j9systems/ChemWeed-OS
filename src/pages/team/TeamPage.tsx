@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Plus, Send } from 'lucide-react'
+import { Plus, Send, Pencil, Trash2, Check, X } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useTeamMembers } from '@/hooks/useTeam'
 import { supabase } from '@/lib/supabase'
@@ -45,6 +45,8 @@ export function TeamPage() {
   const [showActiveOnly, setShowActiveOnly] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [resendingEmail, setResendingEmail] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const isAdmin = role === 'admin'
@@ -54,6 +56,41 @@ export function TeamPage() {
     if (showActiveOnly && !m.is_active) return false
     return true
   })
+
+  async function handleDeleteMember(memberId: string, email: string | null) {
+    setDeletingId(memberId)
+    try {
+      // Check for crew records before deleting
+      const { count } = await supabase
+        .from('work_order_crew')
+        .select('id', { count: 'exact', head: true })
+        .eq('team_member_id', memberId)
+
+      if ((count ?? 0) > 0) {
+        setToast({ message: 'Cannot delete — member has job history. Deactivate instead.', type: 'error' })
+        setConfirmDeleteId(null)
+        setDeletingId(null)
+        return
+      }
+
+      const { data, error: err } = await supabase.functions.invoke('delete-team-member', {
+        body: { team_member_id: memberId, email: email || null },
+      })
+      if (err) {
+        setToast({ message: err.message, type: 'error' })
+      } else if (data?.error) {
+        setToast({ message: data.error, type: 'error' })
+      } else {
+        setToast({ message: 'Team member deleted.', type: 'success' })
+        refetch()
+      }
+    } catch {
+      setToast({ message: 'Failed to delete team member.', type: 'error' })
+    } finally {
+      setConfirmDeleteId(null)
+      setDeletingId(null)
+    }
+  }
 
   async function handleResendInvite(email: string) {
     setResendingEmail(email)
@@ -137,7 +174,7 @@ export function TeamPage() {
                   <th className="px-4 py-3 hidden md:table-cell">Email</th>
                   <th className="px-4 py-3 hidden lg:table-cell">License</th>
                   <th className="px-4 py-3">Status</th>
-                  {isAdmin && <th className="px-4 py-3 w-10"></th>}
+                  {isAdmin && <th className="px-4 py-3"><span className="sr-only">Actions</span></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-surface-border">
@@ -214,22 +251,64 @@ export function TeamPage() {
                       </td>
                       {isAdmin && (
                         <td className="px-4 py-3">
-                          {member.email && (
-                            <button
-                              onClick={(e) => {
-                                e.preventDefault()
-                                handleResendInvite(member.email!)
-                              }}
-                              disabled={resendingEmail === member.email}
-                              className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--color-text-muted)] hover:text-brand-green hover:bg-brand-green/10 transition-colors disabled:opacity-50 min-h-[36px]"
-                              title="Send app invitation"
+                          <div className="flex items-center gap-1">
+                            <Link
+                              to={`/team/${member.id}`}
+                              className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-muted)] hover:text-brand-green hover:bg-brand-green/10 transition-colors"
+                              title="Edit member"
                             >
-                              <Send size={14} />
-                              <span className="hidden xl:inline">
-                                {resendingEmail === member.email ? 'Sending…' : 'Invite to App'}
-                              </span>
-                            </button>
-                          )}
+                              <Pencil size={14} />
+                            </Link>
+                            {confirmDeleteId === member.id ? (
+                              <>
+                                <button
+                                  onClick={() => handleDeleteMember(member.id, member.email)}
+                                  disabled={deletingId === member.id}
+                                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                                  title="Confirm delete"
+                                >
+                                  {deletingId === member.id ? (
+                                    <div className="w-3.5 h-3.5 border-2 border-red-600 border-t-transparent rounded-full animate-spin" />
+                                  ) : (
+                                    <Check size={14} />
+                                  )}
+                                </button>
+                                <button
+                                  onClick={() => setConfirmDeleteId(null)}
+                                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-muted)] hover:bg-surface-border transition-colors"
+                                  title="Cancel"
+                                >
+                                  <X size={14} />
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => setConfirmDeleteId(member.id)}
+                                className="inline-flex items-center justify-center w-8 h-8 rounded-lg text-[var(--color-text-muted)] hover:text-red-600 hover:bg-red-50 transition-colors"
+                                title="Delete member"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            )}
+                            {member.email && (
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault()
+                                  handleResendInvite(member.email!)
+                                }}
+                                disabled={resendingEmail === member.email}
+                                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-[var(--color-text-muted)] hover:text-brand-green hover:bg-brand-green/10 transition-colors disabled:opacity-50 min-h-[36px]"
+                                title="Send app invitation"
+                              >
+                                {resendingEmail === member.email ? (
+                                  <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                                ) : (
+                                  <Send size={14} />
+                                )}
+                                <span className="hidden xl:inline">Invite to App</span>
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
