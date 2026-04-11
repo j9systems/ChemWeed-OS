@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, ClipboardList, Send, Image } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, ClipboardList, Send } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField, canAssignCrew } from '@/lib/roles'
