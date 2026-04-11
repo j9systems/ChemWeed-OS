@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { ChevronLeft, ChevronRight, Check, ChevronDown, ChevronUp } from 'lucide-react'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { supabase } from '@/lib/supabase'
-import { getSupabaseErrorMessage } from '@/lib/utils'
+import { getSupabaseErrorMessage, todayPacific } from '@/lib/utils'
 import { getServiceColor, formatPeriodLabel, MONTH_NAMES } from '@/lib/constants'
 import { DayDetailPanel, getAssigneeColorMap } from './DayDetailPanel'
 import { DayMapPanel } from './DayMapPanel'
@@ -249,7 +249,7 @@ export function SchedulePage() {
   for (let d = 1; d <= daysInMonth; d++) cells.push(d)
   while (cells.length % 7 !== 0) cells.push(null)
 
-  const todayStr = now.toISOString().split('T')[0]
+  const todayStr = todayPacific()
 
   const selectedDayWOs = selectedDate ? getWOsForDate(selectedDate) : []
   const assigneeColorMap = getAssigneeColorMap(selectedDayWOs)

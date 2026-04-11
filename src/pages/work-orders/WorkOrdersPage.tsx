@@ -11,7 +11,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Badge } from '@/components/ui/Badge'
 import { WorkOrderCard } from '@/components/work-orders/WorkOrderCard'
 import { WORK_ORDER_STATUSES, getServiceColor, formatPeriodLabel } from '@/lib/constants'
-import { formatDate } from '@/lib/utils'
+import { formatDate, todayPacific } from '@/lib/utils'
 import type { WorkOrder, WorkOrderStatus } from '@/types/database'
 
 function DaysSincePill({ days }: { days: number | null }) {
@@ -72,7 +72,7 @@ function TechnicianView() {
   const { teamMember } = useAuth()
   const { workOrders, isLoading, error, refetch } = useMyWorkOrders(teamMember?.id)
 
-  const todayStr = new Date().toISOString().split('T')[0]!
+  const todayStr = todayPacific()
 
   const sections = useMemo(() => {
     const today: WorkOrder[] = []
@@ -81,11 +81,11 @@ function TechnicianView() {
 
     const fourteenDaysLater = new Date()
     fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14)
-    const fourteenDaysStr = fourteenDaysLater.toISOString().split('T')[0]!
+    const fourteenDaysStr = fourteenDaysLater.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 
     const thirtyDaysAgo = new Date()
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const thirtyDaysStr = thirtyDaysAgo.toISOString().split('T')[0]!
+    const thirtyDaysStr = thirtyDaysAgo.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
 
     for (const wo of workOrders) {
       if (
