@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, ClipboardList, Send } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, Send } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField, canAssignCrew } from '@/lib/roles'
@@ -8,13 +8,13 @@ import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage, formatDate, formatDateTime, todayPacific } from '@/lib/utils'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Card } from '@/components/ui/Card'
 import { TabBar } from './components/TabBar'
 import { AssignCrewModal } from '@/components/work-orders/AssignCrewModal'
-import { WORK_ORDER_STATUSES, WIND_DIRECTIONS, formatPeriodLabel, getUrgencyColors, getServiceColor } from '@/lib/constants'
+import { FieldTab } from './tabs/FieldTab'
+import { WORK_ORDER_STATUSES, formatPeriodLabel, getUrgencyColors, getServiceColor } from '@/lib/constants'
 import type { WorkOrder } from '@/types/database'
 
 const TABS = [
@@ -151,146 +151,6 @@ function DetailsTab({ wo, onAssignCrew }: { wo: WorkOrder; onAssignCrew?: () => 
       </dl>
 
       <CrewCard wo={wo} onAssign={onAssignCrew} />
-    </div>
-  )
-}
-
-interface FieldCompletionRecord {
-  id: string
-  submitted_at: string
-  temperature_f: number | null
-  wind_speed_mph: number | null
-  wind_direction: string | null
-  notes: string | null
-  photo_urls: string[]
-  crew_ids: string[]
-  completed_by: string
-}
-
-function FieldTab({ wo, onUpdate }: { wo: WorkOrder; onUpdate: () => void }) {
-  const { role } = useAuth()
-  const navigate = useNavigate()
-  const isEditable = canCompleteField(role) || canEdit(role)
-
-  const [windSpeed, setWindSpeed] = useState(wo.wind_speed_mph != null ? String(wo.wind_speed_mph) : '')
-  const [windDir, setWindDir] = useState(wo.wind_direction ?? '')
-  const [airTemp, setAirTemp] = useState(wo.air_temp_f != null ? String(wo.air_temp_f) : '')
-  const [tanks, setTanks] = useState(wo.tanks_used != null ? String(wo.tanks_used) : '')
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [logs, setLogs] = useState<FieldCompletionRecord[]>([])
-  const [logsLoading, setLogsLoading] = useState(true)
-
-  useEffect(() => {
-    async function fetchLogs() {
-      const { data } = await supabase
-        .from('field_completions')
-        .select('id, submitted_at, temperature_f, wind_speed_mph, wind_direction, notes, photo_urls, crew_ids, completed_by')
-        .eq('work_order_id', wo.id)
-        .order('submitted_at', { ascending: false })
-      setLogs(data ?? [])
-      setLogsLoading(false)
-    }
-    fetchLogs()
-  }, [wo.id])
-
-  async function handleSave() {
-    setSaving(true)
-    setError(null)
-    const { error: err } = await supabase
-      .from('work_orders')
-      .update({
-        wind_speed_mph: windSpeed ? parseFloat(windSpeed) : null,
-        wind_direction: windDir || null,
-        air_temp_f: airTemp ? parseFloat(airTemp) : null,
-        tanks_used: tanks ? parseInt(tanks) : null,
-      })
-      .eq('id', wo.id)
-
-    if (err) {
-      setError(getSupabaseErrorMessage(err))
-    } else {
-      onUpdate()
-    }
-    setSaving(false)
-  }
-
-  return (
-    <div className="space-y-4">
-      <h2 className="text-sm font-semibold mb-3">Field Data</h2>
-      <div className="grid grid-cols-2 gap-4">
-        <Input label="Wind Speed (mph)" type="number" value={windSpeed} onChange={(e) => setWindSpeed(e.target.value)} disabled={!isEditable} />
-        <div>
-          <label className="block text-sm font-medium mb-1">Wind Direction</label>
-          <select value={windDir} onChange={(e) => setWindDir(e.target.value)} disabled={!isEditable} className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px]">
-            <option value="">—</option>
-            {WIND_DIRECTIONS.map(d => <option key={d} value={d}>{d}</option>)}
-          </select>
-        </div>
-        <Input label="Air Temp (°F)" type="number" value={airTemp} onChange={(e) => setAirTemp(e.target.value)} disabled={!isEditable} />
-        <Input label="Tanks Used" type="number" value={tanks} onChange={(e) => setTanks(e.target.value)} disabled={!isEditable} />
-      </div>
-      {wo.actual_start_date && (
-        <div className="text-sm text-[var(--color-text-muted)]">
-          Started: {formatDate(wo.actual_start_date)} {wo.actual_start_time ?? ''}
-        </div>
-      )}
-      {wo.completion_date && (
-        <div className="text-sm text-[var(--color-text-muted)]">
-          Completed: {formatDate(wo.completion_date)} {wo.completion_time ?? ''}
-        </div>
-      )}
-      {isEditable && (
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Field Data'}</Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => navigate(`/work-orders/${wo.id}/complete?mode=log`)}
-          >
-            <ClipboardList size={16} />
-            Log Field Data
-          </Button>
-          {error && <span className="text-sm text-red-600">{error}</span>}
-        </div>
-      )}
-
-      {/* Field completion logs */}
-      <div className="border-t border-surface-border pt-4 mt-4">
-        <h2 className="text-sm font-semibold mb-3">Field Logs</h2>
-        {logsLoading ? (
-          <p className="text-sm text-[var(--color-text-muted)]">Loading...</p>
-        ) : logs.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)]">No field logs yet.</p>
-        ) : (
-          <div className="space-y-3">
-            {logs.map((log) => (
-              <div key={log.id} className="rounded-lg border border-surface-border p-3 text-sm">
-                <p className="text-xs text-[var(--color-text-muted)] mb-2">
-                  {formatDateTime(log.submitted_at)}
-                </p>
-                <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs">
-                  {log.temperature_f != null && <span>Temp: {log.temperature_f}°F</span>}
-                  {log.wind_speed_mph != null && <span>Wind: {log.wind_speed_mph} mph</span>}
-                  {log.wind_direction && <span>Dir: {log.wind_direction}</span>}
-                </div>
-                {log.notes && (
-                  <p className="mt-2 text-sm whitespace-pre-wrap">{log.notes}</p>
-                )}
-                {log.photo_urls.length > 0 && (
-                  <div className="mt-2 flex gap-2 flex-wrap">
-                    {log.photo_urls.map((url, i) => (
-                      <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="block w-16 h-16 rounded border border-surface-border overflow-hidden">
-                        <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
-                      </a>
-                    ))}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
     </div>
   )
 }
@@ -584,35 +444,11 @@ export function WorkOrderDetail() {
     setUpdating(false)
   }
 
-  async function completeJob() {
+  function completeJob() {
     if (!workOrder) return
-    // For technicians, navigate to the FieldCompletionForm
-    if (isTechnician) {
-      navigate(`/work-orders/${workOrder.id}/complete`)
-      return
-    }
-    setUpdating(true)
-    const today = todayPacific()
-
-    const { error: err } = await supabase
-      .from('work_orders')
-      .update({ status: 'completed', completion_date: today, last_serviced_date: today })
-      .eq('id', workOrder.id)
-
-    if (err) {
-      alert(getSupabaseErrorMessage(err))
-      setUpdating(false)
-      return
-    }
-
-    await supabase
-      .from('work_orders')
-      .update({ last_serviced_date: today })
-      .eq('agreement_line_item_id', workOrder.agreement_line_item_id)
-      .in('status', ['unscheduled', 'tentative'])
-
-    refetch()
-    setUpdating(false)
+    // Switch to the Field tab — actual completion happens via "Mark Complete" inside the tab
+    setActiveTab('field')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   // Determine which action button to show for technician sticky bar
@@ -709,7 +545,7 @@ export function WorkOrderDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsTab wo={workOrder} onAssignCrew={() => setShowAssignModal(true)} />}
-          {activeTab === 'field' && <FieldTab wo={workOrder} onUpdate={refetch} />}
+          {activeTab === 'field' && <FieldTab wo={workOrder} teamMemberId={teamMember?.id ?? null} role={role ?? ''} onComplete={refetch} />}
           {activeTab === 'history' && <HistoryTab wo={workOrder} />}
           {activeTab === 'notes' && <NotesTab wo={workOrder} />}
         </div>
