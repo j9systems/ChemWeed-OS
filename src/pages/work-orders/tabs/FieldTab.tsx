@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { ChevronDown, ChevronUp, CheckCircle } from 'lucide-react'
 import { useFieldCompletion } from '@/hooks/useFieldCompletion'
-import type { MaterialActual } from '@/hooks/useFieldCompletion'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
 import { canCompleteField, canEdit } from '@/lib/roles'
 import { WIND_DIRECTIONS } from '@/lib/constants'
