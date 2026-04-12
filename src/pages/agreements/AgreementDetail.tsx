@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download, Send } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router'
+import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download, Send, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -297,7 +297,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
         p_agreement_id: agreementId
       })
       if (genError) {
-        console.warn('WO generation warning:', genError.message)
+        setError(`Estimate saved, but work order generation failed: ${genError.message}`)
       }
     }
 
@@ -658,9 +658,21 @@ export function AgreementDetail() {
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [activating, setActivating] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [woGenWarning, setWoGenWarning] = useState<string | null>(null)
+  const [regenerating, setRegenerating] = useState(false)
+  const [regenSuccess, setRegenSuccess] = useState<string | null>(null)
+
+  // Read wo_gen_failed query param on mount
+  useEffect(() => {
+    if (searchParams.get('wo_gen_failed') === '1') {
+      setWoGenWarning('Agreement saved, but work order generation failed. Use the "Regenerate Work Orders" button below to retry.')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   // Filter WOs for this agreement
   const agreementWOs = workOrders.filter(wo => wo.service_agreement_id === id)
@@ -689,6 +701,7 @@ export function AgreementDetail() {
   async function activateAgreement() {
     if (!agreement) return
     setActivating(true)
+    setWoGenWarning(null)
     const { error: err } = await supabase
       .from('service_agreements')
       .update({ agreement_status: 'active' })
@@ -697,18 +710,34 @@ export function AgreementDetail() {
       alert(getSupabaseErrorMessage(err))
     } else {
       // Generate all WOs for the agreement upfront
-      const { data: genData, error: genError } = await supabase.rpc(
+      const { error: genError } = await supabase.rpc(
         'generate_work_orders_for_agreement',
         { p_agreement_id: agreement.id }
       )
       if (genError) {
-        console.warn('WO generation warning:', genError.message)
-      } else {
-        console.log('WO generation result:', genData)
+        setWoGenWarning('Agreement activated, but work order generation failed. Use the "Regenerate Work Orders" button below to retry.')
       }
       refetch()
     }
     setActivating(false)
+  }
+
+  async function regenerateWorkOrders() {
+    if (!agreement) return
+    setRegenerating(true)
+    setWoGenWarning(null)
+    setRegenSuccess(null)
+    const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+      p_agreement_id: agreement.id
+    })
+    if (genError) {
+      setWoGenWarning(`Work order generation failed: ${genError.message}`)
+    } else {
+      setRegenSuccess('Work orders regenerated successfully.')
+      setTimeout(() => setRegenSuccess(null), 4000)
+      refetch()
+    }
+    setRegenerating(false)
   }
 
   return (
@@ -732,6 +761,12 @@ export function AgreementDetail() {
               {activating ? 'Activating...' : 'Activate Agreement'}
             </Button>
           )}
+          {agreement.agreement_status === 'active' && canEdit(role) && (
+            <Button size="sm" variant="secondary" onClick={regenerateWorkOrders} disabled={regenerating}>
+              <RefreshCw size={16} className={regenerating ? 'animate-spin' : ''} />
+              {regenerating ? 'Regenerating...' : 'Regenerate Work Orders'}
+            </Button>
+          )}
           {canEdit(role) && (
             <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
               <Edit size={16} />
@@ -746,6 +781,19 @@ export function AgreementDetail() {
           )}
         </div>
       </div>
+
+      {woGenWarning && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 flex items-center justify-between">
+          <span>{woGenWarning}</span>
+          <button type="button" onClick={() => setWoGenWarning(null)} className="ml-2 text-amber-500 hover:text-amber-700 font-bold">&times;</button>
+        </div>
+      )}
+
+      {regenSuccess && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {regenSuccess}
+        </div>
+      )}
 
       {agreement.site && (
         <SiteInfoCard

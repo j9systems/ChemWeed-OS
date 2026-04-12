@@ -1,11 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router'
-import { RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrders, useMyWorkOrders } from '@/hooks/useWorkOrders'
-import { canEdit } from '@/lib/roles'
-import { supabase } from '@/lib/supabase'
-import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Badge } from '@/components/ui/Badge'
@@ -191,15 +187,12 @@ export function WorkOrdersPage() {
 }
 
 function AdminView() {
-  const { role } = useAuth()
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | ''>('')
   const { workOrders, isLoading, error, refetch } = useWorkOrders(
     statusFilter ? { status: statusFilter } : undefined
   )
   // Separate query for unscheduled queue with actionability filter
-  const { workOrders: actionableUnscheduled, refetch: refetchActionable } = useWorkOrders({ status: 'unscheduled', actionableOnly: true })
-  const [generating, setGenerating] = useState(false)
-  const [genMessage, setGenMessage] = useState<string | null>(null)
+  const { workOrders: actionableUnscheduled } = useWorkOrders({ status: 'unscheduled', actionableOnly: true })
 
   const unscheduled = actionableUnscheduled
     .sort((a, b) => {
@@ -209,42 +202,11 @@ function AdminView() {
       return (a.client?.name ?? '').localeCompare(b.client?.name ?? '')
     })
 
-  async function handleGenerate() {
-    setGenerating(true)
-    setGenMessage(null)
-    const { data, error } = await supabase.functions.invoke('generate-work-orders')
-    if (error) {
-      setGenMessage(`Error: ${error.message}`)
-    } else {
-      const count = data?.work_orders_generated ?? 0
-      if (count === 0) {
-        setGenMessage('All work orders are up to date.')
-      } else {
-        setGenMessage(`Generated ${count} new work order(s) across all active agreements.`)
-      }
-      refetch()
-      refetchActionable()
-    }
-    setGenerating(false)
-  }
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Jobs</h1>
-        {canEdit(role) && (
-          <Button size="md" variant="secondary" onClick={handleGenerate} disabled={generating}>
-            <RefreshCw size={16} className={generating ? 'animate-spin' : ''} />
-            {generating ? 'Generating...' : 'Generate Jobs'}
-          </Button>
-        )}
       </div>
-
-      {genMessage && (
-        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
-          {genMessage}
-        </div>
-      )}
 
       {/* Unscheduled Queue */}
       {!statusFilter && unscheduled.length > 0 && (
