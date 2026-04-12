@@ -15,7 +15,7 @@ import type { ServiceAgreement, AgreementStatus, ServiceType } from '@/types/dat
 
 /** Extract unique service type names from line items, falling back to the agreement-level service_type */
 function getServiceTypeNames(agreement: ServiceAgreement): string[] {
-  const lineItems = (agreement as Record<string, unknown>).service_agreement_line_items as
+  const lineItems = (agreement as unknown as Record<string, unknown>).service_agreement_line_items as
     | { service_type: Pick<ServiceType, 'id' | 'name'> | null }[]
     | undefined
   const names = new Set<string>()
