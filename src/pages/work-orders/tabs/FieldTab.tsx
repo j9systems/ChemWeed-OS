@@ -14,6 +14,7 @@ import type { WorkOrder, Chemical } from '@/types/database'
 
 interface AdHocChemicalRow {
   tempId: string
+  savedId?: string
   chemicalId: string
   chemicalName: string
   actualAmount: string
@@ -32,6 +33,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
   const {
     draft,
     materials: savedMaterials,
+    recordId,
     isLoading,
     isSaving,
     saveError,
@@ -180,14 +182,41 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
 
   async function handleAdHocBlur(row: AdHocChemicalRow) {
     if (readOnly || !row.chemicalName) return
-    await saveMaterialActual({
-      serviceAgreementMaterialId: row.tempId,
-      chemicalName: row.chemicalName,
-      recommendedAmount: null,
-      recommendedUnit: row.unit || null,
-      actualAmountUsed: row.actualAmount ? parseFloat(row.actualAmount) : null,
-      tanksUsed: row.tanks ? parseInt(row.tanks) : null,
-    })
+
+    // Ensure field_completion record exists
+    let fcId = recordId
+    if (!fcId) {
+      fcId = await upsertDraft({})
+      if (!fcId) return
+    }
+
+    const payload = {
+      field_completion_id: fcId,
+      service_agreement_material_id: null,
+      chemical_name: row.chemicalName,
+      recommended_amount: null,
+      recommended_unit: row.unit || null,
+      actual_amount_used: row.actualAmount ? parseFloat(row.actualAmount) : null,
+      tanks_used: row.tanks ? parseInt(row.tanks) : null,
+    }
+
+    if (row.savedId) {
+      await supabase
+        .from('field_completion_materials')
+        .update(payload)
+        .eq('id', row.savedId)
+    } else {
+      const { data } = await supabase
+        .from('field_completion_materials')
+        .insert(payload)
+        .select('id')
+        .single()
+      if (data) {
+        setAdHocChemicals((prev) =>
+          prev.map((r) => (r.tempId === row.tempId ? { ...r, savedId: data.id } : r))
+        )
+      }
+    }
   }
 
   async function handleAddPhoto(file: File, type: 'before' | 'after' | 'during') {

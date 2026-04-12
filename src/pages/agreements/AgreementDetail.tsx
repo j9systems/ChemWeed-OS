@@ -19,7 +19,7 @@ import { TabBar } from '@/pages/work-orders/components/TabBar'
 import { SiteInfoCard } from '@/pages/work-orders/components/SiteInfoCard'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
 import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
-import { AGREEMENT_STATUSES, getUrgencyColors, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
+import { AGREEMENT_STATUSES, getUrgencyColors, getServiceColor, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
 import { GenerateProposalModal } from '@/components/agreements/GenerateProposalModal'
 import { SendProposalModal } from '@/components/agreements/SendProposalModal'
@@ -62,7 +62,7 @@ function ActionButton({ href, icon, label }: { href: string | null; icon: React.
   )
 }
 
-function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
+function DetailsSection({ agreement, lineItems }: { agreement: ServiceAgreement; lineItems: ServiceAgreementLineItem[] }) {
   const phone = agreement.client?.billing_phone
   const email = agreement.client?.billing_email
   const navUrl = buildNavigationUrl(agreement)
@@ -93,7 +93,28 @@ function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
             </span>
           ) : '—'}
         </DetailItem>
-        <DetailItem label="Service Type">{agreement.service_type?.name ?? '—'}</DetailItem>
+        <DetailItem label="Service Type">
+          {(() => {
+            const names = new Set<string>()
+            for (const li of lineItems) {
+              if (li.service_type?.name) names.add(li.service_type.name)
+            }
+            if (names.size === 0 && agreement.service_type?.name) names.add(agreement.service_type.name)
+            if (names.size === 0) return '—'
+            return (
+              <span className="inline-flex flex-wrap gap-1">
+                {Array.from(names).map((name) => {
+                  const sc = getServiceColor(name)
+                  return (
+                    <span key={name} className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
+                      {name}
+                    </span>
+                  )
+                })}
+              </span>
+            )
+          })()}
+        </DetailItem>
         <DetailItem label="Proposed Start">{formatDate(agreement.proposed_start_date)}</DetailItem>
         {agreement.contract_start_date && (
           <DetailItem label="Contract Start">{formatDate(agreement.contract_start_date)}</DetailItem>
@@ -813,7 +834,7 @@ export function AgreementDetail() {
       <Card padding={false}>
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
-          {activeTab === 'details' && <DetailsSection agreement={agreement} />}
+          {activeTab === 'details' && <DetailsSection agreement={agreement} lineItems={lineItems} />}
           {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} clientContact={agreement.client?.billing_contact ?? null} clientEmail={agreement.client?.billing_email ?? null} clientPhone={agreement.client?.billing_phone ?? null} clientName={agreement.client?.name ?? ''} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}

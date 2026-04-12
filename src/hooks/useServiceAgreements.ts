@@ -17,7 +17,7 @@ export function useServiceAgreements(filters?: AgreementFilters) {
 
     let query = supabase
       .from('service_agreements')
-      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey(*), urgency_level:urgency_levels(*)')
+      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey(*), urgency_level:urgency_levels(*), service_agreement_line_items(service_type:service_types(id, name))')
       .order('created_at', { ascending: false })
 
     if (filters?.status) {
