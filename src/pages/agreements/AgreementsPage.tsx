@@ -11,11 +11,53 @@ import { Badge } from '@/components/ui/Badge'
 import { AGREEMENT_STATUSES, getServiceColor } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import { SigningStatusBadge } from '@/components/SigningStatusBadge'
-import type { ServiceAgreement, AgreementStatus } from '@/types/database'
+import type { ServiceAgreement, AgreementStatus, ServiceType } from '@/types/database'
+
+/** Extract unique service type names from line items, falling back to the agreement-level service_type */
+function getServiceTypeNames(agreement: ServiceAgreement): string[] {
+  const lineItems = (agreement as unknown as Record<string, unknown>).service_agreement_line_items as
+    | { service_type: Pick<ServiceType, 'id' | 'name'> | null }[]
+    | undefined
+  const names = new Set<string>()
+  if (lineItems) {
+    for (const li of lineItems) {
+      if (li.service_type?.name) names.add(li.service_type.name)
+    }
+  }
+  if (names.size === 0 && agreement.service_type?.name) {
+    names.add(agreement.service_type.name)
+  }
+  return Array.from(names)
+}
+
+function ServiceTypeBadges({ names }: { names: string[] }) {
+  if (names.length === 0) return <span className="text-xs text-[var(--color-text-muted)]">—</span>
+
+  const first = names[0]
+  const sc = getServiceColor(first)
+  const extra = names.length - 1
+
+  return (
+    <span className="inline-flex flex-wrap items-center gap-1">
+      <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
+        {first}
+      </span>
+      {extra > 0 && (
+        <span
+          className="inline-block rounded-md px-2 py-0.5 text-xs font-semibold bg-gray-100 text-gray-600 cursor-default"
+          title={names.slice(1).join(', ')}
+        >
+          +{extra} more
+        </span>
+      )}
+    </span>
+  )
+}
 
 function MobileRow({ agreement }: { agreement: ServiceAgreement }) {
   const navigate = useNavigate()
-  const sc = getServiceColor(agreement.service_type?.name)
+  const serviceNames = getServiceTypeNames(agreement)
+  const sc = getServiceColor(serviceNames[0])
   const tech = agreement.pca ? `${agreement.pca.first_name} ${agreement.pca.last_name}` : null
 
   return (
@@ -38,11 +80,7 @@ function MobileRow({ agreement }: { agreement: ServiceAgreement }) {
       </p>
 
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1.5">
-        {agreement.service_type?.name && (
-          <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
-            {agreement.service_type.name}
-          </span>
-        )}
+        <ServiceTypeBadges names={serviceNames} />
 
         <span className="flex items-center gap-1 text-xs text-[var(--color-text-muted)]">
           <User size={11} />
@@ -60,7 +98,8 @@ function MobileRow({ agreement }: { agreement: ServiceAgreement }) {
 
 function TableRow({ agreement }: { agreement: ServiceAgreement }) {
   const navigate = useNavigate()
-  const sc = getServiceColor(agreement.service_type?.name)
+  const serviceNames = getServiceTypeNames(agreement)
+  const sc = getServiceColor(serviceNames[0])
   const tech = agreement.pca ? `${agreement.pca.first_name} ${agreement.pca.last_name}` : null
 
   return (
@@ -81,13 +120,7 @@ function TableRow({ agreement }: { agreement: ServiceAgreement }) {
         </p>
       </td>
       <td className="py-3 pr-4">
-        {agreement.service_type?.name ? (
-          <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
-            {agreement.service_type.name}
-          </span>
-        ) : (
-          <span className="text-xs text-[var(--color-text-muted)]">—</span>
-        )}
+        <ServiceTypeBadges names={serviceNames} />
       </td>
       <td className="py-3 pr-4 text-sm">
         {tech ?? <span className="text-[var(--color-text-muted)] italic text-xs">Unassigned</span>}

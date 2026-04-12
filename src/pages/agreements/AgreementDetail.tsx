@@ -1,6 +1,6 @@
-import { useState } from 'react'
-import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download, Send } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useParams, Link, useNavigate, useSearchParams } from 'react-router'
+import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download, Send, RefreshCw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -19,7 +19,7 @@ import { TabBar } from '@/pages/work-orders/components/TabBar'
 import { SiteInfoCard } from '@/pages/work-orders/components/SiteInfoCard'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
 import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
-import { AGREEMENT_STATUSES, getUrgencyColors, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
+import { AGREEMENT_STATUSES, getUrgencyColors, getServiceColor, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
 import { GenerateProposalModal } from '@/components/agreements/GenerateProposalModal'
 import { SendProposalModal } from '@/components/agreements/SendProposalModal'
@@ -62,7 +62,7 @@ function ActionButton({ href, icon, label }: { href: string | null; icon: React.
   )
 }
 
-function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
+function DetailsSection({ agreement, lineItems }: { agreement: ServiceAgreement; lineItems: ServiceAgreementLineItem[] }) {
   const phone = agreement.client?.billing_phone
   const email = agreement.client?.billing_email
   const navUrl = buildNavigationUrl(agreement)
@@ -93,7 +93,28 @@ function DetailsSection({ agreement }: { agreement: ServiceAgreement }) {
             </span>
           ) : '—'}
         </DetailItem>
-        <DetailItem label="Service Type">{agreement.service_type?.name ?? '—'}</DetailItem>
+        <DetailItem label="Service Type">
+          {(() => {
+            const names = new Set<string>()
+            for (const li of lineItems) {
+              if (li.service_type?.name) names.add(li.service_type.name)
+            }
+            if (names.size === 0 && agreement.service_type?.name) names.add(agreement.service_type.name)
+            if (names.size === 0) return '—'
+            return (
+              <span className="inline-flex flex-wrap gap-1">
+                {Array.from(names).map((name) => {
+                  const sc = getServiceColor(name)
+                  return (
+                    <span key={name} className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
+                      {name}
+                    </span>
+                  )
+                })}
+              </span>
+            )
+          })()}
+        </DetailItem>
         <DetailItem label="Proposed Start">{formatDate(agreement.proposed_start_date)}</DetailItem>
         {agreement.contract_start_date && (
           <DetailItem label="Contract Start">{formatDate(agreement.contract_start_date)}</DetailItem>
@@ -297,7 +318,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
         p_agreement_id: agreementId
       })
       if (genError) {
-        console.warn('WO generation warning:', genError.message)
+        setError(`Estimate saved, but work order generation failed: ${genError.message}`)
       }
     }
 
@@ -658,9 +679,21 @@ export function AgreementDetail() {
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
   const navigate = useNavigate()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [activating, setActivating] = useState(false)
   const [deleting, setDeleting] = useState(false)
+  const [woGenWarning, setWoGenWarning] = useState<string | null>(null)
+  const [regenerating, setRegenerating] = useState(false)
+  const [regenSuccess, setRegenSuccess] = useState<string | null>(null)
+
+  // Read wo_gen_failed query param on mount
+  useEffect(() => {
+    if (searchParams.get('wo_gen_failed') === '1') {
+      setWoGenWarning('Agreement saved, but work order generation failed. Use the "Regenerate Work Orders" button below to retry.')
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
 
   // Filter WOs for this agreement
   const agreementWOs = workOrders.filter(wo => wo.service_agreement_id === id)
@@ -689,6 +722,7 @@ export function AgreementDetail() {
   async function activateAgreement() {
     if (!agreement) return
     setActivating(true)
+    setWoGenWarning(null)
     const { error: err } = await supabase
       .from('service_agreements')
       .update({ agreement_status: 'active' })
@@ -697,18 +731,34 @@ export function AgreementDetail() {
       alert(getSupabaseErrorMessage(err))
     } else {
       // Generate all WOs for the agreement upfront
-      const { data: genData, error: genError } = await supabase.rpc(
+      const { error: genError } = await supabase.rpc(
         'generate_work_orders_for_agreement',
         { p_agreement_id: agreement.id }
       )
       if (genError) {
-        console.warn('WO generation warning:', genError.message)
-      } else {
-        console.log('WO generation result:', genData)
+        setWoGenWarning('Agreement activated, but work order generation failed. Use the "Regenerate Work Orders" button below to retry.')
       }
       refetch()
     }
     setActivating(false)
+  }
+
+  async function regenerateWorkOrders() {
+    if (!agreement) return
+    setRegenerating(true)
+    setWoGenWarning(null)
+    setRegenSuccess(null)
+    const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+      p_agreement_id: agreement.id
+    })
+    if (genError) {
+      setWoGenWarning(`Work order generation failed: ${genError.message}`)
+    } else {
+      setRegenSuccess('Work orders regenerated successfully.')
+      setTimeout(() => setRegenSuccess(null), 4000)
+      refetch()
+    }
+    setRegenerating(false)
   }
 
   return (
@@ -732,6 +782,12 @@ export function AgreementDetail() {
               {activating ? 'Activating...' : 'Activate Agreement'}
             </Button>
           )}
+          {agreement.agreement_status === 'active' && canEdit(role) && (
+            <Button size="sm" variant="secondary" onClick={regenerateWorkOrders} disabled={regenerating}>
+              <RefreshCw size={16} className={regenerating ? 'animate-spin' : ''} />
+              {regenerating ? 'Regenerating...' : 'Regenerate Work Orders'}
+            </Button>
+          )}
           {canEdit(role) && (
             <Button variant="secondary" size="sm" onClick={() => setEditModalOpen(true)}>
               <Edit size={16} />
@@ -746,6 +802,19 @@ export function AgreementDetail() {
           )}
         </div>
       </div>
+
+      {woGenWarning && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-700 flex items-center justify-between">
+          <span>{woGenWarning}</span>
+          <button type="button" onClick={() => setWoGenWarning(null)} className="ml-2 text-amber-500 hover:text-amber-700 font-bold">&times;</button>
+        </div>
+      )}
+
+      {regenSuccess && (
+        <div className="mb-4 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm text-emerald-700">
+          {regenSuccess}
+        </div>
+      )}
 
       {agreement.site && (
         <SiteInfoCard
@@ -765,7 +834,7 @@ export function AgreementDetail() {
       <Card padding={false}>
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
-          {activeTab === 'details' && <DetailsSection agreement={agreement} />}
+          {activeTab === 'details' && <DetailsSection agreement={agreement} lineItems={lineItems} />}
           {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} clientContact={agreement.client?.billing_contact ?? null} clientEmail={agreement.client?.billing_email ?? null} clientPhone={agreement.client?.billing_phone ?? null} clientName={agreement.client?.name ?? ''} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}

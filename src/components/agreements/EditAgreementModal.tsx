@@ -22,7 +22,9 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
   const { members } = useTeamMembers()
   const { urgencyLevels } = useUrgencyLevels()
 
-  const [serviceTypeId, setServiceTypeId] = useState(agreement.service_type_id ?? '')
+  const [selectedServiceTypeIds, setSelectedServiceTypeIds] = useState<string[]>(
+    agreement.service_type_id ? [agreement.service_type_id] : []
+  )
   const [urgencyLevelId, setUrgencyLevelId] = useState(agreement.urgency_level_id ?? '')
   const [proposedStartDate, setProposedStartDate] = useState(agreement.proposed_start_date ?? '')
   const [contractStartDate, setContractStartDate] = useState(agreement.contract_start_date ?? '')
@@ -37,8 +39,8 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    if (!serviceTypeId) {
-      setError('Service type is required.')
+    if (selectedServiceTypeIds.length === 0) {
+      setError('At least one service type is required.')
       return
     }
 
@@ -48,7 +50,8 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
     const { error: err } = await supabase
       .from('service_agreements')
       .update({
-        service_type_id: serviceTypeId,
+        service_type_id: selectedServiceTypeIds[0],
+        // TODO: save all selected service type IDs to service_type_ids uuid[] column if/when it exists
         urgency_level_id: urgencyLevelId || null,
         proposed_start_date: proposedStartDate || null,
         contract_start_date: contractStartDate || null,
@@ -75,7 +78,10 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
         p_agreement_id: agreement.id
       })
       if (genError) {
-        console.warn('WO generation warning:', genError.message)
+        setError(`Agreement saved, but work order generation failed: ${genError.message}. Use the "Regenerate Work Orders" button on the agreement page to retry.`)
+        setSaving(false)
+        onSaved()
+        return
       }
     }
 
@@ -88,18 +94,35 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
     <Modal open={open} onClose={onClose} title="Edit Agreement">
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium mb-1">Service Type *</label>
-          <select
-            value={serviceTypeId}
-            onChange={(e) => setServiceTypeId(e.target.value)}
-            className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[44px]"
-            required
-          >
-            <option value="">Select service type...</option>
-            {serviceTypes.map((st) => (
-              <option key={st.id} value={st.id}>{st.name}</option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium mb-1">Service Type(s) *</label>
+          <div className="flex gap-2 flex-wrap">
+            {serviceTypes.map((st) => {
+              const isSelected = selectedServiceTypeIds.includes(st.id)
+              return (
+                <button
+                  key={st.id}
+                  type="button"
+                  onClick={() => {
+                    if (isSelected) {
+                      setSelectedServiceTypeIds((prev) => prev.filter((id) => id !== st.id))
+                    } else {
+                      setSelectedServiceTypeIds((prev) => [...prev, st.id])
+                    }
+                  }}
+                  className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
+                    isSelected
+                      ? 'bg-[#2a6b2a]/10 text-[#2a6b2a] border-[#2a6b2a]'
+                      : 'bg-gray-50 text-gray-700 border-gray-200 hover:opacity-80'
+                  }`}
+                >
+                  {st.name}
+                </button>
+              )
+            })}
+          </div>
+          {selectedServiceTypeIds.length === 0 && (
+            <p className="text-xs text-red-500 mt-1">Select at least one service type.</p>
+          )}
         </div>
 
         <div>

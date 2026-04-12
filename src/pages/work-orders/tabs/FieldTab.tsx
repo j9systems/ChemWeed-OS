@@ -1,15 +1,26 @@
-import { useState } from 'react'
-import { ChevronDown, ChevronUp, CheckCircle } from 'lucide-react'
+import { useState, useEffect, useCallback } from 'react'
+import { ChevronDown, ChevronUp, CheckCircle, Plus, Trash2 } from 'lucide-react'
 import { useFieldCompletion } from '@/hooks/useFieldCompletion'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
 import { canCompleteField, canEdit } from '@/lib/roles'
 import { WIND_DIRECTIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/Button'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { PhotoBucket } from '@/components/field/PhotoBucket'
 import { SignatureCanvas } from '@/components/field/SignatureCanvas'
-import type { WorkOrder } from '@/types/database'
+import type { WorkOrder, Chemical } from '@/types/database'
+
+interface AdHocChemicalRow {
+  tempId: string
+  savedId?: string
+  chemicalId: string
+  chemicalName: string
+  actualAmount: string
+  unit: string
+  tanks: string
+}
 
 interface FieldTabProps {
   wo: WorkOrder
@@ -22,6 +33,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
   const {
     draft,
     materials: savedMaterials,
+    recordId,
     isLoading,
     isSaving,
     saveError,
@@ -52,6 +64,26 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
   const [afterError, setAfterError] = useState<string | null>(null)
   const [sigError, setSigError] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
+
+  // Ad-hoc chemicals state
+  const [adHocChemicals, setAdHocChemicals] = useState<AdHocChemicalRow[]>([])
+  const [chemicalsList, setChemicalsList] = useState<Chemical[]>([])
+  const [chemicalsLoadError, setChemicalsLoadError] = useState(false)
+
+  const fetchChemicals = useCallback(async () => {
+    const { data, error: chemErr } = await supabase
+      .from('chemicals')
+      .select('*')
+      .eq('is_active', true)
+      .order('name')
+    if (chemErr || !data) {
+      setChemicalsLoadError(true)
+    } else {
+      setChemicalsList(data)
+    }
+  }, [])
+
+  useEffect(() => { fetchChemicals() }, [fetchChemicals])
 
   // Initialize local state from draft once loaded
   if (!isLoading && !initialized) {
@@ -129,6 +161,62 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
       ...prev,
       [samId]: { ...prev[samId] ?? { actualAmount: '', tanks: '' }, [field]: value },
     }))
+  }
+
+  function addAdHocChemical() {
+    setAdHocChemicals((prev) => [
+      ...prev,
+      { tempId: crypto.randomUUID(), chemicalId: '', chemicalName: '', actualAmount: '', unit: '', tanks: '' },
+    ])
+  }
+
+  function updateAdHocChemical(tempId: string, updates: Partial<AdHocChemicalRow>) {
+    setAdHocChemicals((prev) =>
+      prev.map((row) => (row.tempId === tempId ? { ...row, ...updates } : row))
+    )
+  }
+
+  function removeAdHocChemical(tempId: string) {
+    setAdHocChemicals((prev) => prev.filter((row) => row.tempId !== tempId))
+  }
+
+  async function handleAdHocBlur(row: AdHocChemicalRow) {
+    if (readOnly || !row.chemicalName) return
+
+    // Ensure field_completion record exists
+    let fcId = recordId
+    if (!fcId) {
+      fcId = await upsertDraft({})
+      if (!fcId) return
+    }
+
+    const payload = {
+      field_completion_id: fcId,
+      service_agreement_material_id: null,
+      chemical_name: row.chemicalName,
+      recommended_amount: null,
+      recommended_unit: row.unit || null,
+      actual_amount_used: row.actualAmount ? parseFloat(row.actualAmount) : null,
+      tanks_used: row.tanks ? parseInt(row.tanks) : null,
+    }
+
+    if (row.savedId) {
+      await supabase
+        .from('field_completion_materials')
+        .update(payload)
+        .eq('id', row.savedId)
+    } else {
+      const { data } = await supabase
+        .from('field_completion_materials')
+        .insert(payload)
+        .select('id')
+        .single()
+      if (data) {
+        setAdHocChemicals((prev) =>
+          prev.map((r) => (r.tempId === row.tempId ? { ...r, savedId: data.id } : r))
+        )
+      }
+    }
   }
 
   async function handleAddPhoto(file: File, type: 'before' | 'after' | 'during') {
@@ -252,10 +340,10 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
       {/* Chemical Actuals */}
       <div>
         <h2 className="text-sm font-semibold mb-3">Chemical Application</h2>
-        {!wo.service_agreement_id || agreementMaterials.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)] italic">No chemicals on record for this agreement.</p>
-        ) : (
-          <div className="space-y-3">
+
+        {/* Pre-populated agreement materials */}
+        {agreementMaterials.length > 0 && (
+          <div className="space-y-3 mb-3">
             {agreementMaterials.map((m) => {
               const local = localMaterials[m.id] ?? { actualAmount: '', tanks: '' }
               const actualNum = local.actualAmount ? parseFloat(local.actualAmount) : null
@@ -303,6 +391,116 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
               )
             })}
           </div>
+        )}
+
+        {/* Ad-hoc chemical rows */}
+        {adHocChemicals.length > 0 && (
+          <div className="space-y-3 mb-3">
+            {adHocChemicals.map((row) => (
+              <div key={row.tempId} className="rounded-lg border border-surface-border p-3">
+                <div className="flex items-start justify-between mb-2">
+                  {chemicalsLoadError || chemicalsList.length === 0 ? (
+                    <div className="flex-1">
+                      <label className="block text-xs text-[var(--color-text-muted)] mb-1">Chemical Name</label>
+                      <input
+                        type="text"
+                        value={row.chemicalName}
+                        onChange={(e) => updateAdHocChemical(row.tempId, { chemicalName: e.target.value })}
+                        onBlur={() => handleAdHocBlur(row)}
+                        disabled={readOnly}
+                        placeholder="Enter chemical name..."
+                        className="w-full rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px] disabled:opacity-60 disabled:bg-gray-50"
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-1">
+                      <label className="block text-xs text-[var(--color-text-muted)] mb-1">Chemical</label>
+                      <select
+                        value={row.chemicalId}
+                        onChange={(e) => {
+                          const chem = chemicalsList.find((c) => c.id === e.target.value)
+                          updateAdHocChemical(row.tempId, {
+                            chemicalId: e.target.value,
+                            chemicalName: chem?.name ?? '',
+                            unit: chem?.default_unit ?? row.unit,
+                          })
+                        }}
+                        onBlur={() => handleAdHocBlur(row)}
+                        disabled={readOnly}
+                        className="w-full rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px] disabled:opacity-60 disabled:bg-gray-50"
+                      >
+                        <option value="">Select chemical...</option>
+                        {chemicalsList.map((c) => (
+                          <option key={c.id} value={c.id}>{c.name}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+                  {!readOnly && (
+                    <button
+                      type="button"
+                      onClick={() => removeAdHocChemical(row.tempId)}
+                      className="ml-2 mt-5 rounded-lg p-2 text-red-500 hover:bg-red-50 min-h-[44px] min-w-[44px] flex items-center justify-center"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  <div>
+                    <label className="block text-xs text-[var(--color-text-muted)] mb-1">Amount Used</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={row.actualAmount}
+                      onChange={(e) => updateAdHocChemical(row.tempId, { actualAmount: e.target.value })}
+                      onBlur={() => handleAdHocBlur(row)}
+                      disabled={readOnly}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px] disabled:opacity-60 disabled:bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--color-text-muted)] mb-1">Unit</label>
+                    <input
+                      type="text"
+                      value={row.unit}
+                      onChange={(e) => updateAdHocChemical(row.tempId, { unit: e.target.value })}
+                      onBlur={() => handleAdHocBlur(row)}
+                      disabled={readOnly}
+                      placeholder="oz, gal..."
+                      className="w-full rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px] disabled:opacity-60 disabled:bg-gray-50"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs text-[var(--color-text-muted)] mb-1">Tanks Used</label>
+                    <input
+                      type="number"
+                      step="1"
+                      value={row.tanks}
+                      onChange={(e) => updateAdHocChemical(row.tempId, { tanks: e.target.value })}
+                      onBlur={() => handleAdHocBlur(row)}
+                      disabled={readOnly}
+                      placeholder="0"
+                      className="w-full rounded-lg border border-surface-border bg-white px-2 py-1.5 text-sm min-h-[44px] disabled:opacity-60 disabled:bg-gray-50"
+                    />
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {agreementMaterials.length === 0 && adHocChemicals.length === 0 && (
+          <p className="text-sm text-[var(--color-text-muted)] italic mb-3">No chemicals on record for this agreement.</p>
+        )}
+
+        {/* Add Chemical button */}
+        {!readOnly && (
+          <Button type="button" variant="ghost" size="sm" onClick={addAdHocChemical}>
+            <Plus size={16} />
+            Add Chemical
+          </Button>
         )}
       </div>
 

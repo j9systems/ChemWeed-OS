@@ -16,7 +16,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
-import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
+import { AgreementLineItemsSection, type LineItemRow, rowTotal, emptyCalculatedRow } from '@/components/agreements/AgreementLineItemsSection'
 import { NewClientModal } from '@/components/work-orders/NewClientModal'
 import { NewSiteModal } from '@/components/work-orders/NewSiteModal'
 import type { AgreementStatus } from '@/types/database'
@@ -37,7 +37,7 @@ export function AgreementNew() {
   const [showNewClientModal, setShowNewClientModal] = useState(false)
   const [showNewSiteModal, setShowNewSiteModal] = useState(false)
   const clientDropdownRef = useRef<HTMLDivElement>(null)
-  const [serviceTypeId, setServiceTypeId] = useState('')
+  const [selectedServiceTypeIds, setSelectedServiceTypeIds] = useState<string[]>([])
   const [proposedStartDate, setProposedStartDate] = useState('')
   const [contractStartDate, setContractStartDate] = useState('')
   const [contractEndDate, setContractEndDate] = useState('')
@@ -88,8 +88,8 @@ export function AgreementNew() {
 
   async function handleSubmit(e: FormEvent, status: AgreementStatus) {
     e.preventDefault()
-    if (!clientId || !siteId || !serviceTypeId) {
-      setError('Client, site, and service type are required.')
+    if (!clientId || !siteId || selectedServiceTypeIds.length === 0) {
+      setError('Client, site, and at least one service type are required.')
       return
     }
 
@@ -101,7 +101,8 @@ export function AgreementNew() {
       .insert({
         client_id: clientId,
         site_id: siteId,
-        service_type_id: serviceTypeId,
+        service_type_id: selectedServiceTypeIds[0],
+        // TODO: save all selected service type IDs to service_type_ids uuid[] column if/when it exists
         agreement_status: status,
         proposed_start_date: proposedStartDate || null,
         contract_start_date: contractStartDate || null,
@@ -189,13 +190,9 @@ export function AgreementNew() {
     const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
       p_agreement_id: sa.id
     })
-    if (genError) {
-      // Non-fatal -- WOs can be generated later via the manual button
-      console.warn('WO generation warning:', genError.message)
-    }
 
     setSubmitting(false)
-    navigate(`/agreements/${sa.id}`)
+    navigate(`/agreements/${sa.id}${genError ? '?wo_gen_failed=1' : ''}`)
   }
 
   return (
@@ -321,18 +318,44 @@ export function AgreementNew() {
         <Card>
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium mb-1">Service Type *</label>
-              <select
-                value={serviceTypeId}
-                onChange={(e) => setServiceTypeId(e.target.value)}
-                className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px]"
-                required
-              >
-                <option value="">Select service type...</option>
-                {serviceTypes.map((st) => (
-                  <option key={st.id} value={st.id}>{st.name}</option>
-                ))}
-              </select>
+              <label className="block text-sm font-medium mb-1">Service Type(s) *</label>
+              <div className="flex gap-2 flex-wrap">
+                {serviceTypes.map((st) => {
+                  const isSelected = selectedServiceTypeIds.includes(st.id)
+                  return (
+                    <button
+                      key={st.id}
+                      type="button"
+                      onClick={() => {
+                        if (isSelected) {
+                          setSelectedServiceTypeIds((prev) => prev.filter((id) => id !== st.id))
+                        } else {
+                          setSelectedServiceTypeIds((prev) => [...prev, st.id])
+                          // Seed a new line item row for this service type
+                          const newRow = { ...emptyCalculatedRow(), service_type_id: st.id, service_type: st }
+                          if (st.base_rate_low != null && st.base_rate_high != null) {
+                            newRow.unit_rate = String(((st.base_rate_low + st.base_rate_high) / 2).toFixed(2))
+                          }
+                          if (st.default_scope_template) {
+                            newRow.line_items = [st.default_scope_template]
+                          }
+                          setLineItems((prev) => [...prev, newRow])
+                        }
+                      }}
+                      className={`rounded-full px-4 py-1.5 text-sm font-medium border transition-colors ${
+                        isSelected
+                          ? 'bg-[#2a6b2a]/10 text-[#2a6b2a] border-[#2a6b2a]'
+                          : 'bg-gray-50 text-gray-700 border-gray-200 hover:opacity-80'
+                      }`}
+                    >
+                      {st.name}
+                    </button>
+                  )
+                })}
+              </div>
+              {selectedServiceTypeIds.length === 0 && (
+                <p className="text-xs text-[var(--color-text-muted)] mt-1">Select at least one service type.</p>
+              )}
             </div>
 
             <div>
