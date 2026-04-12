@@ -13,7 +13,6 @@ import { WorkOrderDetail } from '@/pages/work-orders/WorkOrderDetail'
 import { SchedulePage } from '@/pages/schedule/SchedulePage'
 import { ClientsPage } from '@/pages/clients/ClientsPage'
 import { ClientDetail } from '@/pages/clients/ClientDetail'
-import { FieldCompletionForm } from '@/pages/field/FieldCompletionForm'
 import { SiteDetail } from '@/pages/sites/SiteDetail'
 import { SettingsPage } from '@/pages/settings/SettingsPage'
 import { DashboardPage } from '@/pages/dashboard/DashboardPage'
@@ -47,7 +46,6 @@ const router = createBrowserRouter([
               { path: 'agreements/:id', element: <AgreementDetail /> },
               { path: 'work-orders', element: <WorkOrdersPage /> },
               { path: 'work-orders/:id', element: <WorkOrderDetail /> },
-              { path: 'work-orders/:id/complete', element: <FieldCompletionForm /> },
               { path: 'schedule', element: <SchedulePage /> },
               { path: 'clients', element: <ClientsPage /> },
               { path: 'clients/:id', element: <ClientDetail /> },

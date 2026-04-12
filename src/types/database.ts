@@ -259,7 +259,7 @@ export interface TeamMember {
 export interface FieldCompletion {
   id: string
   work_order_id: string
-  completed_by: string
+  completed_by: string | null
   actual_start_at: string
   temperature_f: number | null
   wind_speed_mph: number | null
@@ -268,7 +268,22 @@ export interface FieldCompletion {
   notes: string | null
   signature_data_url: string | null
   photo_urls: string[]
-  submitted_at: string
+  before_photo_urls: string[]
+  after_photo_urls: string[]
+  during_photo_urls: string[]
+  submitted_at: string | null
+}
+
+export interface FieldCompletionMaterial {
+  id: string
+  field_completion_id: string
+  service_agreement_material_id: string | null
+  chemical_name: string
+  recommended_amount: number | null
+  recommended_unit: string | null
+  actual_amount_used: number | null
+  tanks_used: number | null
+  created_at: string
 }
 
 export interface SiteWeedProfile {
