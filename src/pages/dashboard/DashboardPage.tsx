@@ -13,6 +13,8 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useDashboard } from '@/hooks/useDashboard'
+import { TechDashboard } from './TechDashboard'
+import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { SigningStatusBadge } from '@/components/SigningStatusBadge'
 import { formatRelativeTime, getDaysSince } from '@/lib/formatRelativeTime'
 import { cn } from '@/lib/utils'
@@ -92,8 +94,13 @@ function ActivityRowSkeleton() {
 // --- Main page ---
 
 export function DashboardPage() {
-  const { teamMember } = useAuth()
+  const { teamMember, role } = useAuth()
   const { data, isLoading, errors, refetch } = useDashboard()
+
+  if (role === 'technician') {
+    if (!teamMember) return <LoadingSpinner />
+    return <TechDashboard teamMember={teamMember} />
+  }
   const navigate = useNavigate()
 
   const firstName = teamMember?.first_name ?? 'there'

@@ -7,7 +7,7 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Badge } from '@/components/ui/Badge'
 import { WorkOrderCard } from '@/components/work-orders/WorkOrderCard'
 import { WORK_ORDER_STATUSES, getServiceColor, formatPeriodLabel } from '@/lib/constants'
-import { formatDate, todayPacific } from '@/lib/utils'
+import { formatDate } from '@/lib/utils'
 import type { WorkOrder, WorkOrderStatus } from '@/types/database'
 
 function DaysSincePill({ days }: { days: number | null }) {
@@ -68,48 +68,17 @@ function TechnicianView() {
   const { teamMember } = useAuth()
   const { workOrders, isLoading, error, refetch } = useMyWorkOrders(teamMember?.id)
 
-  const todayStr = todayPacific()
-
-  const sections = useMemo(() => {
-    const today: WorkOrder[] = []
-    const upcoming: WorkOrder[] = []
-    const completed: WorkOrder[] = []
-
-    const fourteenDaysLater = new Date()
-    fourteenDaysLater.setDate(fourteenDaysLater.getDate() + 14)
-    const fourteenDaysStr = fourteenDaysLater.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
-
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-    const thirtyDaysStr = thirtyDaysAgo.toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' })
-
-    for (const wo of workOrders) {
-      if (
-        (wo.status === 'scheduled' || wo.status === 'in_progress') &&
-        wo.scheduled_date === todayStr
-      ) {
-        today.push(wo)
-      } else if (
-        wo.status === 'scheduled' &&
-        wo.scheduled_date &&
-        wo.scheduled_date > todayStr &&
-        wo.scheduled_date <= fourteenDaysStr
-      ) {
-        upcoming.push(wo)
-      } else if (
-        wo.status === 'completed' &&
-        wo.completion_date &&
-        wo.completion_date >= thirtyDaysStr
-      ) {
-        completed.push(wo)
-      }
-    }
-
-    // Sort completed most recent first
-    completed.sort((a, b) => (b.completion_date ?? '').localeCompare(a.completion_date ?? ''))
-
-    return { today, upcoming, completed }
-  }, [workOrders, todayStr])
+  const sorted = useMemo(() => {
+    return [...workOrders].sort((a, b) => {
+      const da = a.scheduled_date ?? ''
+      const db = b.scheduled_date ?? ''
+      // Descending, nulls last
+      if (!da && !db) return 0
+      if (!da) return 1
+      if (!db) return -1
+      return db.localeCompare(da)
+    })
+  }, [workOrders])
 
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
@@ -118,57 +87,13 @@ function TechnicianView() {
     <div>
       <h1 className="text-2xl font-bold mb-6">My Jobs</h1>
 
-      {/* Today */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-3">
-          Today
-          {sections.today.length > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-emerald-100 text-emerald-700 px-2 py-0.5 text-xs font-medium">
-              {sections.today.length}
-            </span>
-          )}
-        </h2>
-        {sections.today.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)] py-4">No jobs scheduled for today.</p>
-        ) : (
-          <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
-            {sections.today.map((wo) => (
-              <WorkOrderCard key={wo.id} wo={wo} variant="tech" />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Upcoming */}
-      <div className="mb-6">
-        <h2 className="text-lg font-semibold mb-3">
-          Upcoming
-          {sections.upcoming.length > 0 && (
-            <span className="ml-2 inline-flex items-center justify-center rounded-full bg-blue-100 text-blue-700 px-2 py-0.5 text-xs font-medium">
-              {sections.upcoming.length}
-            </span>
-          )}
-        </h2>
-        {sections.upcoming.length === 0 ? (
-          <p className="text-sm text-[var(--color-text-muted)] py-4">No upcoming jobs in the next 14 days.</p>
-        ) : (
-          <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
-            {sections.upcoming.map((wo) => (
-              <WorkOrderCard key={wo.id} wo={wo} variant="tech" />
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Completed */}
-      {sections.completed.length > 0 && (
-        <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-3">Completed</h2>
-          <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
-            {sections.completed.map((wo) => (
-              <WorkOrderCard key={wo.id} wo={wo} variant="tech" />
-            ))}
-          </div>
+      {sorted.length === 0 ? (
+        <p className="text-sm text-[var(--color-text-muted)] py-4">No jobs assigned yet.</p>
+      ) : (
+        <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
+          {sorted.map((wo) => (
+            <WorkOrderCard key={wo.id} wo={wo} variant="tech" />
+          ))}
         </div>
       )}
     </div>
