@@ -70,6 +70,19 @@ Deno.serve(async (req) => {
       return errorResponse('Company settings not configured', 500)
     }
 
+    // Fetch boilerplate template text if one is selected on this agreement
+    let proposalTerms = company.default_proposal_terms ?? ''
+    if (wo.boilerplate_template_id) {
+      const { data: tpl } = await supabase
+        .from('proposal_boilerplate_templates')
+        .select('body')
+        .eq('id', wo.boilerplate_template_id)
+        .single()
+      if (tpl?.body) {
+        proposalTerms = tpl.body
+      }
+    }
+
     const dateStr = wo.proposed_start_date
       ? new Date(wo.proposed_start_date).toLocaleDateString('en-US', {
           month: 'short', day: 'numeric', year: 'numeric',
@@ -163,7 +176,7 @@ Deno.serve(async (req) => {
         company_email: company.email ?? '',
         company_license: company.license_number ?? '',
         signer_line: company.signer_line ?? '',
-        proposal_terms: company.default_proposal_terms ?? '',
+        proposal_terms: proposalTerms,
 
         client_name: wo.client?.name ?? '',
         client_address: clientAddress,

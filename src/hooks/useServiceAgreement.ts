@@ -15,7 +15,7 @@ export function useServiceAgreement(id: string | undefined) {
 
     const { data, error: err } = await supabase
       .from('service_agreements')
-      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey(*), urgency_level:urgency_levels(*)')
+      .select('*, client:clients(*), site:sites(*), service_type:service_types(*), pca:team!work_orders_pca_id_fkey(*), urgency_level:urgency_levels(*), boilerplate_template:proposal_boilerplate_templates(*)')
       .eq('id', id)
       .single()
 

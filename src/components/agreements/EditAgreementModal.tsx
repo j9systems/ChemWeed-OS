@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
 import { useServiceTypes } from '@/hooks/useServiceTypes'
@@ -8,7 +8,7 @@ import { getUrgencyColors } from '@/lib/constants'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
-import type { ServiceAgreement } from '@/types/database'
+import type { ServiceAgreement, ProposalBoilerplateTemplate } from '@/types/database'
 
 interface EditAgreementModalProps {
   open: boolean
@@ -33,9 +33,23 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
   const [billingMethod, setBillingMethod] = useState(agreement.billing_method ?? '')
   const [pcaId, setPcaId] = useState(agreement.pca_id ?? '')
   const [poNumber, setPoNumber] = useState(agreement.po_number ?? '')
+  const [boilerplateTemplateId, setBoilerplateTemplateId] = useState(agreement.boilerplate_template_id ?? '')
+  const [boilerplateTemplates, setBoilerplateTemplates] = useState<ProposalBoilerplateTemplate[]>([])
   const [reason, setReason] = useState(agreement.reason ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    supabase
+      .from('proposal_boilerplate_templates')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name')
+      .then(({ data }) => {
+        if (data) setBoilerplateTemplates(data as ProposalBoilerplateTemplate[])
+      })
+  }, [])
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
@@ -60,6 +74,7 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
         billing_method: billingMethod || null,
         pca_id: pcaId || null,
         po_number: poNumber || null,
+        boilerplate_template_id: boilerplateTemplateId || null,
         reason: reason || null,
       })
       .eq('id', agreement.id)
@@ -180,6 +195,33 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
         </div>
 
         <Input label="PO Number" value={poNumber} onChange={(e) => setPoNumber(e.target.value)} placeholder="Optional" />
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Agreement Text</label>
+          <select
+            value={boilerplateTemplateId}
+            onChange={(e) => setBoilerplateTemplateId(e.target.value)}
+            className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[44px]"
+          >
+            <option value="">None</option>
+            {boilerplateTemplates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}{t.is_default ? ' (default)' : ''}
+              </option>
+            ))}
+          </select>
+          <p className="text-xs text-[var(--color-text-muted)] mt-1">
+            Boilerplate paragraph that appears above line items on the proposal PDF.
+          </p>
+          {boilerplateTemplateId && (() => {
+            const selected = boilerplateTemplates.find(t => t.id === boilerplateTemplateId)
+            return selected ? (
+              <div className="mt-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-xs text-gray-600 max-h-32 overflow-y-auto whitespace-pre-wrap">
+                {selected.body}
+              </div>
+            ) : null
+          })()}
+        </div>
 
         <div>
           <label className="block text-sm font-medium mb-1">Reason / Scope</label>
