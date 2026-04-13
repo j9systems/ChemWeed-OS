@@ -1,13 +1,15 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
-import { Search } from 'lucide-react'
+import { Search, Plus } from 'lucide-react'
 import { useClients } from '@/hooks/useClients'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { NewClientModal } from '@/components/work-orders/NewClientModal'
 
 export function ClientsPage() {
   const { clients, isLoading, error, refetch } = useClients()
   const [search, setSearch] = useState('')
+  const [showNewClientModal, setShowNewClientModal] = useState(false)
 
   const filtered = clients.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -17,7 +19,16 @@ export function ClientsPage() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-6">Clients</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-2xl font-bold">Clients</h1>
+        <button
+          onClick={() => setShowNewClientModal(true)}
+          className="bg-[#2a6b2a] hover:bg-[#1a4a1a] text-white text-sm font-medium px-4 py-2 rounded-lg min-h-[44px] flex items-center gap-2"
+        >
+          <Plus size={16} />
+          Add New Client
+        </button>
+      </div>
 
       <div className="relative mb-4">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
@@ -106,6 +117,13 @@ export function ClientsPage() {
           )}
         </>
       )}
+
+      <NewClientModal
+        open={showNewClientModal}
+        onCancel={() => setShowNewClientModal(false)}
+        onSuccess={() => { setShowNewClientModal(false); refetch(); }}
+        initialClientName=""
+      />
     </div>
   )
 }
