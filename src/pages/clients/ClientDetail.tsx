@@ -1,15 +1,25 @@
+import { useState } from 'react'
 import { useParams, Link } from 'react-router'
-import { ArrowLeft, AlertTriangle } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Pencil } from 'lucide-react'
+import { useAuth } from '@/hooks/useAuth'
 import { useClient } from '@/hooks/useClients'
 import { useSites } from '@/hooks/useSites'
+import { canEdit } from '@/lib/roles'
+import { supabase } from '@/lib/supabase'
+import { getSupabaseErrorMessage } from '@/lib/utils'
 import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { Modal } from '@/components/ui/Modal'
+import { Input } from '@/components/ui/Input'
+import { Button } from '@/components/ui/Button'
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>()
-  const { client, isLoading: clientLoading, error: clientError } = useClient(id)
+  const { role } = useAuth()
+  const { client, isLoading: clientLoading, error: clientError, refetch } = useClient(id)
   const { sites, isLoading: sitesLoading, error: sitesError } = useSites(id)
+  const [editOpen, setEditOpen] = useState(false)
 
   if (clientLoading) return <LoadingSpinner />
   if (clientError) return <ErrorMessage message={clientError} />
@@ -22,7 +32,24 @@ export function ClientDetail() {
         Back to Clients
       </Link>
 
-      <h1 className="text-2xl font-bold mb-2">{client.name}</h1>
+      <div className="flex items-center justify-between mb-2">
+        <h1 className="text-2xl font-bold">{client.name}</h1>
+        {canEdit(role) && (
+          <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+            <Pencil size={16} />
+            Edit
+          </Button>
+        )}
+      </div>
+
+      {canEdit(role) && (
+        <EditClientModal
+          open={editOpen}
+          client={client}
+          onClose={() => setEditOpen(false)}
+          onSaved={() => { setEditOpen(false); refetch() }}
+        />
+      )}
 
       <Card className="mb-6">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -105,5 +132,149 @@ export function ClientDetail() {
         </div>
       )}
     </div>
+  )
+}
+
+interface EditClientModalProps {
+  open: boolean
+  client: NonNullable<ReturnType<typeof useClient>['client']>
+  onClose: () => void
+  onSaved: () => void
+}
+
+function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProps) {
+  const [name, setName] = useState(client.name)
+  const [billingContact, setBillingContact] = useState(client.billing_contact ?? '')
+  const [billingPhone, setBillingPhone] = useState(client.billing_phone ?? '')
+  const [billingEmail, setBillingEmail] = useState(client.billing_email ?? '')
+  const [billingAddress, setBillingAddress] = useState(client.billing_address ?? '')
+  const [billingCity, setBillingCity] = useState(client.billing_city ?? '')
+  const [billingState, setBillingState] = useState(client.billing_state ?? 'CA')
+  const [billingZip, setBillingZip] = useState(client.billing_zip ?? '')
+  const [poRequired, setPoRequired] = useState(client.po_required)
+  const [paymentMethod, setPaymentMethod] = useState(client.payment_method ?? '')
+  const [notes, setNotes] = useState(client.notes ?? '')
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // Reset form when client changes or modal reopens
+  const resetForm = () => {
+    setName(client.name)
+    setBillingContact(client.billing_contact ?? '')
+    setBillingPhone(client.billing_phone ?? '')
+    setBillingEmail(client.billing_email ?? '')
+    setBillingAddress(client.billing_address ?? '')
+    setBillingCity(client.billing_city ?? '')
+    setBillingState(client.billing_state ?? 'CA')
+    setBillingZip(client.billing_zip ?? '')
+    setPoRequired(client.po_required)
+    setPaymentMethod(client.payment_method ?? '')
+    setNotes(client.notes ?? '')
+    setError(null)
+  }
+
+  const handleClose = () => {
+    resetForm()
+    onClose()
+  }
+
+  async function handleSave() {
+    if (!name.trim()) {
+      setError('Client name is required.')
+      return
+    }
+    setSaving(true)
+    setError(null)
+
+    const { error: err } = await supabase
+      .from('clients')
+      .update({
+        name: name.trim(),
+        billing_contact: billingContact || null,
+        billing_phone: billingPhone || null,
+        billing_email: billingEmail || null,
+        billing_address: billingAddress || null,
+        billing_city: billingCity || null,
+        billing_state: billingState || 'CA',
+        billing_zip: billingZip || null,
+        po_required: poRequired,
+        payment_method: paymentMethod || null,
+        notes: notes || null,
+      })
+      .eq('id', client.id)
+
+    setSaving(false)
+    if (err) {
+      setError(getSupabaseErrorMessage(err))
+      return
+    }
+    onSaved()
+  }
+
+  return (
+    <Modal open={open} onClose={handleClose} title="Edit Client">
+      <div className="space-y-3">
+        <Input label="Client Name *" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
+        <Input label="Billing Contact" value={billingContact} onChange={(e) => setBillingContact(e.target.value)} />
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <Input label="Billing Phone" value={billingPhone} onChange={(e) => setBillingPhone(e.target.value)} type="tel" />
+          <Input label="Billing Email" value={billingEmail} onChange={(e) => setBillingEmail(e.target.value)} type="email" />
+        </div>
+        <div className="pt-2">
+          <p className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Billing Address</p>
+          <div className="space-y-3">
+            <Input label="Street Address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
+            <div className="grid grid-cols-3 gap-3">
+              <Input label="City" value={billingCity} onChange={(e) => setBillingCity(e.target.value)} />
+              <Input label="State" value={billingState} onChange={(e) => setBillingState(e.target.value)} />
+              <Input label="ZIP" value={billingZip} onChange={(e) => setBillingZip(e.target.value)} />
+            </div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="flex items-center gap-2 min-h-[44px]">
+            <input
+              type="checkbox"
+              id="edit-po-required"
+              checked={poRequired}
+              onChange={(e) => setPoRequired(e.target.checked)}
+              className="h-4 w-4 rounded border-surface-border text-brand-green focus:ring-brand-green/30"
+            />
+            <label htmlFor="edit-po-required" className="text-sm font-medium text-[var(--color-text-primary)]">
+              PO Required
+            </label>
+          </div>
+          <Input label="Payment Method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Notes</label>
+          <textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            rows={2}
+            className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+          />
+        </div>
+
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+            {error}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between pt-2">
+          <button
+            type="button"
+            onClick={handleClose}
+            className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] underline"
+          >
+            Cancel
+          </button>
+          <Button onClick={handleSave} disabled={saving}>
+            {saving ? 'Saving...' : 'Save Changes'}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   )
 }

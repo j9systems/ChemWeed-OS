@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import { Plus, Calendar, User } from 'lucide-react'
+import { Plus, Calendar, User, Search } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreements } from '@/hooks/useServiceAgreements'
 import { canEdit } from '@/lib/roles'
@@ -64,7 +64,7 @@ function MobileRow({ agreement }: { agreement: ServiceAgreement }) {
     <button
       type="button"
       onClick={() => navigate(`/agreements/${agreement.id}`)}
-      className="w-full text-left px-4 py-3 border-b border-surface-border last:border-0 hover:bg-surface transition-colors"
+      className="w-full text-left px-4 py-3 border-b border-surface-border last:border-0 hover:bg-brand-green/5 transition-colors"
       style={{ borderLeft: `4px solid ${sc.border}` }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -105,7 +105,7 @@ function TableRow({ agreement }: { agreement: ServiceAgreement }) {
   return (
     <tr
       onClick={() => navigate(`/agreements/${agreement.id}`)}
-      className="border-b border-surface-border last:border-0 hover:bg-surface transition-colors cursor-pointer"
+      className="border-b border-surface-border last:border-0 hover:bg-brand-green/5 transition-colors cursor-pointer"
     >
       <td className="py-3 pl-4 pr-2">
         <span
@@ -141,9 +141,20 @@ function TableRow({ agreement }: { agreement: ServiceAgreement }) {
 export function AgreementsPage() {
   const { role } = useAuth()
   const [statusFilter, setStatusFilter] = useState<AgreementStatus | ''>('')
+  const [search, setSearch] = useState('')
   const { agreements, isLoading, error, refetch } = useServiceAgreements(
     statusFilter ? { status: statusFilter } : undefined
   )
+
+  const filtered = agreements.filter((a) => {
+    if (!search) return true
+    const q = search.toLowerCase()
+    const client = (a.client?.name ?? '').toLowerCase()
+    const address = (a.site?.address_line ?? '').toLowerCase()
+    const city = (a.site?.city ?? '').toLowerCase()
+    const siteName = (a.site?.name ?? '').toLowerCase()
+    return client.includes(q) || address.includes(q) || city.includes(q) || siteName.includes(q)
+  })
 
   return (
     <div>
@@ -157,6 +168,17 @@ export function AgreementsPage() {
             </Button>
           </Link>
         )}
+      </div>
+
+      <div className="relative mb-4">
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by client or address..."
+          className="w-full rounded-lg border border-surface-border bg-surface-raised pl-10 pr-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+        />
       </div>
 
       <div className="mb-4">
@@ -175,13 +197,13 @@ export function AgreementsPage() {
       {isLoading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-      {!isLoading && !error && agreements.length === 0 && (
+      {!isLoading && !error && filtered.length === 0 && (
         <p className="py-8 text-center text-[var(--color-text-muted)]">
           No agreements found.
         </p>
       )}
 
-      {!isLoading && !error && agreements.length > 0 && (
+      {!isLoading && !error && filtered.length > 0 && (
         <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
           <table className="w-full text-sm hidden md:table">
             <thead>
@@ -196,14 +218,14 @@ export function AgreementsPage() {
               </tr>
             </thead>
             <tbody>
-              {agreements.map((a) => (
+              {filtered.map((a) => (
                 <TableRow key={a.id} agreement={a} />
               ))}
             </tbody>
           </table>
 
           <div className="md:hidden divide-y divide-surface-border">
-            {agreements.map((a) => (
+            {filtered.map((a) => (
               <MobileRow key={a.id} agreement={a} />
             ))}
           </div>

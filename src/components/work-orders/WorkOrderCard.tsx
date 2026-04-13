@@ -70,7 +70,7 @@ function AdminCard({ wo }: { wo: WorkOrder }) {
     <button
       type="button"
       onClick={() => navigate(`/work-orders/${wo.id}`)}
-      className="w-full text-left px-4 py-3 border-b border-surface-border last:border-0 hover:bg-surface transition-colors"
+      className="w-full text-left px-4 py-3 border-b border-surface-border last:border-0 hover:bg-brand-green/5 transition-colors"
       style={{ borderLeft: `4px solid ${sc.border}` }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -109,7 +109,7 @@ function TechCard({ wo }: { wo: WorkOrder }) {
   return (
     <div
       onClick={() => navigate(`/work-orders/${wo.id}`)}
-      className="w-full text-left px-4 py-3 border-b border-surface-border last:border-0 hover:bg-surface transition-colors cursor-pointer"
+      className="w-full text-left px-4 py-3 border-b border-surface-border last:border-0 hover:bg-brand-green/5 transition-colors cursor-pointer"
       style={{ borderLeft: `4px solid ${sc.border}` }}
     >
       {/* Scheduled date + time — prominent top line */}

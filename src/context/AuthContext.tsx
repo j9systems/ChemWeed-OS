@@ -70,7 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const currentUser = session?.user ?? null
       setUser(currentUser)
       if (currentUser?.email) {
-        resolveTeamMember(currentUser.email)
+        setIsLoading(true)
+        resolveTeamMember(currentUser.email).finally(() => setIsLoading(false))
       } else {
         setTeamMember(null)
         setRole(null)
