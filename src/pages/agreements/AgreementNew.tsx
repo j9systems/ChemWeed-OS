@@ -96,6 +96,14 @@ export function AgreementNew() {
     setSubmitting(true)
     setError(null)
 
+    // Fetch the default boilerplate template to pre-set on new agreements
+    const { data: defaultTemplate } = await supabase
+      .from('proposal_boilerplate_templates')
+      .select('id')
+      .eq('is_default', true)
+      .eq('is_active', true)
+      .maybeSingle()
+
     const { data: sa, error: saErr } = await supabase
       .from('service_agreements')
       .insert({
@@ -111,6 +119,7 @@ export function AgreementNew() {
         billing_method: billingMethod || null,
         pca_id: pcaId || null,
         po_number: poNumber || null,
+        boilerplate_template_id: defaultTemplate?.id ?? null,
         reason: reason || null,
         urgency_level_id: urgencyLevelId || null,
         notes_client: commentClient || null,

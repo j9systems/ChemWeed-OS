@@ -132,6 +132,9 @@ function DetailsSection({ agreement, lineItems }: { agreement: ServiceAgreement;
           {agreement.pca ? `${agreement.pca.first_name} ${agreement.pca.last_name}` : '—'}
         </DetailItem>
         <DetailItem label="PO Number">{agreement.po_number ?? '—'}</DetailItem>
+        <DetailItem label="Agreement Text">
+          {agreement.boilerplate_template?.name ?? '—'}
+        </DetailItem>
         <div className="w-full">
           <DetailItem label="Reason / Scope">
             <span className="whitespace-pre-wrap">{agreement.reason ?? '—'}</span>

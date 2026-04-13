@@ -87,6 +87,17 @@ export interface ServiceAgreementLineItem {
   created_at: string
 }
 
+export interface ProposalBoilerplateTemplate {
+  id: string
+  name: string
+  body: string
+  is_default: boolean
+  is_active: boolean
+  sort_order: number
+  created_at: string
+  updated_at: string
+}
+
 export interface ServiceAgreement {
   id: string
   agreement_number: string | null
@@ -105,6 +116,8 @@ export interface ServiceAgreement {
   contract_value: number | null
   billing_method: string | null
   po_number: string | null
+  boilerplate_template_id?: string | null
+  boilerplate_template?: ProposalBoilerplateTemplate | null
   pca_id: string | null
   pca?: TeamMember
   pca_rec_url: string | null
@@ -359,6 +372,7 @@ export interface Database {
       urgency_levels: { Row: UrgencyLevel; Insert: Omit<UrgencyLevel, 'id' | 'created_at'>; Update: Partial<Omit<UrgencyLevel, 'id'>> }
       work_order_crew: { Row: WorkOrderCrewMember; Insert: Omit<WorkOrderCrewMember, 'id'>; Update: Partial<Omit<WorkOrderCrewMember, 'id'>> }
       team_unavailability: { Row: TeamUnavailability; Insert: Omit<TeamUnavailability, 'id' | 'created_at'>; Update: Partial<Omit<TeamUnavailability, 'id'>> }
+      proposal_boilerplate_templates: { Row: ProposalBoilerplateTemplate; Insert: Omit<ProposalBoilerplateTemplate, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ProposalBoilerplateTemplate, 'id'>> }
     }
   }
 }
