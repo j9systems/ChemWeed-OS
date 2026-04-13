@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router'
+import { Search } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrders, useMyWorkOrders } from '@/hooks/useWorkOrders'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -9,6 +10,16 @@ import { WorkOrderCard } from '@/components/work-orders/WorkOrderCard'
 import { WORK_ORDER_STATUSES, getServiceColor, formatPeriodLabel } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
 import type { WorkOrder, WorkOrderStatus } from '@/types/database'
+
+function matchesSearch(wo: WorkOrder, term: string): boolean {
+  if (!term) return true
+  const q = term.toLowerCase()
+  const client = (wo.client?.name ?? '').toLowerCase()
+  const address = (wo.site?.address_line ?? '').toLowerCase()
+  const city = (wo.site?.city ?? '').toLowerCase()
+  const siteName = (wo.site?.name ?? '').toLowerCase()
+  return client.includes(q) || address.includes(q) || city.includes(q) || siteName.includes(q)
+}
 
 function DaysSincePill({ days }: { days: number | null }) {
   if (days == null) {
@@ -32,7 +43,7 @@ function WOTableRow({ wo }: { wo: WorkOrder }) {
   return (
     <tr
       onClick={() => navigate(`/work-orders/${wo.id}`)}
-      className="border-b border-surface-border last:border-0 hover:bg-surface transition-colors cursor-pointer"
+      className="border-b border-surface-border last:border-0 hover:bg-brand-green/5 transition-colors cursor-pointer"
     >
       <td className="py-3 pl-4 pr-2">
         <span className="block w-1 h-6 rounded-full" style={{ backgroundColor: sc.border }} />
@@ -67,18 +78,21 @@ function WOTableRow({ wo }: { wo: WorkOrder }) {
 function TechnicianView() {
   const { teamMember } = useAuth()
   const { workOrders, isLoading, error, refetch } = useMyWorkOrders(teamMember?.id)
+  const [search, setSearch] = useState('')
 
   const sorted = useMemo(() => {
-    return [...workOrders].sort((a, b) => {
-      const da = a.scheduled_date ?? ''
-      const db = b.scheduled_date ?? ''
-      // Descending, nulls last
-      if (!da && !db) return 0
-      if (!da) return 1
-      if (!db) return -1
-      return db.localeCompare(da)
-    })
-  }, [workOrders])
+    return [...workOrders]
+      .filter((wo) => matchesSearch(wo, search))
+      .sort((a, b) => {
+        const da = a.scheduled_date ?? ''
+        const db = b.scheduled_date ?? ''
+        // Descending, nulls last
+        if (!da && !db) return 0
+        if (!da) return 1
+        if (!db) return -1
+        return db.localeCompare(da)
+      })
+  }, [workOrders, search])
 
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
@@ -87,8 +101,19 @@ function TechnicianView() {
     <div>
       <h1 className="text-2xl font-bold mb-6">My Jobs</h1>
 
+      <div className="relative mb-4">
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by client or address..."
+          className="w-full rounded-lg border border-surface-border bg-surface-raised pl-10 pr-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+        />
+      </div>
+
       {sorted.length === 0 ? (
-        <p className="text-sm text-[var(--color-text-muted)] py-4">No jobs assigned yet.</p>
+        <p className="text-sm text-[var(--color-text-muted)] py-4">No jobs found.</p>
       ) : (
         <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
           {sorted.map((wo) => (
@@ -113,6 +138,7 @@ export function WorkOrdersPage() {
 
 function AdminView() {
   const [statusFilter, setStatusFilter] = useState<WorkOrderStatus | ''>('')
+  const [search, setSearch] = useState('')
   const { workOrders, isLoading, error, refetch } = useWorkOrders(
     statusFilter ? { status: statusFilter } : undefined
   )
@@ -120,6 +146,7 @@ function AdminView() {
   const { workOrders: actionableUnscheduled } = useWorkOrders({ status: 'unscheduled', actionableOnly: true })
 
   const unscheduled = actionableUnscheduled
+    .filter((wo) => matchesSearch(wo, search))
     .sort((a, b) => {
       const da = a.days_since_last_service ?? -1
       const db = b.days_since_last_service ?? -1
@@ -127,10 +154,23 @@ function AdminView() {
       return (a.client?.name ?? '').localeCompare(b.client?.name ?? '')
     })
 
+  const filteredWorkOrders = workOrders.filter((wo) => matchesSearch(wo, search))
+
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold">Jobs</h1>
+      </div>
+
+      <div className="relative mb-4">
+        <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-text-muted)]" />
+        <input
+          type="text"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search by client or address..."
+          className="w-full rounded-lg border border-surface-border bg-surface-raised pl-10 pr-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+        />
       </div>
 
       {/* Unscheduled Queue */}
@@ -171,13 +211,13 @@ function AdminView() {
         {isLoading && <LoadingSpinner />}
         {error && <ErrorMessage message={error} onRetry={refetch} />}
 
-        {!isLoading && !error && workOrders.length === 0 && (
+        {!isLoading && !error && filteredWorkOrders.length === 0 && (
           <p className="py-8 text-center text-[var(--color-text-muted)]">
             No work orders found.
           </p>
         )}
 
-        {!isLoading && !error && workOrders.length > 0 && (
+        {!isLoading && !error && filteredWorkOrders.length > 0 && (
           <div className="rounded-[20px] bg-surface-raised shadow-card overflow-hidden">
             <table className="w-full text-sm hidden md:table">
               <thead>
@@ -192,14 +232,14 @@ function AdminView() {
                 </tr>
               </thead>
               <tbody>
-                {workOrders.map((wo) => (
+                {filteredWorkOrders.map((wo) => (
                   <WOTableRow key={wo.id} wo={wo} />
                 ))}
               </tbody>
             </table>
 
             <div className="md:hidden divide-y divide-surface-border">
-              {workOrders.map((wo) => (
+              {filteredWorkOrders.map((wo) => (
                 <WorkOrderCard key={wo.id} wo={wo} variant="admin" />
               ))}
             </div>
