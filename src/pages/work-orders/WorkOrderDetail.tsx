@@ -15,7 +15,7 @@ import { TabBar } from './components/TabBar'
 import { AssignCrewModal } from '@/components/work-orders/AssignCrewModal'
 import { FieldTab } from './tabs/FieldTab'
 import { WORK_ORDER_STATUSES, formatPeriodLabel, getUrgencyColors, getServiceColor } from '@/lib/constants'
-import type { WorkOrder } from '@/types/database'
+import type { WorkOrder, Role } from '@/types/database'
 
 const TABS = [
   { key: 'details', label: 'Details' },
@@ -330,7 +330,7 @@ function TechnicianNoteField({ wo }: { wo: WorkOrder }) {
   )
 }
 
-function DetailsTab({ wo, role, onAssignCrew }: { wo: WorkOrder; role: string | null; onAssignCrew?: () => void }) {
+function DetailsTab({ wo, role, onAssignCrew }: { wo: WorkOrder; role: Role | null; onAssignCrew?: () => void }) {
   const phone = wo.client?.billing_phone
   const email = wo.client?.billing_email
   const navUrl = buildNavigationUrl(wo)
