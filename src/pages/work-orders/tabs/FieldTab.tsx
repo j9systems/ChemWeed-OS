@@ -219,10 +219,14 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
     }
   }
 
+  const [uploadingType, setUploadingType] = useState<'before' | 'after' | 'during' | null>(null)
+
   async function handleAddPhoto(file: File, type: 'before' | 'after' | 'during') {
     if (type === 'before') setBeforeError(null)
     if (type === 'after') setAfterError(null)
+    setUploadingType(type)
     await savePhotoToCompletion(file, type)
+    setUploadingType(null)
   }
 
   async function handleRemovePhoto(url: string, type: 'before' | 'after' | 'during') {
@@ -510,7 +514,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
         required
         urls={draft?.beforePhotoUrls ?? []}
         disabled={readOnly}
-        uploading={isSaving}
+        uploading={uploadingType === 'before'}
         onAdd={(file) => handleAddPhoto(file, 'before')}
         onRemove={(url) => handleRemovePhoto(url, 'before')}
         error={beforeError}
@@ -522,7 +526,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
         required
         urls={draft?.afterPhotoUrls ?? []}
         disabled={readOnly}
-        uploading={isSaving}
+        uploading={uploadingType === 'after'}
         onAdd={(file) => handleAddPhoto(file, 'after')}
         onRemove={(url) => handleRemovePhoto(url, 'after')}
         error={afterError}
@@ -544,7 +548,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
               label="During Photos"
               urls={draft?.duringPhotoUrls ?? []}
               disabled={readOnly}
-              uploading={isSaving}
+              uploading={uploadingType === 'during'}
               onAdd={(file) => handleAddPhoto(file, 'during')}
               onRemove={(url) => handleRemovePhoto(url, 'during')}
             />
