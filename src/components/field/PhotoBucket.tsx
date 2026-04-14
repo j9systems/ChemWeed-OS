@@ -1,5 +1,5 @@
 import { useRef } from 'react'
-import { Camera, Image, X } from 'lucide-react'
+import { Camera, X } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 
 interface PhotoBucketProps {
@@ -23,8 +23,7 @@ export function PhotoBucket({
   onRemove,
   error,
 }: PhotoBucketProps) {
-  const cameraInputRef = useRef<HTMLInputElement>(null)
-  const libraryInputRef = useRef<HTMLInputElement>(null)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
@@ -67,42 +66,22 @@ export function PhotoBucket({
       {!disabled && (
         <>
           <input
-            ref={cameraInputRef}
-            type="file"
-            accept="image/*"
-            capture="environment"
-            onChange={handleFileChange}
-            className="hidden"
-          />
-          <input
-            ref={libraryInputRef}
+            ref={inputRef}
             type="file"
             accept="image/*"
             onChange={handleFileChange}
             className="hidden"
           />
-          <div className="flex flex-row gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
-              type="button"
-              onClick={() => cameraInputRef.current?.click()}
-              disabled={uploading || disabled}
-            >
-              <Camera size={16} />
-              {uploading ? 'Uploading...' : 'Take Photo'}
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              type="button"
-              onClick={() => libraryInputRef.current?.click()}
-              disabled={uploading || disabled}
-            >
-              <Image size={16} />
-              {uploading ? 'Uploading...' : 'Choose from Library'}
-            </Button>
-          </div>
+          <Button
+            variant="secondary"
+            size="sm"
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            disabled={uploading || disabled}
+          >
+            <Camera size={16} />
+            {uploading ? 'Uploading...' : 'Add Photo'}
+          </Button>
         </>
       )}
 
