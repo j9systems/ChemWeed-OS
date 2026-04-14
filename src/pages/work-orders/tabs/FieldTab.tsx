@@ -64,6 +64,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
   const [afterError, setAfterError] = useState<string | null>(null)
   const [sigError, setSigError] = useState<string | null>(null)
   const [initialized, setInitialized] = useState(false)
+  const [uploadingType, setUploadingType] = useState<'before' | 'after' | 'during' | null>(null)
 
   // Ad-hoc chemicals state
   const [adHocChemicals, setAdHocChemicals] = useState<AdHocChemicalRow[]>([])
@@ -218,8 +219,6 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
       }
     }
   }
-
-  const [uploadingType, setUploadingType] = useState<'before' | 'after' | 'during' | null>(null)
 
   async function handleAddPhoto(file: File, type: 'before' | 'after' | 'during') {
     if (type === 'before') setBeforeError(null)
