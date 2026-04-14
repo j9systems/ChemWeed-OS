@@ -44,6 +44,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
     removePhoto,
     saveMaterialActual,
     saveSignature,
+    saveAsPartialCompletion,
     markComplete,
   } = useFieldCompletion(wo.id, teamMemberId)
 
@@ -599,6 +600,25 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
           {completionError && (
             <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 mb-3">
               {completionError}
+            </div>
+          )}
+          {!readOnly && wo.status === 'in_progress' && (
+            <div className="mb-3">
+              <Button
+                variant="secondary"
+                size="lg"
+                className="w-full"
+                onClick={async () => {
+                  const success = await saveAsPartialCompletion()
+                  if (success) onComplete()
+                }}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Saving...' : 'Save as Partial Completion'}
+              </Button>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1 text-center">
+                Use this when the job cannot be finished today and requires a return visit.
+              </p>
             </div>
           )}
           {!readOnly && (
