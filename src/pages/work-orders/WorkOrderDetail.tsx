@@ -162,83 +162,155 @@ interface SiteHistoryItem {
   work_order_crew: { id: string; team_member: { first_name: string; last_name: string } | null }[]
 }
 
+interface UpcomingItem {
+  id: string
+  status: WorkOrder['status']
+  scheduled_date: string | null
+  period_month: number | null
+  period_year: number | null
+  period_week: number | null
+  service_type_name: string | null
+}
+
 function HistoryTab({ wo }: { wo: WorkOrder }) {
   const navigate = useNavigate()
+  const [upcoming, setUpcoming] = useState<UpcomingItem[]>([])
   const [history, setHistory] = useState<SiteHistoryItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
 
-  const fetchHistory = useCallback(async () => {
-    if (!wo.site_id) {
-      setIsLoading(false)
-      return
-    }
-    const { data } = await supabase
+  const fetchData = useCallback(async () => {
+    const upcomingQuery = supabase
       .from('work_orders')
-      .select('id, completion_date, service_type:service_types(name), work_order_crew(id, team_member:team(first_name, last_name))')
-      .eq('site_id', wo.site_id)
-      .eq('status', 'completed')
+      .select('id, status, scheduled_date, period_month, period_year, period_week, service_type:service_types(name)')
+      .eq('service_agreement_id', wo.service_agreement_id)
+      .in('status', ['unscheduled', 'tentative', 'scheduled'])
       .neq('id', wo.id)
-      .order('completion_date', { ascending: false })
-      .limit(20)
+      .order('scheduled_date', { ascending: true, nullsFirst: false })
+      .order('period_year', { ascending: true })
+      .order('period_month', { ascending: true })
+      .limit(10)
 
-    if (data) {
-      setHistory(data.map((d: any) => ({
+    const historyQuery = wo.site_id
+      ? supabase
+          .from('work_orders')
+          .select('id, completion_date, service_type:service_types(name), work_order_crew(id, team_member:team(first_name, last_name))')
+          .eq('site_id', wo.site_id)
+          .eq('status', 'completed')
+          .neq('id', wo.id)
+          .order('completion_date', { ascending: false })
+          .limit(20)
+      : null
+
+    const [upcomingRes, historyRes] = await Promise.all([
+      upcomingQuery,
+      historyQuery ?? Promise.resolve({ data: null }),
+    ])
+
+    if (upcomingRes.data) {
+      setUpcoming(upcomingRes.data.map((d: any) => ({
+        id: d.id,
+        status: d.status,
+        scheduled_date: d.scheduled_date,
+        period_month: d.period_month,
+        period_year: d.period_year,
+        period_week: d.period_week,
+        service_type_name: d.service_type?.name ?? null,
+      })))
+    }
+
+    if (historyRes.data) {
+      setHistory(historyRes.data.map((d: any) => ({
         id: d.id,
         completion_date: d.completion_date,
         service_type_name: d.service_type?.name ?? null,
         work_order_crew: d.work_order_crew ?? [],
       })))
     }
-    setIsLoading(false)
-  }, [wo.site_id, wo.id])
 
-  useEffect(() => { fetchHistory() }, [fetchHistory])
+    setIsLoading(false)
+  }, [wo.service_agreement_id, wo.site_id, wo.id])
+
+  useEffect(() => { fetchData() }, [fetchData])
 
   if (isLoading) return <LoadingSpinner />
 
-  if (history.length === 0) {
-    return <p className="text-sm text-[var(--color-text-muted)]">No previous completed jobs for this site.</p>
-  }
-
   return (
-    <div className="space-y-1">
-      <h2 className="text-sm font-semibold mb-3">Site History</h2>
-      {history.map((item) => {
-        const sc = getServiceColor(item.service_type_name ?? undefined)
-        const crewInitials = item.work_order_crew
-          .slice(0, 3)
-          .map((c) => c.team_member ? `${c.team_member.first_name.charAt(0)}${c.team_member.last_name.charAt(0)}` : '??')
+    <div className="space-y-6">
+      <h2 className="text-sm font-semibold">Related Jobs</h2>
 
-        return (
-          <button
-            key={item.id}
-            type="button"
-            onClick={() => navigate(`/work-orders/${item.id}`)}
-            className="w-full flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-surface-raised transition-colors min-h-[44px]"
-          >
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-[var(--color-text-muted)] w-24 shrink-0">
-                {formatDate(item.completion_date)}
-              </span>
-              {item.service_type_name && (
-                <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
-                  {item.service_type_name}
+      {/* Upcoming section */}
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold mb-3">Upcoming</h3>
+        {upcoming.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)]">No upcoming jobs scheduled for this agreement.</p>
+        ) : (
+          upcoming.map((item) => (
+            <button
+              key={item.id}
+              type="button"
+              onClick={() => navigate(`/work-orders/${item.id}`)}
+              className="w-full flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-surface-raised transition-colors min-h-[44px]"
+            >
+              <div className="flex items-center gap-3">
+                <Badge status={item.status} />
+                <span className="text-sm">{item.service_type_name || '—'}</span>
+                <span className="text-xs text-[var(--color-text-muted)]">
+                  {formatPeriodLabel(item)}
                 </span>
-              )}
-              {crewInitials.length > 0 && (
-                <div className="flex -space-x-1">
-                  {crewInitials.map((init, i) => (
-                    <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-[9px] font-semibold text-gray-700 ring-1 ring-white">
-                      {init}
+                <span className="text-sm text-[var(--color-text-muted)]">
+                  {item.scheduled_date ? formatDate(item.scheduled_date) : 'Unscheduled'}
+                </span>
+              </div>
+              <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
+            </button>
+          ))
+        )}
+      </div>
+
+      {/* Past Visits section */}
+      <div className="space-y-1">
+        <h3 className="text-sm font-semibold mb-3">Past Visits</h3>
+        {history.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)]">No previous completed jobs for this site.</p>
+        ) : (
+          history.map((item) => {
+            const sc = getServiceColor(item.service_type_name ?? undefined)
+            const crewInitials = item.work_order_crew
+              .slice(0, 3)
+              .map((c) => c.team_member ? `${c.team_member.first_name.charAt(0)}${c.team_member.last_name.charAt(0)}` : '??')
+
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => navigate(`/work-orders/${item.id}`)}
+                className="w-full flex items-center justify-between py-2.5 px-2 -mx-2 rounded-lg hover:bg-surface-raised transition-colors min-h-[44px]"
+              >
+                <div className="flex items-center gap-3">
+                  <span className="text-sm text-[var(--color-text-muted)] w-24 shrink-0">
+                    {formatDate(item.completion_date)}
+                  </span>
+                  {item.service_type_name && (
+                    <span className={`inline-block rounded-md px-2 py-0.5 text-xs font-semibold ${sc.bg} ${sc.text}`}>
+                      {item.service_type_name}
                     </span>
-                  ))}
+                  )}
+                  {crewInitials.length > 0 && (
+                    <div className="flex -space-x-1">
+                      {crewInitials.map((init, i) => (
+                        <span key={i} className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-gray-200 text-[9px] font-semibold text-gray-700 ring-1 ring-white">
+                          {init}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-            <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
-          </button>
-        )
-      })}
+                <ChevronRight size={16} className="text-[var(--color-text-muted)]" />
+              </button>
+            )
+          })
+        )}
+      </div>
     </div>
   )
 }
