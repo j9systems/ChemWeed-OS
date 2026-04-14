@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useParams, Link, useNavigate } from 'react-router'
-import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, Send } from 'lucide-react'
+import { ArrowLeft, Phone, MessageSquare, Mail, Navigation, Play, CheckCircle, CalendarCheck, Trash2, Undo2, Users, ChevronRight, Send, AlertCircle, Check } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useWorkOrder } from '@/hooks/useWorkOrders'
 import { canEdit, canCompleteField, canAssignCrew } from '@/lib/roles'
@@ -101,7 +101,58 @@ function CrewCard({ wo, onAssign }: { wo: WorkOrder; onAssign?: () => void }) {
   )
 }
 
-function DetailsTab({ wo, onAssignCrew }: { wo: WorkOrder; onAssignCrew?: () => void }) {
+function TechnicianNoteField({ wo }: { wo: WorkOrder }) {
+  const [value, setValue] = useState(wo.notes_technician ?? '')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+
+  useEffect(() => {
+    setValue(wo.notes_technician ?? '')
+  }, [wo.notes_technician])
+
+  useEffect(() => {
+    if (saveStatus === 'saved') {
+      const timer = setTimeout(() => setSaveStatus('idle'), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [saveStatus])
+
+  async function handleBlur() {
+    if (value === (wo.notes_technician ?? '')) return
+    const { error } = await supabase
+      .from('work_orders')
+      .update({ notes_technician: value || null })
+      .eq('id', wo.id)
+    setSaveStatus(error ? 'error' : 'saved')
+  }
+
+  const isReadOnly = wo.status === 'completed'
+
+  return (
+    <div className="mt-6 border-t border-surface-border pt-4">
+      <label className="block text-sm font-semibold mb-2">Note for Technician</label>
+      <textarea
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onBlur={handleBlur}
+        rows={3}
+        readOnly={isReadOnly}
+        placeholder={isReadOnly ? '' : 'Add instructions for the field crew...'}
+        className={`w-full border border-surface-border rounded-lg bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
+      />
+      {saveStatus === 'saved' && (
+        <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600">
+          <Check size={14} />
+          Saved
+        </div>
+      )}
+      {saveStatus === 'error' && (
+        <p className="mt-1 text-xs text-red-600">Failed to save. Please try again.</p>
+      )}
+    </div>
+  )
+}
+
+function DetailsTab({ wo, role, onAssignCrew }: { wo: WorkOrder; role: string | null; onAssignCrew?: () => void }) {
   const phone = wo.client?.billing_phone
   const email = wo.client?.billing_email
   const navUrl = buildNavigationUrl(wo)
@@ -149,6 +200,8 @@ function DetailsTab({ wo, onAssignCrew }: { wo: WorkOrder; onAssignCrew?: () => 
           <DetailItem label="Days Since Last Service">{wo.days_since_last_service}</DetailItem>
         )}
       </dl>
+
+      {role !== 'technician' && <TechnicianNoteField wo={wo} />}
 
       <CrewCard wo={wo} onAssign={onAssignCrew} />
     </div>
@@ -613,10 +666,17 @@ export function WorkOrderDetail() {
         )}
       </div>
 
+      {isTechnician && workOrder.notes_technician && workOrder.notes_technician.trim() !== '' && (
+        <div className="mb-4 flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3">
+          <AlertCircle size={18} className="text-amber-600 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-amber-900">{workOrder.notes_technician}</p>
+        </div>
+      )}
+
       <Card padding={false}>
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
-          {activeTab === 'details' && <DetailsTab wo={workOrder} onAssignCrew={() => setShowAssignModal(true)} />}
+          {activeTab === 'details' && <DetailsTab wo={workOrder} role={role ?? null} onAssignCrew={() => setShowAssignModal(true)} />}
           {activeTab === 'field' && <FieldTab wo={workOrder} teamMemberId={teamMember?.id ?? null} role={role ?? ''} onComplete={refetch} />}
           {activeTab === 'history' && <HistoryTab wo={workOrder} />}
           {activeTab === 'notes' && <NotesTab wo={workOrder} />}
