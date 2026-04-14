@@ -148,6 +148,14 @@ export interface ServiceAgreementMaterial {
   chemical?: Chemical
 }
 
+export interface Vehicle {
+  id: string
+  label: string
+  license_plate: string | null
+  notes: string | null
+  is_active: boolean
+}
+
 export interface WorkOrder {
   id: string
   work_order_number: string | null
@@ -182,6 +190,9 @@ export interface WorkOrder {
   pca_rec_url: string | null
   urgency_level_id: string | null
   urgency_level?: UrgencyLevel
+  vehicle_id: string | null
+  start_mileage: number | null
+  end_mileage: number | null
   notes_client: string | null
   notes_internal: string | null
   notes_technician: string | null

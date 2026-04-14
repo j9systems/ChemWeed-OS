@@ -15,7 +15,7 @@ import { TabBar } from './components/TabBar'
 import { AssignCrewModal } from '@/components/work-orders/AssignCrewModal'
 import { FieldTab } from './tabs/FieldTab'
 import { WORK_ORDER_STATUSES, formatPeriodLabel, getUrgencyColors, getServiceColor } from '@/lib/constants'
-import type { WorkOrder } from '@/types/database'
+import type { WorkOrder, Role } from '@/types/database'
 
 const TABS = [
   { key: 'details', label: 'Details' },
@@ -101,6 +101,184 @@ function CrewCard({ wo, onAssign }: { wo: WorkOrder; onAssign?: () => void }) {
   )
 }
 
+interface VehicleOption {
+  id: string
+  label: string
+}
+
+function VehicleField({ wo }: { wo: WorkOrder }) {
+  const [vehicles, setVehicles] = useState<VehicleOption[]>([])
+  const [value, setValue] = useState(wo.vehicle_id ?? '')
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+
+  useEffect(() => {
+    setValue(wo.vehicle_id ?? '')
+  }, [wo.vehicle_id])
+
+  useEffect(() => {
+    supabase
+      .from('vehicles')
+      .select('id, label')
+      .eq('is_active', true)
+      .order('label')
+      .then(({ data }) => {
+        if (data) setVehicles(data as VehicleOption[])
+      })
+  }, [])
+
+  useEffect(() => {
+    if (saveStatus === 'saved') {
+      const timer = setTimeout(() => setSaveStatus('idle'), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [saveStatus])
+
+  async function handleChange(newValue: string) {
+    setValue(newValue)
+    const { error } = await supabase
+      .from('work_orders')
+      .update({ vehicle_id: newValue || null })
+      .eq('id', wo.id)
+    setSaveStatus(error ? 'error' : 'saved')
+  }
+
+  return (
+    <div className="mt-6 border-t border-surface-border pt-4">
+      <label className="block text-sm font-semibold mb-2">Vehicle</label>
+      <select
+        value={value}
+        onChange={(e) => handleChange(e.target.value)}
+        className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+      >
+        <option value="">— Unassigned —</option>
+        {vehicles.map((v) => (
+          <option key={v.id} value={v.id}>{v.label}</option>
+        ))}
+      </select>
+      {saveStatus === 'saved' && (
+        <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600">
+          <Check size={14} />
+          Saved
+        </div>
+      )}
+      {saveStatus === 'error' && (
+        <p className="mt-1 text-xs text-red-600">Failed to save. Please try again.</p>
+      )}
+    </div>
+  )
+}
+
+function MileageFields({ wo }: { wo: WorkOrder }) {
+  const [startMileage, setStartMileage] = useState(wo.start_mileage?.toString() ?? '')
+  const [endMileage, setEndMileage] = useState(wo.end_mileage?.toString() ?? '')
+  const [startSaveStatus, setStartSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+  const [endSaveStatus, setEndSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
+
+  useEffect(() => {
+    setStartMileage(wo.start_mileage?.toString() ?? '')
+  }, [wo.start_mileage])
+
+  useEffect(() => {
+    setEndMileage(wo.end_mileage?.toString() ?? '')
+  }, [wo.end_mileage])
+
+  useEffect(() => {
+    if (startSaveStatus === 'saved') {
+      const timer = setTimeout(() => setStartSaveStatus('idle'), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [startSaveStatus])
+
+  useEffect(() => {
+    if (endSaveStatus === 'saved') {
+      const timer = setTimeout(() => setEndSaveStatus('idle'), 2000)
+      return () => clearTimeout(timer)
+    }
+  }, [endSaveStatus])
+
+  const isReadOnly = wo.status === 'completed' || wo.status === 'cancelled'
+  const showStart = ['tentative', 'scheduled', 'in_progress'].includes(wo.status)
+  const showEnd = ['in_progress', 'partial_complete'].includes(wo.status)
+
+  async function handleStartBlur() {
+    const parsed = startMileage.trim() === '' ? null : parseInt(startMileage, 10)
+    if (parsed === (wo.start_mileage ?? null)) return
+    const { error } = await supabase
+      .from('work_orders')
+      .update({ start_mileage: isNaN(parsed as number) ? null : parsed })
+      .eq('id', wo.id)
+    setStartSaveStatus(error ? 'error' : 'saved')
+  }
+
+  async function handleEndBlur() {
+    const parsed = endMileage.trim() === '' ? null : parseInt(endMileage, 10)
+    if (parsed === (wo.end_mileage ?? null)) return
+    const { error } = await supabase
+      .from('work_orders')
+      .update({ end_mileage: isNaN(parsed as number) ? null : parsed })
+      .eq('id', wo.id)
+    setEndSaveStatus(error ? 'error' : 'saved')
+  }
+
+  if (!showStart && !showEnd && !isReadOnly) return null
+  // Show read-only values for completed/cancelled if they have data
+  if (isReadOnly && wo.start_mileage == null && wo.end_mileage == null) return null
+
+  return (
+    <div className="mt-6 border-t border-surface-border pt-4">
+      <label className="block text-sm font-semibold mb-2">Mileage</label>
+      <div className="flex gap-4">
+        {(showStart || (isReadOnly && wo.start_mileage != null)) && (
+          <div className="flex-1">
+            <label className="block text-xs text-[var(--color-text-muted)] mb-1">Start Mileage</label>
+            <input
+              type="number"
+              value={isReadOnly ? (wo.start_mileage ?? '') : startMileage}
+              onChange={(e) => setStartMileage(e.target.value)}
+              onBlur={handleStartBlur}
+              readOnly={isReadOnly}
+              placeholder="Odometer"
+              className={`w-full border border-surface-border rounded-lg bg-surface-raised px-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
+            />
+            {startSaveStatus === 'saved' && (
+              <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600">
+                <Check size={14} />
+                Saved
+              </div>
+            )}
+            {startSaveStatus === 'error' && (
+              <p className="mt-1 text-xs text-red-600">Failed to save.</p>
+            )}
+          </div>
+        )}
+        {(showEnd || (isReadOnly && wo.end_mileage != null)) && (
+          <div className="flex-1">
+            <label className="block text-xs text-[var(--color-text-muted)] mb-1">End Mileage</label>
+            <input
+              type="number"
+              value={isReadOnly ? (wo.end_mileage ?? '') : endMileage}
+              onChange={(e) => setEndMileage(e.target.value)}
+              onBlur={handleEndBlur}
+              readOnly={isReadOnly}
+              placeholder="Odometer"
+              className={`w-full border border-surface-border rounded-lg bg-surface-raised px-3 py-2 text-sm min-h-[44px] focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green ${isReadOnly ? 'opacity-60 cursor-not-allowed' : ''}`}
+            />
+            {endSaveStatus === 'saved' && (
+              <div className="flex items-center gap-1 mt-1 text-xs text-emerald-600">
+                <Check size={14} />
+                Saved
+              </div>
+            )}
+            {endSaveStatus === 'error' && (
+              <p className="mt-1 text-xs text-red-600">Failed to save.</p>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 function TechnicianNoteField({ wo }: { wo: WorkOrder }) {
   const [value, setValue] = useState(wo.notes_technician ?? '')
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saved' | 'error'>('idle')
@@ -152,7 +330,7 @@ function TechnicianNoteField({ wo }: { wo: WorkOrder }) {
   )
 }
 
-function DetailsTab({ wo, role, onAssignCrew }: { wo: WorkOrder; role: string | null; onAssignCrew?: () => void }) {
+function DetailsTab({ wo, role, onAssignCrew }: { wo: WorkOrder; role: Role | null; onAssignCrew?: () => void }) {
   const phone = wo.client?.billing_phone
   const email = wo.client?.billing_email
   const navUrl = buildNavigationUrl(wo)
@@ -200,6 +378,10 @@ function DetailsTab({ wo, role, onAssignCrew }: { wo: WorkOrder; role: string | 
           <DetailItem label="Days Since Last Service">{wo.days_since_last_service}</DetailItem>
         )}
       </dl>
+
+      {canEdit(role) && <VehicleField wo={wo} />}
+
+      <MileageFields wo={wo} />
 
       {role !== 'technician' && <TechnicianNoteField wo={wo} />}
 

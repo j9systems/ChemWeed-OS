@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Settings, Beaker, MapPin, FolderTree, Calculator, FileText, Building } from 'lucide-react'
+import { Settings, Beaker, MapPin, FolderTree, Calculator, FileText, Building, Truck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { ServicesTab } from './ServicesTab'
 import { ChemicalsTab } from './ChemicalsTab'
@@ -8,6 +8,7 @@ import { JobSiteCategoriesTab } from './JobSiteCategoriesTab'
 import { EstimateDefaultsTab } from './EstimateDefaultsTab'
 import { ReportingTab } from './ReportingTab'
 import { CompanyInfoTab } from './CompanyInfoTab'
+import { VehiclesTab } from './VehiclesTab'
 
 const TABS = [
   { key: 'services', label: 'Services', icon: Settings },
@@ -17,6 +18,7 @@ const TABS = [
   { key: 'estimates', label: 'Estimate Defaults', icon: Calculator },
   { key: 'reporting', label: 'Reporting', icon: FileText },
   { key: 'company', label: 'Company Info', icon: Building },
+  { key: 'vehicles', label: 'Vehicles', icon: Truck },
 ] as const
 
 type TabKey = (typeof TABS)[number]['key']
@@ -61,6 +63,7 @@ export function SettingsPage() {
           {activeTab === 'estimates' && <EstimateDefaultsTab />}
           {activeTab === 'reporting' && <ReportingTab />}
           {activeTab === 'company' && <CompanyInfoTab />}
+          {activeTab === 'vehicles' && <VehiclesTab />}
         </div>
       </div>
     </div>
