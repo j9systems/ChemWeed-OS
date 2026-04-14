@@ -298,6 +298,47 @@ export function useFieldCompletion(workOrderId: string | undefined, teamMemberId
     setIsSaving(false)
   }, [workOrderId, upsertDraft])
 
+  const saveAsPartialCompletion = useCallback(async (): Promise<boolean> => {
+    if (!workOrderId) return false
+    setCompletionError(null)
+    setIsSaving(true)
+
+    try {
+      // Save whatever draft data exists (no validation required)
+      const id = await upsertDraft({})
+      if (!id) { setIsSaving(false); return false }
+
+      // Set actual_start_date if not already set
+      const today = todayPacific()
+      const updatePayload: Record<string, unknown> = { status: 'partial_complete' }
+
+      // Check if actual_start_date is already set on the work order
+      const { data: woData } = await supabase
+        .from('work_orders')
+        .select('actual_start_date')
+        .eq('id', workOrderId)
+        .single()
+
+      if (!woData?.actual_start_date) {
+        updatePayload.actual_start_date = today
+      }
+
+      const { error: statusErr } = await supabase
+        .from('work_orders')
+        .update(updatePayload)
+        .eq('id', workOrderId)
+
+      if (statusErr) throw new Error(getSupabaseErrorMessage(statusErr))
+
+      setIsSaving(false)
+      return true
+    } catch (err) {
+      setCompletionError(err instanceof Error ? err.message : 'Partial completion failed.')
+      setIsSaving(false)
+      return false
+    }
+  }, [workOrderId, upsertDraft])
+
   const markComplete = useCallback(async (completerId: string): Promise<boolean> => {
     if (!workOrderId) return false
     setCompletionError(null)
@@ -380,6 +421,7 @@ export function useFieldCompletion(workOrderId: string | undefined, teamMemberId
     removePhoto,
     saveMaterialActual,
     saveSignature,
+    saveAsPartialCompletion,
     markComplete,
     refetch: fetchExisting,
   }

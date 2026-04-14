@@ -19,6 +19,7 @@ export const WORK_ORDER_STATUSES: Record<WorkOrderStatus, string> = {
   tentative: 'Tentative',
   scheduled: 'Scheduled',
   in_progress: 'In Progress',
+  partial_complete: 'Partial',
   completed: 'Completed',
   cancelled: 'Cancelled',
 }
@@ -35,6 +36,7 @@ export const WO_STATUS_COLORS: Record<WorkOrderStatus, { bg: string; text: strin
   tentative: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-l-amber-400' },
   scheduled: { bg: 'bg-blue-100', text: 'text-blue-800', border: 'border-l-blue-500' },
   in_progress: { bg: 'bg-emerald-100', text: 'text-emerald-800', border: 'border-l-emerald-500' },
+  partial_complete: { bg: 'bg-amber-100', text: 'text-amber-800', border: 'border-l-amber-500' },
   completed: { bg: 'bg-green-100', text: 'text-green-800', border: 'border-l-green-500' },
   cancelled: { bg: 'bg-red-100', text: 'text-red-700', border: 'border-l-red-400' },
 }

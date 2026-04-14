@@ -3,7 +3,7 @@ export type Role = 'admin' | 'manager' | 'technician' | 'pca'
 export type AgreementStatus = 'draft' | 'active' | 'completed' | 'cancelled'
 
 export type WorkOrderStatus =
-  'unscheduled' | 'tentative' | 'scheduled' | 'in_progress' | 'completed' | 'cancelled'
+  'unscheduled' | 'tentative' | 'scheduled' | 'in_progress' | 'partial_complete' | 'completed' | 'cancelled'
 
 export type FrequencyType = 'one_time' | 'annual' | 'monthly_seasonal' | 'weekly_seasonal'
 
