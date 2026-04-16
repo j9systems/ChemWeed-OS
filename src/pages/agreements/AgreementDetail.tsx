@@ -711,7 +711,7 @@ export function AgreementDetail() {
           <p className="text-sm text-[var(--color-text-muted)] mb-6">
             This agreement could not be found. It may have been deleted.
           </p>
-          <Button variant="outline" onClick={() => navigate('/agreements')}>
+          <Button variant="secondary" onClick={() => navigate('/agreements')}>
             <ArrowLeft size={16} className="mr-2" />
             Back to Agreements
           </Button>
