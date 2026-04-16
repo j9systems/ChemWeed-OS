@@ -205,7 +205,8 @@ function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProp
 
     setSaving(false)
     if (err) {
-      setError(getSupabaseErrorMessage(err))
+      console.error('Client update error:', err)
+      setError(`${getSupabaseErrorMessage(err)} (${err.code ?? 'unknown'})`)
       return
     }
     onSaved()
