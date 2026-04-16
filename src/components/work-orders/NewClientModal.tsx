@@ -2,10 +2,25 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { useFormDraft } from '@/hooks/useFormDraft'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import type { Client, Site, County, PropertyType } from '@/types/database'
+
+interface NewClientFormDraft {
+  name: string
+  billingContact: string
+  billingPhone: string
+  billingEmail: string
+  billingAddress: string
+  billingCity: string
+  billingState: string
+  billingZip: string
+  poRequired: boolean
+  paymentMethod: string
+  clientNotes: string
+}
 
 interface NewClientModalProps {
   open: boolean
@@ -14,23 +29,28 @@ interface NewClientModalProps {
   onCancel: () => void
 }
 
+const DRAFT_KEY = 'new_client_form'
+
 export function NewClientModal({ open, initialClientName, onSuccess, onCancel }: NewClientModalProps) {
   // Step tracking
   const [step, setStep] = useState<1 | 2>(1)
   const [createdClient, setCreatedClient] = useState<Client | null>(null)
 
-  // Step 1 — Client fields
-  const [name, setName] = useState(initialClientName)
-  const [billingContact, setBillingContact] = useState('')
-  const [billingPhone, setBillingPhone] = useState('')
-  const [billingEmail, setBillingEmail] = useState('')
-  const [billingAddress, setBillingAddress] = useState('')
-  const [billingCity, setBillingCity] = useState('')
-  const [billingState, setBillingState] = useState('CA')
-  const [billingZip, setBillingZip] = useState('')
-  const [poRequired, setPoRequired] = useState(false)
-  const [paymentMethod, setPaymentMethod] = useState('')
-  const [clientNotes, setClientNotes] = useState('')
+  // Step 1 — Client fields (localStorage-backed draft)
+  const [clientForm, setClientForm, clearClientDraft] = useFormDraft<NewClientFormDraft>(DRAFT_KEY, {
+    name: initialClientName,
+    billingContact: '',
+    billingPhone: '',
+    billingEmail: '',
+    billingAddress: '',
+    billingCity: '',
+    billingState: 'CA',
+    billingZip: '',
+    poRequired: false,
+    paymentMethod: '',
+    clientNotes: '',
+  })
+  const [draftNotice, setDraftNotice] = useState(false)
 
   // Step 2 — Site fields
   const [siteName, setSiteName] = useState('')
@@ -56,10 +76,10 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
 
   // Dirty when any field has been filled in (step 1 fields or step 2 fields)
   const isDirty = step === 1
-    ? (name !== initialClientName || billingContact !== '' || billingPhone !== '' ||
-       billingEmail !== '' || billingAddress !== '' || billingCity !== '' ||
-       billingState !== 'CA' || billingZip !== '' || poRequired !== false ||
-       paymentMethod !== '' || clientNotes !== '')
+    ? (clientForm.name !== initialClientName || clientForm.billingContact !== '' || clientForm.billingPhone !== '' ||
+       clientForm.billingEmail !== '' || clientForm.billingAddress !== '' || clientForm.billingCity !== '' ||
+       clientForm.billingState !== 'CA' || clientForm.billingZip !== '' || clientForm.poRequired !== false ||
+       clientForm.paymentMethod !== '' || clientForm.clientNotes !== '')
     : (siteName !== '' || propertyType !== '' || address !== '' || city !== '' ||
        state !== 'CA' || zip !== '' || countyId !== '' || acreage !== '' || siteNotes !== '')
   useUnsavedChanges(isDirty)
@@ -67,19 +87,14 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
   // Reset state when modal opens
   useEffect(() => {
     if (open) {
+      const hasDraft = localStorage.getItem(`draft__${DRAFT_KEY}`) !== null
+      if (hasDraft) {
+        setDraftNotice(true)
+      } else {
+        clearClientDraft()
+      }
       setStep(1)
       setCreatedClient(null)
-      setName(initialClientName)
-      setBillingContact('')
-      setBillingPhone('')
-      setBillingEmail('')
-      setBillingAddress('')
-      setBillingCity('')
-      setBillingState('CA')
-      setBillingZip('')
-      setPoRequired(false)
-      setPaymentMethod('')
-      setClientNotes('')
       setSiteName('')
       setPropertyType('')
       setAddress('')
@@ -129,11 +144,13 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
       if (!confirmed) return
       await supabase.from('clients').delete().eq('id', createdClient.id)
     }
+    clearClientDraft()
+    setDraftNotice(false)
     onCancel()
-  }, [createdClient, onCancel])
+  }, [createdClient, onCancel, clearClientDraft])
 
   async function handleStep1Submit() {
-    if (!name.trim()) {
+    if (!clientForm.name.trim()) {
       setError('Client name is required.')
       return
     }
@@ -144,17 +161,17 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
     const { data, error: err } = await supabase
       .from('clients')
       .insert({
-        name: name.trim(),
-        billing_contact: billingContact || null,
-        billing_phone: billingPhone || null,
-        billing_email: billingEmail || null,
-        billing_address: billingAddress || null,
-        billing_city: billingCity || null,
-        billing_state: billingState || 'CA',
-        billing_zip: billingZip || null,
-        po_required: poRequired,
-        payment_method: paymentMethod || null,
-        notes: clientNotes || null,
+        name: clientForm.name.trim(),
+        billing_contact: clientForm.billingContact || null,
+        billing_phone: clientForm.billingPhone || null,
+        billing_email: clientForm.billingEmail || null,
+        billing_address: clientForm.billingAddress || null,
+        billing_city: clientForm.billingCity || null,
+        billing_state: clientForm.billingState || 'CA',
+        billing_zip: clientForm.billingZip || null,
+        po_required: clientForm.poRequired,
+        payment_method: clientForm.paymentMethod || null,
+        notes: clientForm.clientNotes || null,
         is_active: true,
       })
       .select()
@@ -167,6 +184,8 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
       return
     }
 
+    clearClientDraft()
+    setDraftNotice(false)
     setCreatedClient(data as Client)
     setError(null)
     setStep(2)
@@ -247,31 +266,37 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
 
       {step === 1 && (
         <div className="space-y-3">
+          {draftNotice && (
+            <div className="flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+              <span>Draft restored.</span>
+              <button type="button" onClick={() => { clearClientDraft(); setDraftNotice(false) }} className="ml-2 hover:text-[var(--color-text-primary)]">&times;</button>
+            </div>
+          )}
           <Input
             label="Client Name *"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
+            value={clientForm.name}
+            onChange={(e) => setClientForm({ ...clientForm, name: e.target.value })}
             placeholder="e.g. Valley Ag Services"
             autoFocus
           />
           <Input
             label="Billing Contact"
-            value={billingContact}
-            onChange={(e) => setBillingContact(e.target.value)}
+            value={clientForm.billingContact}
+            onChange={(e) => setClientForm({ ...clientForm, billingContact: e.target.value })}
             placeholder="Contact name"
           />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
               label="Billing Phone"
-              value={billingPhone}
-              onChange={(e) => setBillingPhone(e.target.value)}
+              value={clientForm.billingPhone}
+              onChange={(e) => setClientForm({ ...clientForm, billingPhone: e.target.value })}
               placeholder="(555) 123-4567"
               type="tel"
             />
             <Input
               label="Billing Email"
-              value={billingEmail}
-              onChange={(e) => setBillingEmail(e.target.value)}
+              value={clientForm.billingEmail}
+              onChange={(e) => setClientForm({ ...clientForm, billingEmail: e.target.value })}
               placeholder="billing@example.com"
               type="email"
             />
@@ -282,25 +307,25 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
             <div className="space-y-3">
               <Input
                 label="Street Address"
-                value={billingAddress}
-                onChange={(e) => setBillingAddress(e.target.value)}
+                value={clientForm.billingAddress}
+                onChange={(e) => setClientForm({ ...clientForm, billingAddress: e.target.value })}
                 placeholder="123 Main St"
               />
               <div className="grid grid-cols-3 gap-3">
                 <Input
                   label="City"
-                  value={billingCity}
-                  onChange={(e) => setBillingCity(e.target.value)}
+                  value={clientForm.billingCity}
+                  onChange={(e) => setClientForm({ ...clientForm, billingCity: e.target.value })}
                 />
                 <Input
                   label="State"
-                  value={billingState}
-                  onChange={(e) => setBillingState(e.target.value)}
+                  value={clientForm.billingState}
+                  onChange={(e) => setClientForm({ ...clientForm, billingState: e.target.value })}
                 />
                 <Input
                   label="ZIP"
-                  value={billingZip}
-                  onChange={(e) => setBillingZip(e.target.value)}
+                  value={clientForm.billingZip}
+                  onChange={(e) => setClientForm({ ...clientForm, billingZip: e.target.value })}
                 />
               </div>
             </div>
@@ -311,8 +336,8 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
               <input
                 type="checkbox"
                 id="po-required"
-                checked={poRequired}
-                onChange={(e) => setPoRequired(e.target.checked)}
+                checked={clientForm.poRequired}
+                onChange={(e) => setClientForm({ ...clientForm, poRequired: e.target.checked })}
                 className="h-4 w-4 rounded border-surface-border text-brand-green focus:ring-brand-green/30"
               />
               <label htmlFor="po-required" className="text-sm font-medium text-[var(--color-text-primary)]">
@@ -321,16 +346,16 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
             </div>
             <Input
               label="Payment Method"
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
+              value={clientForm.paymentMethod}
+              onChange={(e) => setClientForm({ ...clientForm, paymentMethod: e.target.value })}
               placeholder="e.g. Net 30, Credit Card"
             />
           </div>
           <div>
             <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Notes</label>
             <textarea
-              value={clientNotes}
-              onChange={(e) => setClientNotes(e.target.value)}
+              value={clientForm.clientNotes}
+              onChange={(e) => setClientForm({ ...clientForm, clientNotes: e.target.value })}
               rows={2}
               className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
               placeholder="Optional notes..."
