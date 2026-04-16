@@ -7,11 +7,13 @@ export function useServiceAgreement(id: string | undefined) {
   const [lineItems, setLineItems] = useState<ServiceAgreementLineItem[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [notFound, setNotFound] = useState(false)
 
   const fetch = useCallback(async () => {
     if (!id) return
     setIsLoading(true)
     setError(null)
+    setNotFound(false)
 
     const { data, error: err } = await supabase
       .from('service_agreements')
@@ -20,7 +22,11 @@ export function useServiceAgreement(id: string | undefined) {
       .single()
 
     if (err) {
-      setError(err.message)
+      if (err.code === 'PGRST116') {
+        setNotFound(true)
+      } else {
+        setError(err.message)
+      }
       setIsLoading(false)
       return
     }
@@ -72,5 +78,5 @@ export function useServiceAgreement(id: string | undefined) {
     }
   }, [id])
 
-  return { agreement, lineItems, isLoading, error, refetch: fetch }
+  return { agreement, lineItems, isLoading, error, notFound, refetch: fetch }
 }

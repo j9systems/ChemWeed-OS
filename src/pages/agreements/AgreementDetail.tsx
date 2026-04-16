@@ -674,7 +674,7 @@ function DetailItem({ label, children }: { label: string; children: React.ReactN
 export function AgreementDetail() {
   const { id } = useParams<{ id: string }>()
   const { role, user } = useAuth()
-  const { agreement, lineItems, isLoading, error, refetch } = useServiceAgreement(id)
+  const { agreement, lineItems, isLoading, error, notFound, refetch } = useServiceAgreement(id)
   const { materials, refetch: refetchMaterials } = useServiceAgreementMaterials(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(agreement?.site_id)
   const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(agreement?.site_id)
@@ -703,7 +703,22 @@ export function AgreementDetail() {
 
   if (isLoading) return <LoadingSpinner />
   if (error) return <ErrorMessage message={error} onRetry={refetch} />
-  if (!agreement) return <ErrorMessage message="Agreement not found." />
+  if (notFound || !agreement) return (
+    <div className="max-w-lg mx-auto mt-12 px-4">
+      <Card>
+        <div className="p-6 text-center">
+          <h2 className="text-lg font-semibold mb-2">Agreement Not Found</h2>
+          <p className="text-sm text-[var(--color-text-muted)] mb-6">
+            This agreement could not be found. It may have been deleted.
+          </p>
+          <Button variant="secondary" onClick={() => navigate('/agreements')}>
+            <ArrowLeft size={16} className="mr-2" />
+            Back to Agreements
+          </Button>
+        </div>
+      </Card>
+    </div>
+  )
 
   async function deleteAgreement() {
     if (!agreement) return
