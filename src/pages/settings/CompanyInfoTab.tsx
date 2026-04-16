@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import type { CompanySettings } from '@/types/database'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -12,13 +13,26 @@ export function CompanyInfoTab() {
   const [isLoading, setIsLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const savedSettingsRef = useRef<CompanySettings | null>(null)
+
+  const isDirty = settings !== null && savedSettingsRef.current !== null && (
+    (settings.business_name ?? '') !== (savedSettingsRef.current.business_name ?? '') ||
+    (settings.address ?? '') !== (savedSettingsRef.current.address ?? '') ||
+    (settings.phone ?? '') !== (savedSettingsRef.current.phone ?? '') ||
+    (settings.email ?? '') !== (savedSettingsRef.current.email ?? '') ||
+    (settings.license_number ?? '') !== (savedSettingsRef.current.license_number ?? '') ||
+    (settings.logo_url ?? '') !== (savedSettingsRef.current.logo_url ?? '') ||
+    (settings.default_proposal_terms ?? '') !== (savedSettingsRef.current.default_proposal_terms ?? '') ||
+    (settings.default_invoice_terms ?? '') !== (savedSettingsRef.current.default_invoice_terms ?? '')
+  )
+  useUnsavedChanges(isDirty)
 
   const fetch = useCallback(async () => {
     const { data, error } = await supabase.from('company_settings').select('*').eq('id', 1).single()
     if (error && error.code !== 'PGRST116') {
       setToast({ message: error.message, type: 'error' })
     } else {
-      setSettings((data as CompanySettings) ?? {
+      const loaded = (data as CompanySettings) ?? {
         id: 1,
         business_name: null,
         address: null,
@@ -28,7 +42,9 @@ export function CompanyInfoTab() {
         logo_url: null,
         default_proposal_terms: null,
         default_invoice_terms: null,
-      })
+      }
+      setSettings(loaded)
+      savedSettingsRef.current = { ...loaded }
     }
     setIsLoading(false)
   }, [])
@@ -55,6 +71,7 @@ export function CompanyInfoTab() {
     if (error) {
       setToast({ message: error.message, type: 'error' })
     } else {
+      savedSettingsRef.current = settings ? { ...settings } : null
       setToast({ message: 'Company info saved', type: 'success' })
     }
   }

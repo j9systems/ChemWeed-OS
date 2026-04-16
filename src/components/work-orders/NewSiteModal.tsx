@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -36,6 +37,11 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
   // UI state
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty = siteName !== '' || propertyType !== '' || address !== '' ||
+    city !== '' || state !== 'CA' || zip !== '' || countyId !== '' ||
+    acreage !== '' || siteNotes !== ''
+  useUnsavedChanges(isDirty)
 
   // Reset state when modal opens
   useEffect(() => {

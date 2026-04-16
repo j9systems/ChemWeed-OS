@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -52,6 +53,16 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
   // UI state
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Dirty when any field has been filled in (step 1 fields or step 2 fields)
+  const isDirty = step === 1
+    ? (name !== initialClientName || billingContact !== '' || billingPhone !== '' ||
+       billingEmail !== '' || billingAddress !== '' || billingCity !== '' ||
+       billingState !== 'CA' || billingZip !== '' || poRequired !== false ||
+       paymentMethod !== '' || clientNotes !== '')
+    : (siteName !== '' || propertyType !== '' || address !== '' || city !== '' ||
+       state !== 'CA' || zip !== '' || countyId !== '' || acreage !== '' || siteNotes !== '')
+  useUnsavedChanges(isDirty)
 
   // Reset state when modal opens
   useEffect(() => {
