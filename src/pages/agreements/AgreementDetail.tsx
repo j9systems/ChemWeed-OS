@@ -20,6 +20,7 @@ import { SiteInfoCard } from '@/pages/work-orders/components/SiteInfoCard'
 import { MaterialsSection, type MaterialRow } from '@/components/work-orders/MaterialsSection'
 import { AgreementLineItemsSection, type LineItemRow, rowTotal } from '@/components/agreements/AgreementLineItemsSection'
 import { AGREEMENT_STATUSES, getUrgencyColors, getServiceColor, formatPeriodLabel, FREQUENCY_LABELS } from '@/lib/constants'
+import { useFormDraft } from '@/hooks/useFormDraft'
 import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
 import { GenerateProposalModal } from '@/components/agreements/GenerateProposalModal'
 import { SendProposalModal } from '@/components/agreements/SendProposalModal'
@@ -193,7 +194,9 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
-  const [liRows, setLiRows] = useState<LineItemRow[]>(() => toLineItemRows(lineItems))
+  const draftKey = `line_item_draft__${agreementId}`
+  const [liRows, setLiRows, clearLiDraft] = useFormDraft<LineItemRow[]>(draftKey, toLineItemRows(lineItems))
+  const [draftNotice, setDraftNotice] = useState(false)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [generating, setGenerating] = useState(false)
@@ -217,12 +220,21 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
 
   function handleEdit() {
     setMaterialRows(toMaterialRows(materials))
-    setLiRows(toLineItemRows(lineItems))
+    const hasDraft = localStorage.getItem(`draft__${draftKey}`) !== null
+    if (hasDraft) {
+      setDraftNotice(true)
+    } else {
+      setLiRows(toLineItemRows(lineItems))
+      // setLiRows writes to localStorage; remove since this is just initialization
+      try { localStorage.removeItem(`draft__${draftKey}`) } catch { /* ignore */ }
+    }
     setEditing(true)
     setError(null)
   }
 
   function handleCancel() {
+    clearLiDraft()
+    setDraftNotice(false)
     setEditing(false)
     setError(null)
   }
@@ -325,6 +337,8 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
       }
     }
 
+    clearLiDraft()
+    setDraftNotice(false)
     refetchMaterials()
     refetchLineItems()
     setEditing(false)
@@ -335,6 +349,12 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   if (editing) {
     return (
       <div className="space-y-6">
+        {draftNotice && (
+          <div className="flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+            <span>Draft restored.</span>
+            <button type="button" onClick={() => { clearLiDraft(); setDraftNotice(false) }} className="ml-2 hover:text-[var(--color-text-primary)]">&times;</button>
+          </div>
+        )}
         <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
         {isDraft ? (
           <div className="border-t border-surface-border pt-4">

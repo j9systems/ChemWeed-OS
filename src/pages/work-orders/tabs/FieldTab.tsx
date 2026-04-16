@@ -3,6 +3,7 @@ import { ChevronDown, ChevronUp, CheckCircle, Plus, Trash2 } from 'lucide-react'
 import { useFieldCompletion } from '@/hooks/useFieldCompletion'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { useFormDraft } from '@/hooks/useFormDraft'
 import { canCompleteField, canEdit } from '@/lib/roles'
 import { WIND_DIRECTIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -53,12 +54,15 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
 
   const readOnly = isSubmitted || (!canCompleteField(role as any) && !canEdit(role as any))
 
-  // Local state for inputs (populated from draft on load, autosave on blur)
-  const [actualStartAt, setActualStartAt] = useState<string>('')
-  const [windSpeed, setWindSpeed] = useState('')
-  const [windDir, setWindDir] = useState('')
-  const [airTemp, setAirTemp] = useState('')
-  const [notes, setNotes] = useState('')
+  // Local state for inputs (localStorage-backed draft + autosave on blur)
+  interface FieldFormDraft { actualStartAt: string; windSpeed: string; windDir: string; airTemp: string; notes: string }
+  const fieldDraftKey = `wo_complete__${wo.id}`
+  const [fieldForm, setFieldForm, clearFieldDraft] = useFormDraft<FieldFormDraft>(fieldDraftKey, {
+    actualStartAt: '', windSpeed: '', windDir: '', airTemp: '', notes: '',
+  })
+  const { actualStartAt, windSpeed, windDir, airTemp, notes } = fieldForm
+  const [draftNotice, setDraftNotice] = useState(false)
+
   const [localMaterials, setLocalMaterials] = useState<Record<string, { actualAmount: string; tanks: string }>>({})
   const [showAdditional, setShowAdditional] = useState(false)
   const [showSignatureCanvas, setShowSignatureCanvas] = useState(false)
@@ -102,22 +106,33 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
 
   // Initialize local state from draft once loaded
   if (!isLoading && !initialized) {
-    if (draft) {
-      setActualStartAt(draft.actualStartAt ?? '')
-      setWindSpeed(draft.windSpeedMph != null ? String(draft.windSpeedMph) : '')
-      setWindDir(draft.windDirection ?? '')
-      setAirTemp(draft.temperatureF != null ? String(draft.temperatureF) : '')
-      setNotes(draft.notes ?? '')
+    const hasLocalDraft = localStorage.getItem(`draft__${fieldDraftKey}`) !== null
+
+    if (hasLocalDraft) {
+      // localStorage draft is already in fieldForm via the hook — show notice
+      setDraftNotice(true)
+    } else if (draft) {
+      // Populate from DB draft
+      setFieldForm({
+        actualStartAt: draft.actualStartAt ?? '',
+        windSpeed: draft.windSpeedMph != null ? String(draft.windSpeedMph) : '',
+        windDir: draft.windDirection ?? '',
+        airTemp: draft.temperatureF != null ? String(draft.temperatureF) : '',
+        notes: draft.notes ?? '',
+      })
+      // setFieldForm wrote to localStorage; remove since this is just initialization
+      try { localStorage.removeItem(`draft__${fieldDraftKey}`) } catch { /* ignore */ }
     } else {
       // Pre-populate from work order if no draft exists
       const startDate = wo.actual_start_date ?? ''
       const startTime = wo.actual_start_time ?? ''
       if (startDate) {
-        setActualStartAt(startTime ? `${startDate}T${startTime}` : startDate)
+        setFieldForm({ ...fieldForm, actualStartAt: startTime ? `${startDate}T${startTime}` : startDate })
+        try { localStorage.removeItem(`draft__${fieldDraftKey}`) } catch { /* ignore */ }
       }
     }
 
-    // Snapshot saved values for dirty tracking
+    // Snapshot saved values for dirty tracking (always from DB, not localStorage)
     savedValues.current = {
       actualStartAt: draft?.actualStartAt ?? (wo.actual_start_date ? (wo.actual_start_time ? `${wo.actual_start_date}T${wo.actual_start_time}` : wo.actual_start_date) : ''),
       windSpeed: draft?.windSpeedMph != null ? String(draft.windSpeedMph) : '',
@@ -281,6 +296,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
 
     const success = await markComplete(teamMemberId)
     if (success) {
+      clearFieldDraft()
       onComplete()
     }
   }
@@ -298,13 +314,20 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
         {isSubmitted ? `Submitted ${submittedDate ? formatDate(submittedDate.toISOString()) : ''}` : 'Draft'}
       </div>
 
+      {draftNotice && (
+        <div className="flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+          <span>Draft restored.</span>
+          <button type="button" onClick={() => { clearFieldDraft(); setDraftNotice(false) }} className="ml-2 hover:text-[var(--color-text-primary)]">&times;</button>
+        </div>
+      )}
+
       {/* Start date/time */}
       <div>
         <label className="block text-sm font-medium mb-1">Actual Start Date/Time</label>
         <input
           type="datetime-local"
           value={actualStartAt}
-          onChange={(e) => setActualStartAt(e.target.value)}
+          onChange={(e) => setFieldForm({ ...fieldForm, actualStartAt: e.target.value })}
           onBlur={handleBlurStartAt}
           disabled={readOnly}
           className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px] disabled:opacity-60 disabled:bg-gray-50"
@@ -320,7 +343,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
             <input
               type="number"
               value={windSpeed}
-              onChange={(e) => setWindSpeed(e.target.value)}
+              onChange={(e) => setFieldForm({ ...fieldForm, windSpeed: e.target.value })}
               onBlur={() => handleBlurWeather('windSpeedMph', windSpeed)}
               disabled={readOnly}
               placeholder="5"
@@ -331,7 +354,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
             <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Wind Direction</label>
             <select
               value={windDir}
-              onChange={(e) => { setWindDir(e.target.value); handleBlurWeather('windDirection', e.target.value) }}
+              onChange={(e) => { setFieldForm({ ...fieldForm, windDir: e.target.value }); handleBlurWeather('windDirection', e.target.value) }}
               disabled={readOnly}
               className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px] disabled:opacity-60 disabled:bg-gray-50"
             >
@@ -344,7 +367,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
             <input
               type="number"
               value={airTemp}
-              onChange={(e) => setAirTemp(e.target.value)}
+              onChange={(e) => setFieldForm({ ...fieldForm, airTemp: e.target.value })}
               onBlur={() => handleBlurWeather('temperatureF', airTemp)}
               disabled={readOnly}
               placeholder="72"
@@ -359,7 +382,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
         <label className="block text-sm font-medium mb-1">Notes</label>
         <textarea
           value={notes}
-          onChange={(e) => setNotes(e.target.value)}
+          onChange={(e) => setFieldForm({ ...fieldForm, notes: e.target.value })}
           onBlur={handleBlurNotes}
           disabled={readOnly}
           rows={3}
@@ -637,7 +660,7 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
                 className="w-full"
                 onClick={async () => {
                   const success = await saveAsPartialCompletion()
-                  if (success) onComplete()
+                  if (success) { clearFieldDraft(); onComplete() }
                 }}
                 disabled={isSaving}
               >
