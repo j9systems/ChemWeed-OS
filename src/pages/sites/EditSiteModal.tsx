@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -24,6 +25,16 @@ export function EditSiteModal({ open, site, onSuccess, onCancel }: EditSiteModal
 
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty =
+    address !== (site.address_line ?? '') ||
+    city !== (site.city ?? '') ||
+    state !== (site.state ?? '') ||
+    zip !== (site.zip ?? '') ||
+    propertyType !== (site.property_type ?? '') ||
+    acreage !== (site.total_acres != null ? String(site.total_acres) : '') ||
+    notes !== (site.notes ?? '')
+  useUnsavedChanges(isDirty)
 
   useEffect(() => {
     if (open) {

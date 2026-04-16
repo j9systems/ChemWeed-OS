@@ -1,7 +1,8 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { ChevronDown, ChevronUp, CheckCircle, Plus, Trash2 } from 'lucide-react'
 import { useFieldCompletion } from '@/hooks/useFieldCompletion'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { canCompleteField, canEdit } from '@/lib/roles'
 import { WIND_DIRECTIONS } from '@/lib/constants'
 import { formatDate } from '@/lib/utils'
@@ -67,6 +68,18 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
   const [initialized, setInitialized] = useState(false)
   const [uploadingType, setUploadingType] = useState<'before' | 'after' | 'during' | null>(null)
 
+  // Track last-saved values so we can detect unsaved changes between typing and blur-save
+  const savedValues = useRef({ actualStartAt: '', windSpeed: '', windDir: '', airTemp: '', notes: '' })
+
+  const isDirty = !readOnly && !isSubmitted && (
+    actualStartAt !== savedValues.current.actualStartAt ||
+    windSpeed !== savedValues.current.windSpeed ||
+    windDir !== savedValues.current.windDir ||
+    airTemp !== savedValues.current.airTemp ||
+    notes !== savedValues.current.notes
+  )
+  useUnsavedChanges(isDirty)
+
   // Ad-hoc chemicals state
   const [adHocChemicals, setAdHocChemicals] = useState<AdHocChemicalRow[]>([])
   const [chemicalsList, setChemicalsList] = useState<Chemical[]>([])
@@ -104,6 +117,15 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
       }
     }
 
+    // Snapshot saved values for dirty tracking
+    savedValues.current = {
+      actualStartAt: draft?.actualStartAt ?? (wo.actual_start_date ? (wo.actual_start_time ? `${wo.actual_start_date}T${wo.actual_start_time}` : wo.actual_start_date) : ''),
+      windSpeed: draft?.windSpeedMph != null ? String(draft.windSpeedMph) : '',
+      windDir: draft?.windDirection ?? '',
+      airTemp: draft?.temperatureF != null ? String(draft.temperatureF) : '',
+      notes: draft?.notes ?? '',
+    }
+
     // Initialize local materials from saved
     const matMap: Record<string, { actualAmount: string; tanks: string }> = {}
     for (const m of savedMaterials) {
@@ -126,20 +148,25 @@ export function FieldTab({ wo, teamMemberId, role, onComplete }: FieldTabProps) 
   async function handleBlurStartAt() {
     if (readOnly) return
     await upsertDraft({ actualStartAt: actualStartAt || null })
+    savedValues.current.actualStartAt = actualStartAt
   }
 
   async function handleBlurWeather(field: 'windSpeedMph' | 'temperatureF' | 'windDirection', value: string) {
     if (readOnly) return
     if (field === 'windDirection') {
       await upsertDraft({ windDirection: value || null })
+      savedValues.current.windDir = value
     } else {
       await upsertDraft({ [field]: value ? parseFloat(value) : null })
+      if (field === 'windSpeedMph') savedValues.current.windSpeed = value
+      if (field === 'temperatureF') savedValues.current.airTemp = value
     }
   }
 
   async function handleBlurNotes() {
     if (readOnly) return
     await upsertDraft({ notes: notes || null })
+    savedValues.current.notes = notes
   }
 
   async function handleMaterialBlur(samId: string, chemicalName: string, recommendedAmount: number | null, recommendedUnit: string | null) {

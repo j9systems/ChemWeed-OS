@@ -4,6 +4,7 @@ import { getSupabaseErrorMessage } from '@/lib/utils'
 import { useServiceTypes } from '@/hooks/useServiceTypes'
 import { useTeamMembers } from '@/hooks/useTeam'
 import { useUrgencyLevels } from '@/hooks/useUrgencyLevels'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { getUrgencyColors } from '@/lib/constants'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
@@ -38,6 +39,20 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
   const [reason, setReason] = useState(agreement.reason ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const isDirty =
+    selectedServiceTypeIds.join(',') !== (agreement.service_type_id ? [agreement.service_type_id] : []).join(',') ||
+    urgencyLevelId !== (agreement.urgency_level_id ?? '') ||
+    proposedStartDate !== (agreement.proposed_start_date ?? '') ||
+    contractStartDate !== (agreement.contract_start_date ?? '') ||
+    contractEndDate !== (agreement.contract_end_date ?? '') ||
+    contractValue !== (agreement.contract_value != null ? String(agreement.contract_value) : '') ||
+    billingMethod !== (agreement.billing_method ?? '') ||
+    pcaId !== (agreement.pca_id ?? '') ||
+    poNumber !== (agreement.po_number ?? '') ||
+    boilerplateTemplateId !== (agreement.boilerplate_template_id ?? '') ||
+    reason !== (agreement.reason ?? '')
+  useUnsavedChanges(isDirty)
 
   useEffect(() => {
     supabase

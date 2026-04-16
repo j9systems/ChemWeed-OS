@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { ROLES } from '@/lib/constants'
+import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
@@ -30,6 +31,10 @@ export function AddMemberModal({ open, onClose, onSuccess }: AddMemberModalProps
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
 
   const showLicense = role === 'pca' || role === 'technician'
+
+  const isDirty = firstName !== '' || lastName !== '' || role !== 'technician' ||
+    phone !== '' || email !== '' || licenseNumber !== '' || licenseExpiry !== '' || notes !== ''
+  useUnsavedChanges(isDirty)
 
   function resetForm() {
     setFirstName('')
