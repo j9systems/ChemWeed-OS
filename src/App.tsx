@@ -4,6 +4,7 @@ import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/auth/LoginPage'
 import { AuthCallback } from '@/pages/auth/AuthCallback'
+import { AuthConfirm } from '@/pages/auth/AuthConfirm'
 import { SetPassword } from '@/pages/auth/SetPassword'
 import { AgreementsPage } from '@/pages/agreements/AgreementsPage'
 import { AgreementNew } from '@/pages/agreements/AgreementNew'
@@ -60,6 +61,7 @@ const router = createBrowserRouter([
       },
       { path: '/login', element: <LoginPage /> },
       { path: '/auth/callback', element: <AuthCallback /> },
+      { path: '/auth/confirm', element: <AuthConfirm /> },
       { path: '/set-password', element: <SetPassword /> },
     ],
   },

@@ -73,8 +73,16 @@ export function LoginPage() {
 
         {urlError === 'invalid_link' && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-            This invite link is invalid or has expired. Contact your administrator to resend the
-            invite.
+            {(() => {
+              const ctx = new URLSearchParams(location.search).get('context')
+              if (ctx === 'recovery') {
+                return 'This password reset link is invalid or has expired. Request a new one below.'
+              }
+              if (ctx === 'invite') {
+                return 'This invite link is invalid or has expired. Contact your administrator to resend the invite.'
+              }
+              return 'This link is invalid or has expired. Try again or contact your administrator.'
+            })()}
           </div>
         )}
 
