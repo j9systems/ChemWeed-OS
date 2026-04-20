@@ -61,12 +61,50 @@ function buildFullAddress(site: { address_line: string; city: string; state: str
 }
 
 // ── Marker SVG ────────────────────────────────────────────────────────
-function createMarkerSvg(color: string, label: string): string {
+const TEARDROP_PATH = 'M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z'
+
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const rad = (angleDeg * Math.PI) / 180
+  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) }
+}
+
+function slicePath(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+  const start = polarToCartesian(cx, cy, r, startAngle)
+  const end = polarToCartesian(cx, cy, r, endAngle)
+  const largeArc = endAngle - startAngle > 180 ? 1 : 0
+  return `M ${cx},${cy} L ${start.x},${start.y} A ${r},${r} 0 ${largeArc},1 ${end.x},${end.y} Z`
+}
+
+function createMarkerSvg(colors: string[], label: string): string {
+  let body: string
+  let textColor: string
+
+  if (colors.length === 0) {
+    body = `<path d="${TEARDROP_PATH}" fill="#6b7280"/>`
+    textColor = '#6b7280'
+  } else if (colors.length === 1) {
+    body = `<path d="${TEARDROP_PATH}" fill="${colors[0]}"/>`
+    textColor = colors[0]!
+  } else {
+    const cx = 14
+    const cy = 14
+    const r = 40
+    const n = colors.length
+    const slices = colors.map((c, i) => {
+      const startAngle = -90 + (i * 360) / n
+      const endAngle = -90 + ((i + 1) * 360) / n
+      return `<path d="${slicePath(cx, cy, r, startAngle, endAngle)}" fill="${c}"/>`
+    }).join('')
+    body = `<defs><clipPath id="td"><path d="${TEARDROP_PATH}"/></clipPath></defs>`
+      + `<g clip-path="url(#td)">${slices}</g>`
+    textColor = '#1f2937'
+  }
+
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
     <svg xmlns="http://www.w3.org/2000/svg" width="28" height="40" viewBox="0 0 28 40">
-      <path d="M14 0C6.3 0 0 6.3 0 14c0 10.5 14 26 14 26s14-15.5 14-26C28 6.3 21.7 0 14 0z" fill="${color}"/>
+      ${body}
       <circle cx="14" cy="14" r="8" fill="white"/>
-      <text x="14" y="18" text-anchor="middle" font-size="12" font-weight="bold" fill="${color}" font-family="Arial">${label}</text>
+      <text x="14" y="18" text-anchor="middle" font-size="12" font-weight="bold" fill="${textColor}" font-family="Arial">${label}</text>
     </svg>
   `)}`
 }
@@ -180,25 +218,38 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
         bounds.extend(latLng)
         placedCount++
 
-        const color = wo.pca_id
-          ? assigneeColorMap.get(wo.pca_id) ?? '#6b7280'
-          : '#6b7280'
+        const sortedCrew = [...(wo.work_order_crew ?? [])].sort((a, b) =>
+          a.team_member_id.localeCompare(b.team_member_id)
+        )
+        const seenCrew = new Set<string>()
+        const crewIds: string[] = []
+        const crewNames: string[] = []
+        for (const c of sortedCrew) {
+          if (!c.team_member_id || seenCrew.has(c.team_member_id)) continue
+          seenCrew.add(c.team_member_id)
+          crewIds.push(c.team_member_id)
+          const tm = c.team_member
+          crewNames.push(tm ? `${tm.first_name} ${tm.last_name}` : 'Unknown')
+        }
+        const colors = crewIds.map(id => assigneeColorMap.get(id) ?? '#6b7280')
+        const assigneeNames = crewNames.length > 0 ? crewNames.join(', ') : 'Unassigned'
 
         const marker = new google.maps.Marker({
           position: latLng,
           map: mapInstanceRef.current!,
           title: `${wo.client?.name ?? 'Client'} – ${wo.site?.name ?? 'Site'}`,
           icon: {
-            url: createMarkerSvg(color, String(i + 1)),
+            url: createMarkerSvg(colors, String(i + 1)),
             scaledSize: new google.maps.Size(28, 40),
             anchor: new google.maps.Point(14, 40),
           },
         })
 
-        const assigneeName = wo.pca
-          ? `${wo.pca.first_name} ${wo.pca.last_name}`
-          : 'Unassigned'
         const shortAddress = [wo.site!.address_line, wo.site!.city].filter(Boolean).join(', ')
+        const swatchColors = colors.length > 0 ? colors : ['#6b7280']
+        const swatchHtml = swatchColors
+          .map(c => `<span style="width:8px;height:8px;border-radius:50%;background:${c};display:inline-block"></span>`)
+          .join('')
 
         const infoWindow = new google.maps.InfoWindow({
           content: `
@@ -206,9 +257,9 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
               <p style="font-weight:600;margin:0 0 2px">${wo.client?.name ?? 'Client'}</p>
               <p style="font-size:12px;color:#6b7280;margin:0 0 2px">${wo.service_type?.name ?? ''}</p>
               <p style="font-size:12px;color:#6b7280;margin:0 0 4px">${shortAddress}</p>
-              <div style="display:flex;align-items:center;gap:4px">
-                <span style="width:8px;height:8px;border-radius:50%;background:${color};display:inline-block"></span>
-                <span style="font-size:11px;color:#6b7280">${assigneeName}</span>
+              <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
+                <span style="display:inline-flex;gap:2px">${swatchHtml}</span>
+                <span style="font-size:11px;color:#6b7280">${assigneeNames}</span>
               </div>
             </div>
           `,
@@ -234,17 +285,29 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
     return () => { cancelled = true; clearTimeout(timer) }
   }, [open, dateStr, mappableWOs.length])
 
-  // Build assignee legend
+  // Build assignee legend from assigned crew across all work orders
   const legendEntries: { name: string; color: string }[] = []
-  const seenPca = new Set<string>()
+  const seenTechs = new Set<string>()
+  let hasUnassigned = false
   for (const wo of workOrders) {
-    const pcaId = wo.pca_id ?? '__unassigned__'
-    if (seenPca.has(pcaId)) continue
-    seenPca.add(pcaId)
-    legendEntries.push({
-      name: wo.pca ? `${wo.pca.first_name} ${wo.pca.last_name}` : 'Unassigned',
-      color: wo.pca_id ? assigneeColorMap.get(wo.pca_id) ?? '#6b7280' : '#6b7280',
-    })
+    const crew = wo.work_order_crew ?? []
+    if (crew.length === 0) {
+      hasUnassigned = true
+      continue
+    }
+    for (const c of crew) {
+      if (!c.team_member_id || seenTechs.has(c.team_member_id)) continue
+      seenTechs.add(c.team_member_id)
+      const tm = c.team_member
+      legendEntries.push({
+        name: tm ? `${tm.first_name} ${tm.last_name}` : 'Unknown',
+        color: assigneeColorMap.get(c.team_member_id) ?? '#6b7280',
+      })
+    }
+  }
+  legendEntries.sort((a, b) => a.name.localeCompare(b.name))
+  if (hasUnassigned) {
+    legendEntries.push({ name: 'Unassigned', color: '#6b7280' })
   }
 
   const mapPlaceholder = mapError ? (
