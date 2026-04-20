@@ -5,7 +5,15 @@ import { Button } from '@/components/ui/Button'
 
 type ConfirmType = 'recovery' | 'invite' | 'email' | 'signup' | 'magiclink'
 
-const COPY: Record<string, { title: string; body: string; cta: string }> = {
+type ConfirmCopy = { title: string; body: string; cta: string }
+
+const DEFAULT_COPY: ConfirmCopy = {
+  title: 'Confirm your account',
+  body: 'Click continue to finish signing in.',
+  cta: 'Continue',
+}
+
+const COPY: Record<string, ConfirmCopy> = {
   recovery: {
     title: 'Reset your password',
     body: 'Click continue to verify your reset link and choose a new password.',
@@ -14,11 +22,6 @@ const COPY: Record<string, { title: string; body: string; cta: string }> = {
   invite: {
     title: 'Welcome to ChemWeed',
     body: 'Click continue to verify your invite and set your password.',
-    cta: 'Continue',
-  },
-  default: {
-    title: 'Confirm your account',
-    body: 'Click continue to finish signing in.',
     cta: 'Continue',
   },
 }
@@ -39,7 +42,7 @@ export function AuthConfirm() {
     }
   }, [tokenHash, type, navigate])
 
-  const copy = COPY[type] ?? COPY.default
+  const copy = COPY[type] ?? DEFAULT_COPY
 
   async function handleConfirm() {
     if (!tokenHash) return
