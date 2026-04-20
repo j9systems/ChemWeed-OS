@@ -17,9 +17,14 @@ export function getAssigneeColorMap(workOrders: WorkOrder[]): Map<string, string
   const map = new Map<string, string>()
   let idx = 0
   for (const wo of workOrders) {
-    if (wo.pca_id && !map.has(wo.pca_id)) {
-      map.set(wo.pca_id, ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length]!)
-      idx++
+    const crew = [...(wo.work_order_crew ?? [])].sort((a, b) =>
+      a.team_member_id.localeCompare(b.team_member_id)
+    )
+    for (const c of crew) {
+      if (c.team_member_id && !map.has(c.team_member_id)) {
+        map.set(c.team_member_id, ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length]!)
+        idx++
+      }
     }
   }
   return map
