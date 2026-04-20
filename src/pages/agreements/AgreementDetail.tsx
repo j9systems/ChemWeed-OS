@@ -160,8 +160,18 @@ interface EstimateSectionProps {
   clientEmail: string | null
   clientPhone: string | null
   clientName: string
+  boilerplateTemplateId: string | null
+  boilerplateTemplateName: string | null
+  boilerplateTemplateBody: string | null
   refetchLineItems: () => void
   refetchMaterials: () => void
+}
+
+interface BoilerplateTemplateOption {
+  id: string
+  name: string
+  body: string
+  is_default: boolean
 }
 
 function toMaterialRows(materials: ServiceAgreementMaterial[]): MaterialRow[] {
@@ -190,7 +200,7 @@ function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
   }))
 }
 
-function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, clientContact, clientEmail, clientPhone, clientName, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
+function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, clientContact, clientEmail, clientPhone, clientName, boilerplateTemplateId, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
   const [materialRows, setMaterialRows] = useState<MaterialRow[]>(() => toMaterialRows(materials))
@@ -206,6 +216,72 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   const [sendModalOpen, setSendModalOpen] = useState(false)
   const [localSigningStatus, setLocalSigningStatus] = useState<string | null | undefined>(signingStatus)
   const [emailSentTo, setEmailSentTo] = useState<string | null>(null)
+  const [boilerplateTemplates, setBoilerplateTemplates] = useState<BoilerplateTemplateOption[]>([])
+  const [selectedBoilerplateId, setSelectedBoilerplateId] = useState<string>(boilerplateTemplateId ?? '')
+  const [savingBoilerplate, setSavingBoilerplate] = useState(false)
+
+  useEffect(() => {
+    supabase
+      .from('proposal_boilerplate_templates')
+      .select('id, name, body, is_default')
+      .eq('is_active', true)
+      .order('sort_order')
+      .order('name')
+      .then(({ data }) => {
+        if (data) setBoilerplateTemplates(data)
+      })
+  }, [])
+
+  useEffect(() => {
+    setSelectedBoilerplateId(boilerplateTemplateId ?? '')
+  }, [boilerplateTemplateId])
+
+  async function handleBoilerplateChange(templateId: string) {
+    setSelectedBoilerplateId(templateId)
+    setSavingBoilerplate(true)
+    const { error: bpErr } = await supabase
+      .from('service_agreements')
+      .update({ boilerplate_template_id: templateId || null })
+      .eq('id', agreementId)
+    setSavingBoilerplate(false)
+    if (bpErr) {
+      setError(getSupabaseErrorMessage(bpErr))
+      return
+    }
+    refetchLineItems()
+  }
+
+  const selectedBoilerplate = boilerplateTemplates.find((t) => t.id === selectedBoilerplateId)
+
+  const boilerplateBlock = (
+    <div className="mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <label className="text-sm font-semibold text-[var(--color-text-primary)]">Agreement Text</label>
+        {savingBoilerplate && <span className="text-xs text-[var(--color-text-muted)]">Saving...</span>}
+      </div>
+      <select
+        value={selectedBoilerplateId}
+        onChange={(e) => handleBoilerplateChange(e.target.value)}
+        disabled={!canEdit(role)}
+        className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[44px]"
+      >
+        <option value="">None selected</option>
+        {boilerplateTemplates.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}{t.is_default ? ' (default)' : ''}
+          </option>
+        ))}
+      </select>
+      {selectedBoilerplate && (
+        <div className="mt-2 rounded-lg bg-gray-50 border border-gray-200 px-3 py-2 text-xs text-gray-600 max-h-24 overflow-y-auto whitespace-pre-wrap">
+          {selectedBoilerplate.body}
+        </div>
+      )}
+      <p className="text-xs text-[var(--color-text-muted)] mt-1">
+        This text appears above line items on the proposal PDF. Manage templates in Settings → Estimate Defaults.
+      </p>
+    </div>
+  )
 
   // Sync localSigningStatus when prop changes (e.g. after refetch)
   if (signingStatus !== undefined && signingStatus !== localSigningStatus && localSigningStatus !== 'sent') {
@@ -355,6 +431,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
             <button type="button" onClick={() => { clearLiDraft(); setDraftNotice(false) }} className="ml-2 hover:text-[var(--color-text-primary)]">&times;</button>
           </div>
         )}
+        {boilerplateBlock}
         <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
         {isDraft ? (
           <div className="border-t border-surface-border pt-4">
@@ -383,6 +460,8 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
           <Button variant="ghost" size="sm" onClick={handleEdit}>Edit Estimate</Button>
         </div>
       )}
+
+      {boilerplateBlock}
 
       <div>
         <h2 className="text-sm font-semibold mb-3">Materials</h2>
@@ -873,7 +952,7 @@ export function AgreementDetail() {
         <TabBar tabs={TABS} activeTab={activeTab} onChange={setActiveTab} />
         <div className="p-5">
           {activeTab === 'details' && <DetailsSection agreement={agreement} lineItems={lineItems} />}
-          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} clientContact={agreement.client?.billing_contact ?? null} clientEmail={agreement.client?.billing_email ?? null} clientPhone={agreement.client?.billing_phone ?? null} clientName={agreement.client?.name ?? ''} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
+          {activeTab === 'estimate' && <EstimateSection lineItems={lineItems} materials={materials} agreementId={agreement.id} agreementStatus={agreement.agreement_status} signingStatus={agreement.signing_status} clientSigningUrl={agreement.client_signing_url} signedPdfUrl={agreement.signed_pdf_url} signingCompletedAt={agreement.signing_completed_at} totalAcres={agreement.site?.total_acres} clientContact={agreement.client?.billing_contact ?? null} clientEmail={agreement.client?.billing_email ?? null} clientPhone={agreement.client?.billing_phone ?? null} clientName={agreement.client?.name ?? ''} boilerplateTemplateId={agreement.boilerplate_template_id ?? null} boilerplateTemplateName={agreement.boilerplate_template?.name ?? null} boilerplateTemplateBody={agreement.boilerplate_template?.body ?? null} refetchLineItems={refetch} refetchMaterials={refetchMaterials} />}
           {activeTab === 'schedule' && <ScheduleSection agreement={agreement} />}
           {activeTab === 'work_orders' && <WorkOrdersSection workOrders={agreementWOs} lineItems={lineItems} />}
           {activeTab === 'notes' && <NotesSection agreement={agreement} />}
