@@ -25,6 +25,7 @@ import { EditAgreementModal } from '@/components/agreements/EditAgreementModal'
 import { GenerateProposalModal } from '@/components/agreements/GenerateProposalModal'
 import { SendProposalModal } from '@/components/agreements/SendProposalModal'
 import { SigningStatusBadge } from '@/components/SigningStatusBadge'
+import { Modal } from '@/components/ui/Modal'
 import type { ServiceAgreement, ServiceAgreementLineItem, ServiceAgreementMaterial, WorkOrder } from '@/types/database'
 
 const TABS = [
@@ -219,6 +220,8 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
   const [boilerplateTemplates, setBoilerplateTemplates] = useState<BoilerplateTemplateOption[]>([])
   const [selectedBoilerplateId, setSelectedBoilerplateId] = useState<string>(boilerplateTemplateId ?? '')
   const [savingBoilerplate, setSavingBoilerplate] = useState(false)
+  const [confirmRecreate, setConfirmRecreate] = useState(false)
+  const [clearing, setClearing] = useState(false)
 
   useEffect(() => {
     supabase
@@ -338,6 +341,37 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
     setProposalModalOpen(false)
     setGenerating(false)
     refetchLineItems()
+  }
+
+  async function handleRecreateProposal() {
+    setClearing(true)
+    setConfirmRecreate(false)
+
+    const { error: clearErr } = await supabase
+      .from('service_agreements')
+      .update({
+        signing_session_id: null,
+        signing_status: null,
+        client_signing_url: null,
+        proposal_pdf_url: null,
+        signed_pdf_url: null,
+        signing_completed_at: null,
+      })
+      .eq('id', agreementId)
+
+    if (clearErr) {
+      setError(`Failed to clear proposal: ${clearErr.message}`)
+      setClearing(false)
+      return
+    }
+
+    setLocalSigningStatus(null)
+    setClearing(false)
+
+    refetchLineItems()
+
+    setGenerateError(null)
+    setProposalModalOpen(true)
   }
 
   async function handleSave() {
@@ -567,6 +601,18 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
                 {copied ? 'Copied!' : 'Copy Link'}
               </Button>
 
+              {localSigningStatus !== 'completed' && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setConfirmRecreate(true)}
+                  disabled={clearing}
+                >
+                  <RefreshCw size={14} />
+                  {clearing ? 'Clearing...' : 'Recreate Proposal'}
+                </Button>
+              )}
+
               {localSigningStatus === 'completed' && signedPdfUrl && (
                 <a
                   href={signedPdfUrl}
@@ -621,6 +667,35 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
           }}
         />
       )}
+
+      <Modal
+        open={confirmRecreate}
+        onClose={() => setConfirmRecreate(false)}
+        title="Recreate Proposal?"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-[var(--color-text-muted)]">
+            This will invalidate the current proposal and signing link. The client will no longer be able to sign the previous version.
+          </p>
+          <p className="text-sm text-[var(--color-text-muted)]">
+            A new proposal will be generated using the current estimate, boilerplate text, and pricing.
+          </p>
+          <div className="flex gap-2 justify-end pt-2 border-t border-surface-border">
+            <Button variant="secondary" size="sm" onClick={() => setConfirmRecreate(false)}>
+              Cancel
+            </Button>
+            <button
+              type="button"
+              onClick={handleRecreateProposal}
+              disabled={clearing}
+              className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium text-white transition-colors disabled:opacity-50"
+              style={{ backgroundColor: '#2a6b2a' }}
+            >
+              {clearing ? 'Clearing...' : 'Yes, Recreate'}
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   )
 }
