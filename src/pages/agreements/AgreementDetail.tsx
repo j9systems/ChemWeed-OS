@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate, useSearchParams } from 'react-router'
-import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download, Send, RefreshCw } from 'lucide-react'
+import { ArrowLeft, Edit, CheckCircle, FileText, Phone, MessageSquare, Mail, Navigation, Trash2, Copy, Check, Download, Send, RefreshCw, Upload } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
@@ -201,6 +201,108 @@ function toLineItemRows(items: ServiceAgreementLineItem[]): LineItemRow[] {
   }))
 }
 
+interface ExternalContractPanelProps {
+  agreementId: string
+  signedPdfUrl: string | null
+  onUploaded: () => void
+}
+
+function ExternalContractPanel({ agreementId, signedPdfUrl, onUploaded }: ExternalContractPanelProps) {
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
+
+  async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    if (file.type !== 'application/pdf') { setUploadError('File must be a PDF.'); return }
+    if (file.size > 10 * 1024 * 1024) { setUploadError('File must be under 10 MB.'); return }
+
+    setUploading(true)
+    setUploadError(null)
+
+    const path = `external/${agreementId}.pdf`
+    const { error: uploadErr } = await supabase.storage
+      .from('agreement-pdfs')
+      .upload(path, file, { upsert: true, contentType: 'application/pdf' })
+
+    if (uploadErr) {
+      setUploadError(`Upload failed: ${uploadErr.message}`)
+      setUploading(false)
+      return
+    }
+
+    const { data: urlData } = supabase.storage.from('agreement-pdfs').getPublicUrl(path)
+    const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`
+
+    const { error: updateErr } = await supabase
+      .from('service_agreements')
+      .update({ signed_pdf_url: publicUrl })
+      .eq('id', agreementId)
+
+    setUploading(false)
+    if (updateErr) {
+      setUploadError(getSupabaseErrorMessage(updateErr))
+      return
+    }
+    onUploaded()
+  }
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 space-y-3">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-700">
+          External Contract
+        </span>
+        <span className="text-xs text-[var(--color-text-muted)]">
+          Signed outside ChemWeed-OS. No proposal email will be sent.
+        </span>
+      </div>
+
+      {signedPdfUrl ? (
+        <div className="flex flex-wrap items-center gap-3">
+          <a
+            href={signedPdfUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-brand-green hover:underline"
+          >
+            <Download size={14} />
+            Download Signed PDF
+          </a>
+          <label className="inline-flex items-center gap-1 text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] cursor-pointer">
+            <Upload size={14} />
+            {uploading ? 'Uploading...' : 'Replace PDF'}
+            <input
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              disabled={uploading}
+              onChange={handleUpload}
+            />
+          </label>
+        </div>
+      ) : (
+        <label className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-white cursor-pointer transition-colors disabled:opacity-50 w-fit"
+          style={{ backgroundColor: '#2a6b2a' }}
+        >
+          <Upload size={14} />
+          {uploading ? 'Uploading...' : 'Upload Signed PDF'}
+          <input
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            disabled={uploading}
+            onChange={handleUpload}
+          />
+        </label>
+      )}
+
+      {uploadError && <p className="text-sm text-red-600">{uploadError}</p>}
+    </div>
+  )
+}
+
 function EstimateSection({ lineItems, materials, agreementId, agreementStatus, signingStatus, clientSigningUrl, signedPdfUrl, signingCompletedAt, totalAcres, clientContact, clientEmail, clientPhone, clientName, boilerplateTemplateId, refetchLineItems, refetchMaterials }: EstimateSectionProps) {
   const { role } = useAuth()
   const [editing, setEditing] = useState(false)
@@ -293,6 +395,8 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
 
   const total = lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0)
   const isDraft = agreementStatus === 'draft'
+  const isExternallySigned = localSigningStatus === 'externally_signed'
+  const canEditLineItems = isDraft || isExternallySigned
   const hasSigningUrl = !!clientSigningUrl
 
   const documentName = `Proposal - ${clientName} - ${formatDate(new Date().toISOString())}`
@@ -398,8 +502,8 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
       if (matErr) { setError(getSupabaseErrorMessage(matErr)); setSaving(false); return }
     }
 
-    // Only delete and re-insert line items if draft
-    if (isDraft) {
+    // Delete and re-insert line items while they're editable (draft or externally signed)
+    if (canEditLineItems) {
       const { error: delLiErr } = await supabase
         .from('service_agreement_line_items')
         .delete()
@@ -438,7 +542,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
     }
 
     // Regenerate WOs after line item changes (idempotent -- duplicates ignored)
-    if (isDraft) {
+    if (canEditLineItems) {
       const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
         p_agreement_id: agreementId
       })
@@ -465,9 +569,9 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
             <button type="button" onClick={() => { clearLiDraft(); setDraftNotice(false) }} className="ml-2 hover:text-[var(--color-text-primary)]">&times;</button>
           </div>
         )}
-        {boilerplateBlock}
+        {!isExternallySigned && boilerplateBlock}
         <MaterialsSection rows={materialRows} onChange={setMaterialRows} totalAcres={totalAcres} />
-        {isDraft ? (
+        {canEditLineItems ? (
           <div className="border-t border-surface-border pt-4">
             <AgreementLineItemsSection rows={liRows} onChange={setLiRows} totalAcres={totalAcres} />
           </div>
@@ -495,7 +599,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
         </div>
       )}
 
-      {boilerplateBlock}
+      {!isExternallySigned && boilerplateBlock}
 
       <div>
         <h2 className="text-sm font-semibold mb-3">Materials</h2>
@@ -565,7 +669,13 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
 
       {/* Agreement actions */}
       <div className="border-t border-surface-border pt-4 space-y-3">
-        {!hasSigningUrl ? (
+        {isExternallySigned ? (
+          <ExternalContractPanel
+            agreementId={agreementId}
+            signedPdfUrl={signedPdfUrl ?? null}
+            onUploaded={refetchLineItems}
+          />
+        ) : !hasSigningUrl ? (
           <div>
             <Button
               size="sm"

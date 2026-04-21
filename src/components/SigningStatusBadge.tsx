@@ -1,4 +1,4 @@
-type Status = 'not_started' | 'created' | 'pending' | 'in_progress' | 'completed' | 'expired' | 'cancelled' | 'declined' | string | null | undefined
+type Status = 'not_started' | 'created' | 'pending' | 'in_progress' | 'completed' | 'expired' | 'cancelled' | 'declined' | 'externally_signed' | string | null | undefined
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   not_started: { label: 'Not Sent', className: 'bg-gray-100 text-gray-600' },
@@ -10,6 +10,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   expired: { label: 'Expired', className: 'bg-orange-100 text-orange-700' },
   cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-600' },
   declined: { label: 'Declined', className: 'bg-red-100 text-red-600' },
+  externally_signed: { label: 'External', className: 'bg-slate-100 text-slate-700' },
 }
 
 export function SigningStatusBadge({ status }: { status: Status }) {

@@ -30,6 +30,7 @@ export function AgreementNew() {
   const { members } = useTeamMembers()
   const { urgencyLevels, defaultLevel } = useUrgencyLevels()
 
+  const [isExternalImport, setIsExternalImport] = useState(false)
   const [clientId, setClientId] = useState('')
   const [siteId, setSiteId] = useState('')
   const [clientSearch, setClientSearch] = useState('')
@@ -93,16 +94,27 @@ export function AgreementNew() {
       return
     }
 
+    if (isExternalImport && !contractStartDate) {
+      setError('Contract Start Date is required for imported signed contracts.')
+      return
+    }
+
     setSubmitting(true)
     setError(null)
 
-    // Fetch the default boilerplate template to pre-set on new agreements
-    const { data: defaultTemplate } = await supabase
-      .from('proposal_boilerplate_templates')
-      .select('id')
-      .eq('is_default', true)
-      .eq('is_active', true)
-      .maybeSingle()
+    // External imports skip the boilerplate template (no proposal will be generated).
+    let defaultTemplateId: string | null = null
+    if (!isExternalImport) {
+      const { data: defaultTemplate } = await supabase
+        .from('proposal_boilerplate_templates')
+        .select('id')
+        .eq('is_default', true)
+        .eq('is_active', true)
+        .maybeSingle()
+      defaultTemplateId = defaultTemplate?.id ?? null
+    }
+
+    const effectiveStatus: AgreementStatus = isExternalImport ? 'active' : status
 
     const { data: sa, error: saErr } = await supabase
       .from('service_agreements')
@@ -111,7 +123,9 @@ export function AgreementNew() {
         site_id: siteId,
         service_type_id: selectedServiceTypeIds[0],
         // TODO: save all selected service type IDs to service_type_ids uuid[] column if/when it exists
-        agreement_status: status,
+        agreement_status: effectiveStatus,
+        signing_status: isExternalImport ? 'externally_signed' : null,
+        signing_completed_at: isExternalImport ? new Date(contractStartDate).toISOString() : null,
         proposed_start_date: proposedStartDate || null,
         contract_start_date: contractStartDate || null,
         contract_end_date: contractEndDate || null,
@@ -119,7 +133,7 @@ export function AgreementNew() {
         billing_method: billingMethod || null,
         pca_id: pcaId || null,
         po_number: poNumber || null,
-        boilerplate_template_id: defaultTemplate?.id ?? null,
+        boilerplate_template_id: defaultTemplateId,
         reason: reason || null,
         urgency_level_id: urgencyLevelId || null,
         notes_client: commentClient || null,
@@ -200,6 +214,16 @@ export function AgreementNew() {
       p_agreement_id: sa.id
     })
 
+    if (isExternalImport) {
+      await supabase.from('activities').insert({
+        agreement_id: sa.id,
+        activity_type: 'agreement_signed',
+        title: 'External contract imported',
+        description: 'Existing signed contract imported from outside ChemWeed-OS.',
+        created_by: user?.id ?? null,
+      })
+    }
+
     setSubmitting(false)
     navigate(`/agreements/${sa.id}${genError ? '?wo_gen_failed=1' : ''}`)
   }
@@ -214,6 +238,23 @@ export function AgreementNew() {
       <h1 className="text-2xl font-bold mb-6">New Agreement</h1>
 
       <form className="space-y-6" onSubmit={(e) => handleSubmit(e, 'draft')}>
+        <Card>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={isExternalImport}
+              onChange={(e) => setIsExternalImport(e.target.checked)}
+              className="mt-1 h-4 w-4 rounded border-surface-border text-brand-green focus:ring-brand-green"
+            />
+            <span>
+              <span className="block text-sm font-medium">This is an existing signed contract (skip proposal + email)</span>
+              <span className="block text-xs text-[var(--color-text-muted)] mt-0.5">
+                Use this to import contracts that were signed outside ChemWeed-OS. The proposal PDF and eSign flow will not run.
+              </span>
+            </span>
+          </label>
+        </Card>
+
         {/* Client & Site */}
         <Card>
           <div className="space-y-4">
@@ -400,10 +441,11 @@ export function AgreementNew() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Input
-                label="Contract Start Date"
+                label={isExternalImport ? 'Contract Start Date *' : 'Contract Start Date'}
                 type="date"
                 value={contractStartDate}
                 onChange={(e) => setContractStartDate(e.target.value)}
+                required={isExternalImport}
               />
               <Input
                 label="Contract End Date"
@@ -524,17 +566,29 @@ export function AgreementNew() {
         )}
 
         <div className="flex gap-3">
-          <Button type="submit" disabled={submitting}>
-            {submitting ? 'Saving...' : 'Save as Draft'}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={submitting}
-            onClick={(e) => handleSubmit(e as unknown as FormEvent, 'active')}
-          >
-            Save as Active
-          </Button>
+          {isExternalImport ? (
+            <Button
+              type="button"
+              disabled={submitting}
+              onClick={(e) => handleSubmit(e as unknown as FormEvent, 'active')}
+            >
+              {submitting ? 'Saving...' : 'Save Contract'}
+            </Button>
+          ) : (
+            <>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? 'Saving...' : 'Save as Draft'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={submitting}
+                onClick={(e) => handleSubmit(e as unknown as FormEvent, 'active')}
+              >
+                Save as Active
+              </Button>
+            </>
+          )}
         </div>
       </form>
     </div>

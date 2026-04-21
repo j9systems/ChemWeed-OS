@@ -45,6 +45,9 @@ interface DashboardState {
 }
 
 async function fetchStats(): Promise<DashboardStats> {
+  // Note: pendingSignatures and awaitingSend intentionally exclude signing_status='externally_signed'.
+  // Externally signed contracts are already-signed imports and never need a signing action.
+  // They DO count toward activeAgreements via their agreement_status='active'.
   const [activeRes, pendingRes, awaitingRes, clientsRes] = await Promise.all([
     supabase
       .from('service_agreements')
