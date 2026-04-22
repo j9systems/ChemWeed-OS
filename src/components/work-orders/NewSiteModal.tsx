@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges'
+import { useFormDraft } from '@/hooks/useFormDraft'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -15,54 +16,53 @@ interface NewSiteModalProps {
   onCancel: () => void
 }
 
-export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }: NewSiteModalProps) {
-  // Site fields
-  const [siteName, setSiteName] = useState('')
-  const [propertyType, setPropertyType] = useState<PropertyType | ''>('')
-  const [address, setAddress] = useState('')
-  const [city, setCity] = useState('')
-  const [state, setState] = useState('CA')
-  const [zip, setZip] = useState('')
-  const [countyId, setCountyId] = useState('')
-  const [acreage, setAcreage] = useState('')
-  const [siteNotes, setSiteNotes] = useState('')
+interface NewSiteForm {
+  siteName: string
+  propertyType: PropertyType | ''
+  address: string
+  city: string
+  state: string
+  zip: string
+  countyId: string
+  acreage: string
+  siteNotes: string
+}
 
-  // County search
+const EMPTY_FORM: NewSiteForm = {
+  siteName: '',
+  propertyType: '',
+  address: '',
+  city: '',
+  state: 'CA',
+  zip: '',
+  countyId: '',
+  acreage: '',
+  siteNotes: '',
+}
+
+export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }: NewSiteModalProps) {
+  const draftKey = `new_site__${clientId}`
+  const [form, setForm, clearForm] = useFormDraft<NewSiteForm>(draftKey, EMPTY_FORM)
+
+  const [draftNotice, setDraftNotice] = useState<boolean>(() => {
+    try { return localStorage.getItem(`draft__${draftKey}`) !== null } catch { return false }
+  })
+
+  // UI-only state (not persisted across reloads)
   const [counties, setCounties] = useState<County[]>([])
   const [countySearch, setCountySearch] = useState('')
   const [showCountyDropdown, setShowCountyDropdown] = useState(false)
-  const [selectedCounty, setSelectedCounty] = useState<County | null>(null)
   const countyRef = useRef<HTMLDivElement>(null)
-
-  // UI state
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const isDirty = siteName !== '' || propertyType !== '' || address !== '' ||
-    city !== '' || state !== 'CA' || zip !== '' || countyId !== '' ||
-    acreage !== '' || siteNotes !== ''
+  const isDirty = JSON.stringify(form) !== JSON.stringify(EMPTY_FORM)
   useUnsavedChanges(isDirty)
 
-  // Reset state when modal opens
-  useEffect(() => {
-    if (open) {
-      setSiteName('')
-      setPropertyType('')
-      setAddress('')
-      setCity('')
-      setState('CA')
-      setZip('')
-      setCountyId('')
-      setAcreage('')
-      setSiteNotes('')
-      setCountySearch('')
-      setSelectedCounty(null)
-      setError(null)
-      setSaving(false)
-    }
-  }, [open])
+  function update<K extends keyof NewSiteForm>(key: K, value: NewSiteForm[K]) {
+    setForm({ ...form, [key]: value })
+  }
 
-  // Fetch counties once when modal opens
   useEffect(() => {
     if (!open) return
     supabase
@@ -74,7 +74,6 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
       })
   }, [open])
 
-  // Close county dropdown on outside click
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (countyRef.current && !countyRef.current.contains(e.target as Node)) {
@@ -85,20 +84,28 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
     return () => document.removeEventListener('mousedown', handleClick)
   }, [])
 
+  // Keep the search input synced with the selected county when counties load.
+  useEffect(() => {
+    if (!form.countyId || countySearch) return
+    const selected = counties.find((c) => c.id === form.countyId)
+    if (selected) setCountySearch(selected.name)
+  }, [counties, form.countyId, countySearch])
+
+  const selectedCounty = counties.find((c) => c.id === form.countyId) ?? null
   const filteredCounties = counties.filter((c) =>
     c.name.toLowerCase().includes(countySearch.toLowerCase())
   )
 
   async function handleSubmit() {
-    if (!siteName.trim()) {
+    if (!form.siteName.trim()) {
       setError('Site name is required.')
       return
     }
-    if (!propertyType) {
+    if (!form.propertyType) {
       setError('Property type is required.')
       return
     }
-    if (!countyId) {
+    if (!form.countyId) {
       setError('County is required.')
       return
     }
@@ -110,15 +117,15 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
       .from('sites')
       .insert({
         client_id: clientId,
-        name: siteName.trim(),
-        property_type: propertyType as PropertyType,
-        address_line: address || '',
-        city: city || '',
-        state: state || 'CA',
-        zip: zip || '',
-        county_id: countyId,
-        total_acres: acreage ? parseFloat(acreage) : null,
-        notes: siteNotes || null,
+        name: form.siteName.trim(),
+        property_type: form.propertyType as PropertyType,
+        address_line: form.address || '',
+        city: form.city || '',
+        state: form.state || 'CA',
+        zip: form.zip || '',
+        county_id: form.countyId,
+        total_acres: form.acreage ? parseFloat(form.acreage) : null,
+        notes: form.siteNotes || null,
         is_active: true,
       })
       .select('*, county:counties(*)')
@@ -131,12 +138,14 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
       return
     }
 
+    clearForm()
+    setDraftNotice(false)
+    setCountySearch('')
     onSuccess(data as Site)
   }
 
   function selectCounty(county: County) {
-    setCountyId(county.id)
-    setSelectedCounty(county)
+    update('countyId', county.id)
     setCountySearch(county.name)
     setShowCountyDropdown(false)
   }
@@ -147,7 +156,18 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
   return (
     <Modal open={open} onClose={onCancel} title="New Site">
       <div className="space-y-3">
-        {/* Client context header */}
+        {draftNotice && (
+          <div className="flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+            <span>Draft restored.</span>
+            <button
+              type="button"
+              onClick={() => { clearForm(); setDraftNotice(false); setCountySearch('') }}
+              className="ml-2 hover:text-[var(--color-text-primary)]"
+            >
+              &times;
+            </button>
+          </div>
+        )}
         <div className="rounded-lg bg-surface-raised border border-surface-border px-3 py-2 text-sm">
           <span className="text-[var(--color-text-muted)]">Client:</span>{' '}
           <span className="font-medium">{clientName}</span>
@@ -155,8 +175,8 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
 
         <Input
           label="Site Name *"
-          value={siteName}
-          onChange={(e) => setSiteName(e.target.value)}
+          value={form.siteName}
+          onChange={(e) => update('siteName', e.target.value)}
           placeholder="e.g. Stockton Lot A"
           autoFocus
         />
@@ -166,8 +186,8 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
             Property Type *
           </label>
           <select
-            value={propertyType}
-            onChange={(e) => setPropertyType(e.target.value as PropertyType)}
+            value={form.propertyType}
+            onChange={(e) => update('propertyType', e.target.value as PropertyType)}
             className={selectClasses}
             required
           >
@@ -180,30 +200,17 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
 
         <Input
           label="Address"
-          value={address}
-          onChange={(e) => setAddress(e.target.value)}
+          value={form.address}
+          onChange={(e) => update('address', e.target.value)}
           placeholder="Street address"
         />
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-          <Input
-            label="City"
-            value={city}
-            onChange={(e) => setCity(e.target.value)}
-          />
-          <Input
-            label="State"
-            value={state}
-            onChange={(e) => setState(e.target.value)}
-          />
-          <Input
-            label="ZIP"
-            value={zip}
-            onChange={(e) => setZip(e.target.value)}
-          />
+          <Input label="City" value={form.city} onChange={(e) => update('city', e.target.value)} />
+          <Input label="State" value={form.state} onChange={(e) => update('state', e.target.value)} />
+          <Input label="ZIP" value={form.zip} onChange={(e) => update('zip', e.target.value)} />
         </div>
 
-        {/* Searchable county dropdown */}
         <div ref={countyRef}>
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
             County *
@@ -216,8 +223,7 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
                 setCountySearch(e.target.value)
                 setShowCountyDropdown(true)
                 if (selectedCounty && e.target.value !== selectedCounty.name) {
-                  setSelectedCounty(null)
-                  setCountyId('')
+                  update('countyId', '')
                 }
               }}
               onFocus={() => setShowCountyDropdown(true)}
@@ -243,7 +249,6 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
               </ul>
             )}
           </div>
-          {/* Unlicensed county warning */}
           {selectedCounty && !selectedCounty.is_licensed && (
             <div className="mt-1 rounded-lg border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
               Chem-Weed is not currently licensed in {selectedCounty.name}. Confirm before proceeding.
@@ -254,8 +259,8 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
         <Input
           label="Acreage"
           type="number"
-          value={acreage}
-          onChange={(e) => setAcreage(e.target.value)}
+          value={form.acreage}
+          onChange={(e) => update('acreage', e.target.value)}
           placeholder="Optional"
           min="0"
           step="0.01"
@@ -264,8 +269,8 @@ export function NewSiteModal({ open, clientId, clientName, onSuccess, onCancel }
         <div>
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Site Notes</label>
           <textarea
-            value={siteNotes}
-            onChange={(e) => setSiteNotes(e.target.value)}
+            value={form.siteNotes}
+            onChange={(e) => update('siteNotes', e.target.value)}
             rows={2}
             className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
             placeholder="Optional notes..."

@@ -3,6 +3,7 @@ import { Loader2 } from 'lucide-react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { supabase } from '@/lib/supabase'
+import { useFormDraft } from '@/hooks/useFormDraft'
 
 interface SendProposalModalProps {
   open: boolean
@@ -15,6 +16,12 @@ interface SendProposalModalProps {
   clientPhone: string | null
   companyName: string
   onSent: (toEmail: string) => void
+}
+
+interface SendProposalForm {
+  toName: string
+  toEmail: string
+  touched: boolean
 }
 
 function isValidEmail(email: string): boolean {
@@ -35,25 +42,41 @@ export function SendProposalModal({
   companyName,
   onSent,
 }: SendProposalModalProps) {
-  const [toName, setToName] = useState(clientContact ?? '')
-  const [toEmail, setToEmail] = useState(clientEmail ?? '')
+  const initialForm: SendProposalForm = {
+    toName: clientContact ?? '',
+    toEmail: clientEmail ?? '',
+    touched: false,
+  }
+
+  const draftKey = `send_proposal__${agreementId}`
+  const [form, setForm, clearForm] = useFormDraft<SendProposalForm>(draftKey, initialForm)
+
+  const [draftNotice, setDraftNotice] = useState<boolean>(() => {
+    try { return localStorage.getItem(`draft__${draftKey}`) !== null } catch { return false }
+  })
+
   const [sending, setSending] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [touched, setTouched] = useState(false)
 
-  const nameError = touched && !toName.trim() ? 'Name is required' : null
-  const emailError = touched && !toEmail.trim()
+  function update<K extends keyof SendProposalForm>(key: K, value: SendProposalForm[K]) {
+    setForm({ ...form, [key]: value })
+  }
+
+  const nameError = form.touched && !form.toName.trim() ? 'Name is required' : null
+  const emailError = form.touched && !form.toEmail.trim()
     ? 'Email is required'
-    : touched && !isValidEmail(toEmail)
+    : form.touched && !isValidEmail(form.toEmail)
       ? 'Enter a valid email address'
       : null
-  const isValid = toName.trim() !== '' && isValidEmail(toEmail)
+  const isValid = form.toName.trim() !== '' && isValidEmail(form.toEmail)
 
   const truncatedUrl = signingUrl.length > 60 ? signingUrl.slice(0, 60) + '...' : signingUrl
 
   async function handleSend() {
-    setTouched(true)
-    if (!isValid) return
+    if (!isValid) {
+      update('touched', true)
+      return
+    }
 
     setSending(true)
     setError(null)
@@ -61,8 +84,8 @@ export function SendProposalModal({
     const { data, error: err } = await supabase.functions.invoke('send-proposal-email', {
       body: {
         agreement_id: agreementId,
-        to_email: toEmail.trim(),
-        to_name: toName.trim(),
+        to_email: form.toEmail.trim(),
+        to_name: form.toName.trim(),
         signing_url: signingUrl,
         document_name: documentName,
       },
@@ -75,13 +98,26 @@ export function SendProposalModal({
     }
 
     setSending(false)
-    onSent(toEmail.trim())
+    clearForm()
+    setDraftNotice(false)
+    onSent(form.toEmail.trim())
   }
 
   return (
     <Modal open={open} onClose={sending ? () => {} : onClose} title="Send Proposal for Signature">
       <div className="space-y-5">
-        {/* Recipient section */}
+        {draftNotice && (
+          <div className="flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+            <span>Draft restored.</span>
+            <button
+              type="button"
+              onClick={() => { clearForm(); setDraftNotice(false) }}
+              className="ml-2 hover:text-[var(--color-text-primary)]"
+            >
+              &times;
+            </button>
+          </div>
+        )}
         <div className="space-y-3">
           <p className="text-xs font-medium text-[var(--color-text-muted)]">Sending to</p>
           <div>
@@ -90,8 +126,8 @@ export function SendProposalModal({
             </label>
             <input
               type="text"
-              value={toName}
-              onChange={(e) => setToName(e.target.value)}
+              value={form.toName}
+              onChange={(e) => update('toName', e.target.value)}
               placeholder="Recipient name"
               className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2a6b2a]/40 focus:border-[#2a6b2a]"
             />
@@ -103,8 +139,8 @@ export function SendProposalModal({
             </label>
             <input
               type="email"
-              value={toEmail}
-              onChange={(e) => setToEmail(e.target.value)}
+              value={form.toEmail}
+              onChange={(e) => update('toEmail', e.target.value)}
               placeholder="email@example.com"
               className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2a6b2a]/40 focus:border-[#2a6b2a]"
             />
@@ -112,11 +148,9 @@ export function SendProposalModal({
           </div>
         </div>
 
-        {/* Email preview section */}
         <div>
           <p className="text-xs font-medium text-[var(--color-text-muted)] mb-2">Email Preview</p>
           <div className="border border-surface-border rounded-lg overflow-hidden" style={{ maxHeight: 280, overflowY: 'auto' }}>
-            {/* Header bar */}
             <div style={{ backgroundColor: '#2a6b2a', padding: '16px 24px', textAlign: 'center' }}>
               {LOGO_URL ? (
                 <img src={LOGO_URL} alt={companyName} style={{ height: 32, margin: '0 auto' }} />
@@ -124,9 +158,8 @@ export function SendProposalModal({
                 <span style={{ color: '#ffffff', fontSize: 18, fontWeight: 700 }}>{companyName}</span>
               )}
             </div>
-            {/* Body */}
             <div style={{ padding: '24px', fontFamily: 'Arial, sans-serif', fontSize: 14, color: '#333', lineHeight: '1.6' }}>
-              <p style={{ margin: '0 0 16px' }}>Hi {toName || '[name]'},</p>
+              <p style={{ margin: '0 0 16px' }}>Hi {form.toName || '[name]'},</p>
               <p style={{ margin: '0 0 16px' }}>Your proposal is ready for review and signature.</p>
               <p style={{ margin: '0 0 16px', fontWeight: 600 }}>{documentName}</p>
               <div style={{ textAlign: 'center', margin: '24px 0' }}>
@@ -148,7 +181,6 @@ export function SendProposalModal({
               <p style={{ margin: '0 0 24px', fontSize: 12, color: '#666', wordBreak: 'break-all' }}>
                 {truncatedUrl}
               </p>
-              {/* Footer */}
               <div style={{ borderTop: '1px solid #e5e5e5', paddingTop: 16, fontSize: 12, color: '#999', textAlign: 'center' }}>
                 <p style={{ margin: '0 0 4px' }}>{companyName}</p>
                 {clientEmail && <p style={{ margin: '0 0 4px' }}>{clientEmail}</p>}
@@ -158,12 +190,10 @@ export function SendProposalModal({
           </div>
         </div>
 
-        {/* Error */}
         {error && (
           <p className="text-sm text-red-600 bg-red-50 rounded-lg px-3 py-2">{error}</p>
         )}
 
-        {/* Actions */}
         <div className="flex gap-2 justify-end pt-2 border-t border-surface-border">
           <Button variant="secondary" size="sm" onClick={onClose} disabled={sending}>
             Cancel

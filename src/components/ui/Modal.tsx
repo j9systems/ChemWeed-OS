@@ -1,5 +1,6 @@
 import { type ReactNode, useEffect } from 'react'
 import { X } from 'lucide-react'
+import { useReloadLock } from '@/hooks/useReloadLock'
 
 interface ModalProps {
   open: boolean
@@ -9,6 +10,8 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children }: ModalProps) {
+  useReloadLock(open)
+
   useEffect(() => {
     if (open) {
       document.body.style.overflow = 'hidden'

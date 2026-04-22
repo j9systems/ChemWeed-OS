@@ -1,5 +1,6 @@
 import { createBrowserRouter, Navigate, RouterProvider, Outlet } from 'react-router'
 import { AuthProvider } from '@/context/AuthContext'
+import { UpdateController } from '@/components/UpdateController'
 import { AuthGuard } from '@/components/auth/AuthGuard'
 import { AppShell } from '@/components/layout/AppShell'
 import { LoginPage } from '@/pages/auth/LoginPage'
@@ -24,6 +25,7 @@ import { ProfilePage } from '@/pages/profile/ProfilePage'
 function RootLayout() {
   return (
     <AuthProvider>
+      <UpdateController />
       <Outlet />
     </AuthProvider>
   )

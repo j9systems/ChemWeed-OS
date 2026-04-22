@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useParams, Link } from 'react-router'
 import { ArrowLeft, AlertTriangle, Pencil } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useClient } from '@/hooks/useClients'
 import { useSites } from '@/hooks/useSites'
+import { useFormDraft } from '@/hooks/useFormDraft'
 import { canEdit } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage } from '@/lib/utils'
@@ -142,44 +143,79 @@ interface EditClientModalProps {
   onSaved: () => void
 }
 
+interface EditClientForm {
+  name: string
+  billingContact: string
+  billingPhone: string
+  billingEmail: string
+  billingAddress: string
+  billingCity: string
+  billingState: string
+  billingZip: string
+  poRequired: boolean
+  paymentMethod: string
+  notes: string
+}
+
+function formFromClient(c: EditClientModalProps['client']): EditClientForm {
+  return {
+    name: c.name,
+    billingContact: c.billing_contact ?? '',
+    billingPhone: c.billing_phone ?? '',
+    billingEmail: c.billing_email ?? '',
+    billingAddress: c.billing_address ?? '',
+    billingCity: c.billing_city ?? '',
+    billingState: c.billing_state ?? 'CA',
+    billingZip: c.billing_zip ?? '',
+    poRequired: c.po_required,
+    paymentMethod: c.payment_method ?? '',
+    notes: c.notes ?? '',
+  }
+}
+
 function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProps) {
-  const [name, setName] = useState(client.name)
-  const [billingContact, setBillingContact] = useState(client.billing_contact ?? '')
-  const [billingPhone, setBillingPhone] = useState(client.billing_phone ?? '')
-  const [billingEmail, setBillingEmail] = useState(client.billing_email ?? '')
-  const [billingAddress, setBillingAddress] = useState(client.billing_address ?? '')
-  const [billingCity, setBillingCity] = useState(client.billing_city ?? '')
-  const [billingState, setBillingState] = useState(client.billing_state ?? 'CA')
-  const [billingZip, setBillingZip] = useState(client.billing_zip ?? '')
-  const [poRequired, setPoRequired] = useState(client.po_required)
-  const [paymentMethod, setPaymentMethod] = useState(client.payment_method ?? '')
-  const [notes, setNotes] = useState(client.notes ?? '')
+  const initialSnapshotRef = useRef<EditClientForm | null>(null)
+  if (initialSnapshotRef.current === null) {
+    initialSnapshotRef.current = formFromClient(client)
+  }
+  const initialSnapshot = initialSnapshotRef.current
+
+  const draftKey = `edit_client__${client.id}`
+  const [form, setForm, clearForm] = useFormDraft<EditClientForm>(draftKey, initialSnapshot)
+
+  const [draftNotice, setDraftNotice] = useState<boolean>(() => {
+    try { return localStorage.getItem(`draft__${draftKey}`) !== null } catch { return false }
+  })
+
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false)
 
-  // Reset form when client changes or modal reopens
-  const resetForm = () => {
-    setName(client.name)
-    setBillingContact(client.billing_contact ?? '')
-    setBillingPhone(client.billing_phone ?? '')
-    setBillingEmail(client.billing_email ?? '')
-    setBillingAddress(client.billing_address ?? '')
-    setBillingCity(client.billing_city ?? '')
-    setBillingState(client.billing_state ?? 'CA')
-    setBillingZip(client.billing_zip ?? '')
-    setPoRequired(client.po_required)
-    setPaymentMethod(client.payment_method ?? '')
-    setNotes(client.notes ?? '')
-    setError(null)
+  const isDirty = JSON.stringify(form) !== JSON.stringify(initialSnapshot)
+
+  function update<K extends keyof EditClientForm>(key: K, value: EditClientForm[K]) {
+    setForm({ ...form, [key]: value })
   }
 
-  const handleClose = () => {
-    resetForm()
+  function handleCancel() {
+    if (!isDirty) {
+      clearForm()
+      setDraftNotice(false)
+      onClose()
+      return
+    }
+    setConfirmingDiscard(true)
+  }
+
+  function handleDiscard() {
+    clearForm()
+    setDraftNotice(false)
+    setConfirmingDiscard(false)
     onClose()
   }
 
   async function handleSave() {
-    if (!name.trim()) {
+    if (!form.name.trim()) {
       setError('Client name is required.')
       return
     }
@@ -189,17 +225,17 @@ function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProp
     const { error: err } = await supabase
       .from('clients')
       .update({
-        name: name.trim(),
-        billing_contact: billingContact || null,
-        billing_phone: billingPhone || null,
-        billing_email: billingEmail || null,
-        billing_address: billingAddress || null,
-        billing_city: billingCity || null,
-        billing_state: billingState || 'CA',
-        billing_zip: billingZip || null,
-        po_required: poRequired,
-        payment_method: paymentMethod || null,
-        notes: notes || null,
+        name: form.name.trim(),
+        billing_contact: form.billingContact || null,
+        billing_phone: form.billingPhone || null,
+        billing_email: form.billingEmail || null,
+        billing_address: form.billingAddress || null,
+        billing_city: form.billingCity || null,
+        billing_state: form.billingState || 'CA',
+        billing_zip: form.billingZip || null,
+        po_required: form.poRequired,
+        payment_method: form.paymentMethod || null,
+        notes: form.notes || null,
       })
       .eq('id', client.id)
 
@@ -209,26 +245,40 @@ function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProp
       setError(`${getSupabaseErrorMessage(err)} (${err.code ?? 'unknown'})`)
       return
     }
+    clearForm()
+    setDraftNotice(false)
     onSaved()
   }
 
   return (
-    <Modal open={open} onClose={handleClose} title="Edit Client">
+    <Modal open={open} onClose={handleCancel} title="Edit Client">
       <div className="space-y-3">
-        <Input label="Client Name *" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
-        <Input label="Billing Contact" value={billingContact} onChange={(e) => setBillingContact(e.target.value)} />
+        {draftNotice && (
+          <div className="flex items-center justify-between text-sm text-[var(--color-text-muted)]">
+            <span>Draft restored.</span>
+            <button
+              type="button"
+              onClick={() => { clearForm(); setDraftNotice(false) }}
+              className="ml-2 hover:text-[var(--color-text-primary)]"
+            >
+              &times;
+            </button>
+          </div>
+        )}
+        <Input label="Client Name *" value={form.name} onChange={(e) => update('name', e.target.value)} autoFocus />
+        <Input label="Billing Contact" value={form.billingContact} onChange={(e) => update('billingContact', e.target.value)} />
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <Input label="Billing Phone" value={billingPhone} onChange={(e) => setBillingPhone(e.target.value)} type="tel" />
-          <Input label="Billing Email" value={billingEmail} onChange={(e) => setBillingEmail(e.target.value)} type="email" />
+          <Input label="Billing Phone" value={form.billingPhone} onChange={(e) => update('billingPhone', e.target.value)} type="tel" />
+          <Input label="Billing Email" value={form.billingEmail} onChange={(e) => update('billingEmail', e.target.value)} type="email" />
         </div>
         <div className="pt-2">
           <p className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">Billing Address</p>
           <div className="space-y-3">
-            <Input label="Street Address" value={billingAddress} onChange={(e) => setBillingAddress(e.target.value)} />
+            <Input label="Street Address" value={form.billingAddress} onChange={(e) => update('billingAddress', e.target.value)} />
             <div className="grid grid-cols-3 gap-3">
-              <Input label="City" value={billingCity} onChange={(e) => setBillingCity(e.target.value)} />
-              <Input label="State" value={billingState} onChange={(e) => setBillingState(e.target.value)} />
-              <Input label="ZIP" value={billingZip} onChange={(e) => setBillingZip(e.target.value)} />
+              <Input label="City" value={form.billingCity} onChange={(e) => update('billingCity', e.target.value)} />
+              <Input label="State" value={form.billingState} onChange={(e) => update('billingState', e.target.value)} />
+              <Input label="ZIP" value={form.billingZip} onChange={(e) => update('billingZip', e.target.value)} />
             </div>
           </div>
         </div>
@@ -237,21 +287,21 @@ function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProp
             <input
               type="checkbox"
               id="edit-po-required"
-              checked={poRequired}
-              onChange={(e) => setPoRequired(e.target.checked)}
+              checked={form.poRequired}
+              onChange={(e) => update('poRequired', e.target.checked)}
               className="h-4 w-4 rounded border-surface-border text-brand-green focus:ring-brand-green/30"
             />
             <label htmlFor="edit-po-required" className="text-sm font-medium text-[var(--color-text-primary)]">
               PO Required
             </label>
           </div>
-          <Input label="Payment Method" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)} />
+          <Input label="Payment Method" value={form.paymentMethod} onChange={(e) => update('paymentMethod', e.target.value)} />
         </div>
         <div>
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Notes</label>
           <textarea
-            value={notes}
-            onChange={(e) => setNotes(e.target.value)}
+            value={form.notes}
+            onChange={(e) => update('notes', e.target.value)}
             rows={2}
             className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
           />
@@ -263,10 +313,20 @@ function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProp
           </div>
         )}
 
+        {confirmingDiscard && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800 flex items-center justify-between gap-3">
+            <span>Discard changes?</span>
+            <div className="flex gap-2">
+              <Button type="button" variant="secondary" size="sm" onClick={() => setConfirmingDiscard(false)}>Keep</Button>
+              <Button type="button" variant="danger" size="sm" onClick={handleDiscard}>Discard</Button>
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between pt-2">
           <button
             type="button"
-            onClick={handleClose}
+            onClick={handleCancel}
             className="text-sm text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)] underline"
           >
             Cancel

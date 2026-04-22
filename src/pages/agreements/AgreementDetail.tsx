@@ -751,6 +751,7 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
 
       <GenerateProposalModal
         open={proposalModalOpen}
+        agreementId={agreementId}
         onClose={() => setProposalModalOpen(false)}
         onConfirm={handleGenerateProposal}
         clientContact={clientContact}
