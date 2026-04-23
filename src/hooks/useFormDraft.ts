@@ -5,11 +5,13 @@ interface UseFormDraftOptions {
   lockReload?: boolean
 }
 
+type Updater<T> = T | ((prev: T) => T)
+
 export function useFormDraft<T>(
   key: string,
   defaultValue: T,
   options: UseFormDraftOptions = {},
-): [T, (val: T) => void, () => void] {
+): [T, (val: Updater<T>) => void, () => void] {
   const { lockReload = true } = options
   const storageKey = `draft__${key}`
 
@@ -21,9 +23,12 @@ export function useFormDraft<T>(
     return defaultValue
   })
 
-  function set(val: T) {
-    setValue(val)
-    try { localStorage.setItem(storageKey, JSON.stringify(val)) } catch { /* quota exceeded */ }
+  function set(val: Updater<T>) {
+    setValue((prev) => {
+      const next = typeof val === 'function' ? (val as (p: T) => T)(prev) : val
+      try { localStorage.setItem(storageKey, JSON.stringify(next)) } catch { /* quota exceeded */ }
+      return next
+    })
   }
 
   function clear() {
