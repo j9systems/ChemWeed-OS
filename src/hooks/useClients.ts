@@ -6,7 +6,12 @@ interface ClientWithSiteCount extends Client {
   site_count: number
 }
 
-export function useClients() {
+interface UseClientsOptions {
+  includeArchived?: boolean
+}
+
+export function useClients(options: UseClientsOptions = {}) {
+  const { includeArchived = false } = options
   const [clients, setClients] = useState<ClientWithSiteCount[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -15,11 +20,16 @@ export function useClients() {
     setIsLoading(true)
     setError(null)
 
-    const { data, error: err } = await supabase
+    let query = supabase
       .from('clients')
       .select('*, sites(count)')
-      .eq('is_active', true)
       .order('name')
+
+    if (!includeArchived) {
+      query = query.eq('is_active', true)
+    }
+
+    const { data, error: err } = await query
 
     if (err) {
       setError(err.message)
@@ -33,7 +43,7 @@ export function useClients() {
       setClients(mapped)
     }
     setIsLoading(false)
-  }, [])
+  }, [includeArchived])
 
   useEffect(() => { fetch() }, [fetch])
 

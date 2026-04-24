@@ -7,7 +7,8 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { NewClientModal } from '@/components/work-orders/NewClientModal'
 
 export function ClientsPage() {
-  const { clients, isLoading, error, refetch } = useClients()
+  const [showArchived, setShowArchived] = useState(false)
+  const { clients, isLoading, error, refetch } = useClients({ includeArchived: showArchived })
   const [search, setSearch] = useState('')
   const [showNewClientModal, setShowNewClientModal] = useState(false)
 
@@ -41,6 +42,16 @@ export function ClientsPage() {
         />
       </div>
 
+      <label className="mb-4 inline-flex items-center gap-2 text-sm text-[var(--color-text-muted)] cursor-pointer">
+        <input
+          type="checkbox"
+          checked={showArchived}
+          onChange={(e) => setShowArchived(e.target.checked)}
+          className="h-4 w-4 rounded border-surface-border accent-brand-green"
+        />
+        Show archived
+      </label>
+
       {isLoading && <LoadingSpinner />}
       {error && <ErrorMessage message={error} onRetry={refetch} />}
       {!isLoading && !error && (
@@ -69,15 +80,22 @@ export function ClientsPage() {
                     {filtered.map((client) => (
                       <tr
                         key={client.id}
-                        className="hover:bg-surface-border/30 transition-colors"
+                        className={`hover:bg-surface-border/30 transition-colors ${client.is_active ? '' : 'opacity-60'}`}
                       >
                         <td className="px-4 py-3">
-                          <Link
-                            to={`/clients/${client.id}`}
-                            className="font-medium text-[var(--color-text-primary)] hover:text-brand-green transition-colors"
-                          >
-                            {client.name}
-                          </Link>
+                          <div className="flex items-center gap-2">
+                            <Link
+                              to={`/clients/${client.id}`}
+                              className="font-medium text-[var(--color-text-primary)] hover:text-brand-green transition-colors"
+                            >
+                              {client.name}
+                            </Link>
+                            {!client.is_active && (
+                              <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+                                Archived
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 hidden sm:table-cell text-[var(--color-text-muted)]">
                           {client.billing_contact || '—'}

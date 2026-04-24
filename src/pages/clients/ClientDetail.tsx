@@ -1,6 +1,6 @@
-import { useState, useRef } from 'react'
-import { useParams, Link } from 'react-router'
-import { ArrowLeft, AlertTriangle, Pencil } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
+import { useParams, Link, useNavigate } from 'react-router'
+import { ArrowLeft, AlertTriangle, Pencil, Plus, MoreVertical, Archive, RotateCcw } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useClient } from '@/hooks/useClients'
 import { useSites } from '@/hooks/useSites'
@@ -14,13 +14,52 @@ import { ErrorMessage } from '@/components/ui/ErrorMessage'
 import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
+import { NewSiteModal } from '@/components/work-orders/NewSiteModal'
+import type { Client } from '@/types/database'
 
 export function ClientDetail() {
   const { id } = useParams<{ id: string }>()
-  const { role } = useAuth()
+  const navigate = useNavigate()
+  const { role, user } = useAuth()
   const { client, isLoading: clientLoading, error: clientError, refetch } = useClient(id)
-  const { sites, isLoading: sitesLoading, error: sitesError } = useSites(id)
+  const { sites, isLoading: sitesLoading, error: sitesError, refetch: refetchSites } = useSites(id)
   const [editOpen, setEditOpen] = useState(false)
+  const [newSiteOpen, setNewSiteOpen] = useState(false)
+  const [menuOpen, setMenuOpen] = useState(false)
+  const [archiveModalOpen, setArchiveModalOpen] = useState(false)
+  const [restoring, setRestoring] = useState(false)
+  const menuRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    function onClick(e: MouseEvent) {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [])
+
+  async function handleRestore() {
+    if (!client) return
+    setRestoring(true)
+    const { error } = await supabase
+      .from('clients')
+      .update({ is_active: true, archived_at: null })
+      .eq('id', client.id)
+    if (!error) {
+      await supabase.from('activities').insert({
+        activity_type: 'client_restored',
+        title: 'Client restored',
+        description: client.name,
+        metadata: { client_id: client.id, client_name: client.name },
+        created_by: user?.id ?? null,
+      })
+      refetch()
+    }
+    setRestoring(false)
+    setMenuOpen(false)
+  }
 
   if (clientLoading) return <LoadingSpinner />
   if (clientError) return <ErrorMessage message={clientError} />
@@ -34,12 +73,55 @@ export function ClientDetail() {
       </Link>
 
       <div className="flex items-center justify-between mb-2">
-        <h1 className="text-2xl font-bold">{client.name}</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="text-2xl font-bold">{client.name}</h1>
+          {!client.is_active && (
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-600">
+              Archived
+            </span>
+          )}
+        </div>
         {canEdit(role) && (
-          <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
-            <Pencil size={16} />
-            Edit
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" onClick={() => setEditOpen(true)}>
+              <Pencil size={16} />
+              Edit
+            </Button>
+            <div ref={menuRef} className="relative">
+              <button
+                type="button"
+                aria-label="More actions"
+                onClick={() => setMenuOpen((v) => !v)}
+                className="rounded-lg p-2 hover:bg-surface-raised text-[var(--color-text-muted)] min-h-[36px] min-w-[36px] flex items-center justify-center"
+              >
+                <MoreVertical size={18} />
+              </button>
+              {menuOpen && (
+                <div className="absolute right-0 mt-1 w-44 rounded-lg border border-surface-border bg-white shadow-lg z-20 overflow-hidden">
+                  {client.is_active ? (
+                    <button
+                      type="button"
+                      onClick={() => { setMenuOpen(false); setArchiveModalOpen(true) }}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-surface-raised flex items-center gap-2 text-[var(--color-text-primary)]"
+                    >
+                      <Archive size={14} />
+                      Archive Client
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={handleRestore}
+                      disabled={restoring}
+                      className="w-full px-3 py-2 text-left text-sm hover:bg-surface-raised flex items-center gap-2 text-[var(--color-text-primary)] disabled:opacity-50"
+                    >
+                      <RotateCcw size={14} />
+                      {restoring ? 'Restoring...' : 'Restore Client'}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
         )}
       </div>
 
@@ -49,6 +131,15 @@ export function ClientDetail() {
           client={client}
           onClose={() => setEditOpen(false)}
           onSaved={() => { setEditOpen(false); refetch() }}
+        />
+      )}
+
+      {canEdit(role) && archiveModalOpen && (
+        <ArchiveClientModal
+          client={client}
+          onClose={() => setArchiveModalOpen(false)}
+          onArchived={() => { setArchiveModalOpen(false); navigate('/clients') }}
+          userId={user?.id ?? null}
         />
       )}
 
@@ -94,7 +185,26 @@ export function ClientDetail() {
         )}
       </Card>
 
-      <h2 className="text-lg font-semibold mb-3">Sites</h2>
+      <div className="flex items-center justify-between mb-3">
+        <h2 className="text-lg font-semibold">Sites</h2>
+        {canEdit(role) && (
+          <Button size="sm" onClick={() => setNewSiteOpen(true)}>
+            <Plus size={16} />
+            Add Site
+          </Button>
+        )}
+      </div>
+
+      <NewSiteModal
+        open={newSiteOpen}
+        clientId={client.id}
+        clientName={client.name}
+        onSuccess={() => {
+          setNewSiteOpen(false)
+          refetchSites()
+        }}
+        onCancel={() => setNewSiteOpen(false)}
+      />
 
       {sitesLoading && <LoadingSpinner />}
       {sitesError && <ErrorMessage message={sitesError} />}
@@ -171,6 +281,196 @@ function formFromClient(c: EditClientModalProps['client']): EditClientForm {
     paymentMethod: c.payment_method ?? '',
     notes: c.notes ?? '',
   }
+}
+
+interface ArchiveBlockingAgreement {
+  id: string
+  agreement_number: string | null
+  agreement_status: string
+}
+
+interface ArchiveBlockingWorkOrder {
+  id: string
+  work_order_number: string | null
+  status: string
+}
+
+function ArchiveClientModal({
+  client,
+  onClose,
+  onArchived,
+  userId,
+}: {
+  client: Client
+  onClose: () => void
+  onArchived: () => void
+  userId: string | null
+}) {
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [siteCount, setSiteCount] = useState(0)
+  const [agreementCount, setAgreementCount] = useState(0)
+  const [completedWoCount, setCompletedWoCount] = useState(0)
+  const [blockingAgreements, setBlockingAgreements] = useState<ArchiveBlockingAgreement[]>([])
+  const [blockingWorkOrders, setBlockingWorkOrders] = useState<ArchiveBlockingWorkOrder[]>([])
+  const [confirmName, setConfirmName] = useState('')
+  const [archiving, setArchiving] = useState(false)
+
+  useEffect(() => {
+    let cancelled = false
+    async function load() {
+      const [
+        sitesRes,
+        agreementsRes,
+        completedWoRes,
+        blockingAgRes,
+        blockingWoRes,
+      ] = await Promise.all([
+        supabase.from('sites').select('id', { count: 'exact', head: true }).eq('client_id', client.id),
+        supabase.from('service_agreements').select('id', { count: 'exact', head: true }).eq('client_id', client.id),
+        supabase.from('work_orders').select('id', { count: 'exact', head: true }).eq('client_id', client.id).eq('status', 'completed'),
+        supabase.from('service_agreements').select('id, agreement_number, agreement_status').eq('client_id', client.id).eq('agreement_status', 'active'),
+        supabase.from('work_orders').select('id, work_order_number, status').eq('client_id', client.id).in('status', ['scheduled', 'in_progress']),
+      ])
+
+      if (cancelled) return
+      const firstErr = sitesRes.error || agreementsRes.error || completedWoRes.error || blockingAgRes.error || blockingWoRes.error
+      if (firstErr) {
+        setError(firstErr.message)
+      } else {
+        setSiteCount(sitesRes.count ?? 0)
+        setAgreementCount(agreementsRes.count ?? 0)
+        setCompletedWoCount(completedWoRes.count ?? 0)
+        setBlockingAgreements((blockingAgRes.data ?? []) as ArchiveBlockingAgreement[])
+        setBlockingWorkOrders((blockingWoRes.data ?? []) as ArchiveBlockingWorkOrder[])
+      }
+      setLoading(false)
+    }
+    load()
+    return () => { cancelled = true }
+  }, [client.id])
+
+  const isBlocked = blockingAgreements.length > 0 || blockingWorkOrders.length > 0
+  const confirmMatches = confirmName.trim() === client.name
+
+  async function handleArchive() {
+    if (!confirmMatches) return
+    setArchiving(true)
+    setError(null)
+    const { error: updateErr } = await supabase
+      .from('clients')
+      .update({ is_active: false, archived_at: new Date().toISOString() })
+      .eq('id', client.id)
+    if (updateErr) {
+      setError(getSupabaseErrorMessage(updateErr))
+      setArchiving(false)
+      return
+    }
+    await supabase.from('activities').insert({
+      activity_type: 'client_archived',
+      title: 'Client archived',
+      description: client.name,
+      metadata: { client_id: client.id, client_name: client.name },
+      created_by: userId,
+    })
+    setArchiving(false)
+    onArchived()
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Archive Client">
+      <div className="space-y-4">
+        {loading ? (
+          <p className="text-sm text-[var(--color-text-muted)]">Checking client status...</p>
+        ) : isBlocked ? (
+          <>
+            <p className="text-sm">
+              <span className="font-semibold">"{client.name}"</span> can't be archived yet — there's still active work for this client.
+            </p>
+            {blockingAgreements.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-1">Active agreements</p>
+                <ul className="text-sm space-y-1">
+                  {blockingAgreements.map((a) => (
+                    <li key={a.id}>
+                      <Link
+                        to={`/agreements/${a.id}`}
+                        onClick={onClose}
+                        className="text-brand-green hover:underline"
+                      >
+                        {a.agreement_number ?? `Agreement ${a.id.slice(0, 8)}`}
+                      </Link>
+                      <span className="text-[var(--color-text-muted)] ml-2 text-xs">{a.agreement_status}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {blockingWorkOrders.length > 0 && (
+              <div>
+                <p className="text-sm font-medium mb-1">Active work orders</p>
+                <ul className="text-sm space-y-1">
+                  {blockingWorkOrders.map((w) => (
+                    <li key={w.id}>
+                      <Link
+                        to={`/work-orders/${w.id}`}
+                        onClick={onClose}
+                        className="text-brand-green hover:underline"
+                      >
+                        {w.work_order_number ?? `Work Order ${w.id.slice(0, 8)}`}
+                      </Link>
+                      <span className="text-[var(--color-text-muted)] ml-2 text-xs">{w.status}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <div className="flex justify-end pt-2 border-t border-surface-border">
+              <Button variant="secondary" onClick={onClose}>Close</Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="text-sm">
+              Archive client <span className="font-semibold">"{client.name}"</span>?
+            </p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              {siteCount} site{siteCount === 1 ? '' : 's'}, {agreementCount} past agreement{agreementCount === 1 ? '' : 's'}, {completedWoCount} completed work order{completedWoCount === 1 ? '' : 's'}.
+            </p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              This client will be hidden from active lists. Historical records remain intact.
+            </p>
+            <div>
+              <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">
+                Type the client name to confirm
+              </label>
+              <Input
+                value={confirmName}
+                onChange={(e) => setConfirmName(e.target.value)}
+                placeholder={client.name}
+                autoFocus
+              />
+            </div>
+            {error && (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+            <div className="flex justify-end gap-2 pt-2 border-t border-surface-border">
+              <Button variant="secondary" onClick={onClose} disabled={archiving}>Cancel</Button>
+              <Button
+                variant="danger"
+                onClick={handleArchive}
+                disabled={!confirmMatches || archiving}
+              >
+                {archiving ? 'Archiving...' : 'Archive'}
+              </Button>
+            </div>
+          </>
+        )}
+      </div>
+    </Modal>
+  )
 }
 
 function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProps) {
