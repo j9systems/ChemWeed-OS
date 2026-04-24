@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { Plus, Pencil } from 'lucide-react'
+import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import type { ServiceType, PricingModel } from '@/types/database'
 import { formatCurrency, cn } from '@/lib/utils'
@@ -35,6 +35,9 @@ export function ServicesTab() {
   const [isNew, setIsNew] = useState(false)
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
+  const [deletingService, setDeletingService] = useState<ServiceType | null>(null)
+  const [deletingUsageCount, setDeletingUsageCount] = useState<number | null>(null)
+  const [deletingConfirmInProgress, setDeletingConfirmInProgress] = useState(false)
 
   const fetch = useCallback(async () => {
     const { data, error } = await supabase
@@ -50,6 +53,44 @@ export function ServicesTab() {
   }, [])
 
   useEffect(() => { fetch() }, [fetch])
+
+  useEffect(() => {
+    if (!deletingService) { setDeletingUsageCount(null); return }
+    let cancelled = false
+    setDeletingUsageCount(null)
+    supabase
+      .from('service_agreements')
+      .select('id', { count: 'exact', head: true })
+      .eq('service_type_id', deletingService.id)
+      .eq('agreement_status', 'active')
+      .then(({ count, error }) => {
+        if (cancelled) return
+        if (error) {
+          setToast({ message: error.message, type: 'error' })
+          setDeletingUsageCount(0)
+        } else {
+          setDeletingUsageCount(count ?? 0)
+        }
+      })
+    return () => { cancelled = true }
+  }, [deletingService])
+
+  const handleConfirmDelete = async () => {
+    if (!deletingService) return
+    setDeletingConfirmInProgress(true)
+    const { error } = await supabase
+      .from('service_types')
+      .update({ is_active: false })
+      .eq('id', deletingService.id)
+    setDeletingConfirmInProgress(false)
+    if (error) {
+      setToast({ message: error.message, type: 'error' })
+    } else {
+      setToast({ message: `Service type "${deletingService.name}" deleted`, type: 'success' })
+      setDeletingService(null)
+      fetch()
+    }
+  }
 
   const handleSave = async () => {
     if (!editingService?.name?.trim()) return
@@ -118,6 +159,7 @@ export function ServicesTab() {
                 <th className="pb-2 pr-4 font-medium">Rate High</th>
                 <th className="pb-2 pr-4 font-medium">Status</th>
                 <th className="pb-2 font-medium w-10"></th>
+                <th className="pb-2 font-medium w-10"></th>
               </tr>
             </thead>
             <tbody>
@@ -152,10 +194,22 @@ export function ServicesTab() {
                   <td className="py-3">
                     <Pencil size={14} className="text-[var(--color-text-muted)]" />
                   </td>
+                  <td className="py-3 pr-3">
+                    {s.is_active && (
+                      <button
+                        type="button"
+                        aria-label={`Delete ${s.name}`}
+                        onClick={(e) => { e.stopPropagation(); setDeletingService(s) }}
+                        className="text-[var(--color-text-muted)] hover:text-red-600 p-1 rounded transition-colors"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </td>
                 </tr>
               ))}
               {services.length === 0 && (
-                <tr><td colSpan={6} className="py-8 text-center text-[var(--color-text-muted)]">No services configured</td></tr>
+                <tr><td colSpan={7} className="py-8 text-center text-[var(--color-text-muted)]">No services configured</td></tr>
               )}
             </tbody>
           </table>
@@ -259,6 +313,46 @@ export function ServicesTab() {
               <Button variant="secondary" onClick={() => setEditingService(null)}>Cancel</Button>
               <Button onClick={handleSave} disabled={saving || !editingService.name?.trim()}>
                 {saving ? 'Saving...' : 'Save'}
+              </Button>
+            </div>
+          </div>
+        )}
+      </Modal>
+
+      <Modal
+        open={deletingService !== null}
+        onClose={() => { if (!deletingConfirmInProgress) setDeletingService(null) }}
+        title="Delete Service Type"
+      >
+        {deletingService && (
+          <div className="space-y-4">
+            <p className="text-sm">
+              Delete service type <span className="font-semibold">"{deletingService.name}"</span>?
+            </p>
+            <p className="text-sm text-[var(--color-text-muted)]">
+              {deletingUsageCount === null
+                ? 'Checking usage...'
+                : `Used by ${deletingUsageCount} active agreement${deletingUsageCount === 1 ? '' : 's'}.`}
+            </p>
+            {deletingUsageCount !== null && deletingUsageCount > 0 && (
+              <p className="text-sm text-[var(--color-text-muted)]">
+                Existing agreements will keep their current service type label. New agreements won't be able to select this one.
+              </p>
+            )}
+            <div className="flex justify-end gap-2 pt-2 border-t border-surface-border">
+              <Button
+                variant="secondary"
+                onClick={() => setDeletingService(null)}
+                disabled={deletingConfirmInProgress}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                onClick={handleConfirmDelete}
+                disabled={deletingConfirmInProgress || deletingUsageCount === null}
+              >
+                {deletingConfirmInProgress ? 'Deleting...' : 'Delete'}
               </Button>
             </div>
           </div>
