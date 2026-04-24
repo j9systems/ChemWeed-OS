@@ -32,6 +32,19 @@ export interface Client {
   updated_at: string
 }
 
+export interface ClientContact {
+  id: string
+  client_id: string
+  name: string
+  email: string | null
+  phone: string | null
+  role: string | null
+  is_primary: boolean
+  is_billing: boolean
+  created_at: string
+  updated_at: string
+}
+
 export interface Site {
   id: string
   client_id: string
@@ -108,6 +121,7 @@ export interface ServiceAgreement {
   site_id: string
   site?: Site
   service_type_id: string | null
+  service_type_ids: string[]
   service_type?: ServiceType
   frequency_type: string | null
   reason: string | null

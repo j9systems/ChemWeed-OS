@@ -34,8 +34,11 @@ interface EditAgreementForm {
 }
 
 function formFromAgreement(a: ServiceAgreement): EditAgreementForm {
+  const seededIds = (a.service_type_ids?.length ?? 0) > 0
+    ? a.service_type_ids
+    : (a.service_type_id ? [a.service_type_id] : [])
   return {
-    selectedServiceTypeIds: a.service_type_id ? [a.service_type_id] : [],
+    selectedServiceTypeIds: seededIds,
     urgencyLevelId: a.urgency_level_id ?? '',
     proposedStartDate: a.proposed_start_date ?? '',
     contractStartDate: a.contract_start_date ?? '',
@@ -131,6 +134,7 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
       .from('service_agreements')
       .update({
         service_type_id: form.selectedServiceTypeIds[0],
+        service_type_ids: form.selectedServiceTypeIds,
         urgency_level_id: form.urgencyLevelId || null,
         proposed_start_date: form.proposedStartDate || null,
         contract_start_date: form.contractStartDate || null,

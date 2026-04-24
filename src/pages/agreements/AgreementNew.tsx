@@ -190,7 +190,7 @@ export function AgreementNew() {
         client_id: form.clientId,
         site_id: form.siteId,
         service_type_id: form.selectedServiceTypeIds[0],
-        // TODO: save all selected service type IDs to service_type_ids uuid[] column if/when it exists
+        service_type_ids: form.selectedServiceTypeIds,
         agreement_status: effectiveStatus,
         signing_status: form.isExternalImport ? 'externally_signed' : null,
         signing_completed_at: form.isExternalImport ? new Date(form.contractStartDate).toISOString() : null,
