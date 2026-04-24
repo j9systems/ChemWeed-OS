@@ -55,17 +55,24 @@ export function formatCurrency(amount: number): string {
  * - Period is further in the future: not actionable yet
  */
 export function isWorkOrderActionable(wo: { period_year: number | null; period_month: number | null }): boolean {
-  if (wo.period_year == null || wo.period_month == null) return true // one-time or annual
+  // One-time WOs have no period info — always actionable.
+  if (wo.period_year == null && wo.period_month == null) return true
 
   const now = new Date()
   const currentYear = now.getFullYear()
   const currentMonth = now.getMonth() + 1 // 1-indexed
 
-  // Next month, handling year rollover
+  // Annual WOs set period_year but leave period_month null.
+  // Without this branch every year of a multi-year contract surfaces at once.
+  if (wo.period_month == null) {
+    return (wo.period_year ?? currentYear) <= currentYear
+  }
+
+  // Monthly / weekly seasonal: surface only the current and next month.
   const nextMonth = currentMonth === 12 ? 1 : currentMonth + 1
   const nextMonthYear = currentMonth === 12 ? currentYear + 1 : currentYear
 
-  const woPeriod = wo.period_year * 100 + wo.period_month
+  const woPeriod = (wo.period_year ?? currentYear) * 100 + wo.period_month
   const nextPeriod = nextMonthYear * 100 + nextMonth
 
   return woPeriod <= nextPeriod
