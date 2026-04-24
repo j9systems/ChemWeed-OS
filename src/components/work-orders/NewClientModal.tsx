@@ -184,6 +184,20 @@ export function NewClientModal({ open, initialClientName, onSuccess, onCancel }:
       return
     }
 
+    // Mirror the entered billing fields into a client_contacts row so the
+    // contacts table stays the source of truth from day one.
+    if (clientForm.billingContact || clientForm.billingEmail || clientForm.billingPhone) {
+      await supabase.from('client_contacts').insert({
+        client_id: data.id,
+        name: (clientForm.billingContact?.trim() || clientForm.name.trim()),
+        email: clientForm.billingEmail || null,
+        phone: clientForm.billingPhone || null,
+        role: 'Billing',
+        is_primary: true,
+        is_billing: true,
+      })
+    }
+
     clearClientDraft()
     setDraftNotice(false)
     setCreatedClient(data as Client)

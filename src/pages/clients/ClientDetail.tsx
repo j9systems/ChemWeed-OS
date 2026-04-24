@@ -4,6 +4,7 @@ import { ArrowLeft, AlertTriangle, Pencil, Plus, MoreVertical, Archive, RotateCc
 import { useAuth } from '@/hooks/useAuth'
 import { useClient } from '@/hooks/useClients'
 import { useSites } from '@/hooks/useSites'
+import { useClientContacts } from '@/hooks/useClientContacts'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import { canEdit } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
@@ -15,6 +16,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { NewSiteModal } from '@/components/work-orders/NewSiteModal'
+import { ContactsManager } from '@/components/clients/ContactsManager'
 import type { Client } from '@/types/database'
 
 export function ClientDetail() {
@@ -23,6 +25,7 @@ export function ClientDetail() {
   const { role, user } = useAuth()
   const { client, isLoading: clientLoading, error: clientError, refetch } = useClient(id)
   const { sites, isLoading: sitesLoading, error: sitesError, refetch: refetchSites } = useSites(id)
+  const { contacts, refetch: refetchContacts } = useClientContacts(id)
   const [editOpen, setEditOpen] = useState(false)
   const [newSiteOpen, setNewSiteOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -146,18 +149,6 @@ export function ClientDetail() {
       <Card className="mb-6">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <p className="text-sm text-[var(--color-text-muted)]">Billing Contact</p>
-            <p>{client.billing_contact ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-[var(--color-text-muted)]">Email</p>
-            <p>{client.billing_email ?? '—'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-[var(--color-text-muted)]">Phone</p>
-            <p>{client.billing_phone ?? '—'}</p>
-          </div>
-          <div>
             <p className="text-sm text-[var(--color-text-muted)]">PO Required</p>
             <p>{client.po_required ? 'Yes' : 'No'}</p>
           </div>
@@ -184,6 +175,15 @@ export function ClientDetail() {
           </div>
         )}
       </Card>
+
+      <div className="mb-6">
+        <ContactsManager
+          clientId={client.id}
+          contacts={contacts}
+          canEdit={canEdit(role)}
+          onChanged={() => { refetchContacts(); refetch() }}
+        />
+      </div>
 
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-lg font-semibold">Sites</h2>
@@ -522,13 +522,17 @@ function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProp
     setSaving(true)
     setError(null)
 
+    const billingContactName = form.billingContact.trim() || null
+    const billingEmail = form.billingEmail || null
+    const billingPhone = form.billingPhone || null
+
     const { error: err } = await supabase
       .from('clients')
       .update({
         name: form.name.trim(),
-        billing_contact: form.billingContact || null,
-        billing_phone: form.billingPhone || null,
-        billing_email: form.billingEmail || null,
+        billing_contact: billingContactName,
+        billing_phone: billingPhone,
+        billing_email: billingEmail,
         billing_address: form.billingAddress || null,
         billing_city: form.billingCity || null,
         billing_state: form.billingState || 'CA',
@@ -539,12 +543,50 @@ function EditClientModal({ open, client, onClose, onSaved }: EditClientModalProp
       })
       .eq('id', client.id)
 
-    setSaving(false)
     if (err) {
+      setSaving(false)
       console.error('Client update error:', err)
       setError(`${getSupabaseErrorMessage(err)} (${err.code ?? 'unknown'})`)
       return
     }
+
+    // Keep the contacts table in sync with the billing fields the user just
+    // edited. Update the existing billing contact, or create one if none
+    // exists yet (e.g. clients created before client_contacts existed and
+    // somehow lost their backfilled row).
+    const billingHasValues = billingContactName || billingEmail || billingPhone
+    if (billingHasValues) {
+      const { data: existing } = await supabase
+        .from('client_contacts')
+        .select('id')
+        .eq('client_id', client.id)
+        .eq('is_billing', true)
+        .maybeSingle()
+
+      if (existing?.id) {
+        await supabase
+          .from('client_contacts')
+          .update({
+            name: billingContactName ?? client.name,
+            email: billingEmail,
+            phone: billingPhone,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id)
+      } else {
+        await supabase.from('client_contacts').insert({
+          client_id: client.id,
+          name: billingContactName ?? client.name,
+          email: billingEmail,
+          phone: billingPhone,
+          role: 'Billing',
+          is_primary: true,
+          is_billing: true,
+        })
+      }
+    }
+
+    setSaving(false)
     clearForm()
     setDraftNotice(false)
     onSaved()
