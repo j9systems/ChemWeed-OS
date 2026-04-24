@@ -77,6 +77,8 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
   const isDirty = JSON.stringify(form) !== JSON.stringify(initialSnapshot)
   useUnsavedChanges(isDirty)
 
+  const poRequired = agreement.client?.po_required ?? false
+
   useEffect(() => {
     supabase
       .from('proposal_boilerplate_templates')
@@ -114,6 +116,11 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
     e.preventDefault()
     if (form.selectedServiceTypeIds.length === 0) {
       setError('At least one service type is required.')
+      return
+    }
+
+    if (poRequired && !form.poNumber.trim()) {
+      setError('PO Number is required for this client.')
       return
     }
 
@@ -298,11 +305,16 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
         </div>
 
         <Input
-          label="PO Number"
+          label={poRequired ? 'PO Number *' : 'PO Number'}
           value={form.poNumber}
           onChange={(e) => update('poNumber', e.target.value)}
-          placeholder="Optional"
+          placeholder={poRequired ? 'Required for this client' : 'Optional'}
         />
+        {poRequired && !form.poNumber.trim() && (
+          <p className="text-xs text-amber-700 -mt-2">
+            This client requires a PO Number on every agreement.
+          </p>
+        )}
 
         <div>
           <label className="block text-sm font-medium mb-1">Agreement Text</label>

@@ -1074,8 +1074,13 @@ export function AgreementDetail() {
       <div className="flex items-start justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold">{agreement.client?.name} — {agreement.site?.name}</h1>
-          <div className="mt-1">
+          <div className="mt-1 flex flex-wrap items-center gap-2">
             <Badge agreementStatus={agreement.agreement_status} />
+            {agreement.client?.po_required && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700">
+                PO Required
+              </span>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">

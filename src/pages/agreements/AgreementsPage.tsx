@@ -68,7 +68,14 @@ function MobileRow({ agreement }: { agreement: ServiceAgreement }) {
       style={{ borderLeft: `4px solid ${sc.border}` }}
     >
       <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-sm truncate">{agreement.client?.name ?? 'Unknown Client'}</p>
+        <div className="flex items-center gap-1.5 min-w-0">
+          <p className="font-semibold text-sm truncate">{agreement.client?.name ?? 'Unknown Client'}</p>
+          {agreement.client?.po_required && (
+            <span className="inline-flex shrink-0 items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">
+              PO
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-1.5">
           <SigningStatusBadge status={agreement.signing_status} />
           <Badge agreementStatus={agreement.agreement_status} />
@@ -114,7 +121,14 @@ function TableRow({ agreement }: { agreement: ServiceAgreement }) {
         />
       </td>
       <td className="py-3 pr-4">
-        <span className="font-medium text-sm">{agreement.client?.name ?? 'Unknown Client'}</span>
+        <div className="flex items-center gap-1.5">
+          <span className="font-medium text-sm">{agreement.client?.name ?? 'Unknown Client'}</span>
+          {agreement.client?.po_required && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-amber-100 text-amber-700">
+              PO
+            </span>
+          )}
+        </div>
         <p className="text-xs text-[var(--color-text-muted)] truncate max-w-[220px]">
           {agreement.site?.address_line ?? 'No address'}
         </p>
