@@ -40,6 +40,9 @@ j9systems.com
 - Corporate apology theater ("I sincerely apologize for any inconvenience this may have caused")
 - Anything that reads AI-generated
 
+### Banned punctuation
+- Em dashes (—) anywhere in an email. Period. Replace with a period and start a new sentence, or use a comma. En dashes (–) are also out; use a hyphen (-) for ranges.
+
 ### Prefer
 - "Happy to…" · "Let me know" · "Following up" · "Here's what was updated" · "Talk soon"
 
