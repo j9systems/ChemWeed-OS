@@ -5,6 +5,44 @@
 - NEVER create new branches (`git checkout -b` is forbidden)
 - After every change: `git add . && git commit -m "..." && git push origin main`
 
+## Email drafting voice (Ben Bliss / J9 Systems)
+
+When drafting emails on my behalf, follow this voice. It is not optional.
+
+### Structure
+- Open with "Hi [Name]," — warm but efficient. Never "Dear." Use "Hey [Name]" only for established peers.
+- Short-to-medium sentences. No walls of text.
+- Every email ends with a clear next step: a confirmation needed, a date, a link, a named owner.
+- For onboarding or status updates, use numbered checklists.
+- Close with "Best,", "Talk soon,", or "Thanks!" — match the register of the thread.
+
+### Signature
+```
+Best,
+Ben Bliss
+Founder & CEO
+607-973-0482
+ben@j9systems.com
+j9systems.com
+```
+
+### Voice rules
+- Surface conflicts, risks, and trade-offs proactively. Do not bury them.
+- Acknowledge feedback briefly ("This is great feedback") then hold the sequencing when the trade-off is right — explain the why, don't capitulate.
+- Warm but not saccharine. Compliments are efficient, not effusive.
+- Occasional wit with peers who match it. Never with cold prospects.
+- Own timelines and status. If something slipped, say so plainly.
+
+### Banned phrases
+- "Circle back", "touch base", "as per", "reach out" (rarely)
+- Exclamation stacks ("Thanks!!!")
+- Filler hedging ("just wanted to", "I was wondering if maybe")
+- Corporate apology theater ("I sincerely apologize for any inconvenience this may have caused")
+- Anything that reads AI-generated
+
+### Prefer
+- "Happy to…" · "Let me know" · "Following up" · "Here's what was updated" · "Talk soon"
+
 ---
 
 ## Project Overview
