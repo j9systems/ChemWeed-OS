@@ -133,6 +133,9 @@ function DetailsSection({ agreement, lineItems }: { agreement: ServiceAgreement;
         <DetailItem label="PCA">
           {agreement.pca ? `${agreement.pca.first_name} ${agreement.pca.last_name}` : '—'}
         </DetailItem>
+        <DetailItem label="Sales Rep">
+          {agreement.sales_rep ? `${agreement.sales_rep.first_name} ${agreement.sales_rep.last_name}` : '—'}
+        </DetailItem>
         <DetailItem label="PO Number">{agreement.po_number ?? '—'}</DetailItem>
         <DetailItem label="Agreement Text">
           {agreement.boilerplate_template?.name ?? '—'}
@@ -543,11 +546,13 @@ function EstimateSection({ lineItems, materials, agreementId, agreementStatus, s
 
     // Regenerate WOs after line item changes (idempotent -- duplicates ignored)
     if (canEditLineItems) {
-      const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+      const { data: genData, error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
         p_agreement_id: agreementId
       })
       if (genError) {
         setError(`Estimate saved, but work order generation failed: ${genError.message}`)
+      } else if ((genData as { reason?: string } | null)?.reason === 'po_required') {
+        setError('Estimate saved. Work orders were not generated because this client requires a PO Number. Add the PO and regenerate.')
       }
     }
 
@@ -832,6 +837,10 @@ function ScheduleSection({ agreement }: { agreement: ServiceAgreement }) {
           <dt className="text-[var(--color-text-muted)]">Assigned PCA</dt>
           <dd>{agreement.pca ? `${agreement.pca.first_name} ${agreement.pca.last_name}` : '—'}</dd>
         </div>
+        <div>
+          <dt className="text-[var(--color-text-muted)]">Sales Rep</dt>
+          <dd>{agreement.sales_rep ? `${agreement.sales_rep.first_name} ${agreement.sales_rep.last_name}` : '—'}</dd>
+        </div>
       </dl>
     </div>
   )
@@ -975,10 +984,13 @@ export function AgreementDetail() {
   const [regenerating, setRegenerating] = useState(false)
   const [regenSuccess, setRegenSuccess] = useState<string | null>(null)
 
-  // Read wo_gen_failed query param on mount
+  // Read wo_gen_failed / wo_gen_po_required query params on mount
   useEffect(() => {
     if (searchParams.get('wo_gen_failed') === '1') {
       setWoGenWarning('Agreement saved, but work order generation failed. Use the "Regenerate Work Orders" button below to retry.')
+      setSearchParams({}, { replace: true })
+    } else if (searchParams.get('wo_gen_po_required') === '1') {
+      setWoGenWarning('Agreement saved. Work orders were not generated because this client requires a PO Number. Add the PO and regenerate to release the work orders.')
       setSearchParams({}, { replace: true })
     }
   }, [searchParams, setSearchParams])
@@ -1034,12 +1046,14 @@ export function AgreementDetail() {
       alert(getSupabaseErrorMessage(err))
     } else {
       // Generate all WOs for the agreement upfront
-      const { error: genError } = await supabase.rpc(
+      const { data: genData, error: genError } = await supabase.rpc(
         'generate_work_orders_for_agreement',
         { p_agreement_id: agreement.id }
       )
       if (genError) {
         setWoGenWarning('Agreement activated, but work order generation failed. Use the "Regenerate Work Orders" button below to retry.')
+      } else if ((genData as { reason?: string } | null)?.reason === 'po_required') {
+        setWoGenWarning('Agreement activated. Work orders were not generated because this client requires a PO Number. Add the PO and regenerate.')
       }
       refetch()
     }
@@ -1051,11 +1065,13 @@ export function AgreementDetail() {
     setRegenerating(true)
     setWoGenWarning(null)
     setRegenSuccess(null)
-    const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+    const { data: genData, error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
       p_agreement_id: agreement.id
     })
     if (genError) {
       setWoGenWarning(`Work order generation failed: ${genError.message}`)
+    } else if ((genData as { reason?: string } | null)?.reason === 'po_required') {
+      setWoGenWarning('Work orders were not generated because this client requires a PO Number. Add the PO above and try again.')
     } else {
       setRegenSuccess('Work orders regenerated successfully.')
       setTimeout(() => setRegenSuccess(null), 4000)

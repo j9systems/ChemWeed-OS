@@ -28,6 +28,7 @@ interface EditAgreementForm {
   contractValue: string
   billingMethod: string
   pcaId: string
+  salesRepId: string
   poNumber: string
   boilerplateTemplateId: string
   reason: string
@@ -46,6 +47,7 @@ function formFromAgreement(a: ServiceAgreement): EditAgreementForm {
     contractValue: a.contract_value != null ? String(a.contract_value) : '',
     billingMethod: a.billing_method ?? '',
     pcaId: a.pca_id ?? '',
+    salesRepId: a.sales_rep_id ?? '',
     poNumber: a.po_number ?? '',
     boilerplateTemplateId: a.boilerplate_template_id ?? '',
     reason: a.reason ?? '',
@@ -142,6 +144,7 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
         contract_value: form.contractValue ? parseFloat(form.contractValue) : null,
         billing_method: form.billingMethod || null,
         pca_id: form.pcaId || null,
+        sales_rep_id: form.salesRepId || null,
         po_number: form.poNumber || null,
         boilerplate_template_id: form.boilerplateTemplateId || null,
         reason: form.reason || null,
@@ -158,11 +161,19 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
       form.contractStartDate !== (agreement.contract_start_date ?? '') ||
       form.contractEndDate !== (agreement.contract_end_date ?? '')
     if (datesChanged || agreement.agreement_status === 'active') {
-      const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+      const { data: genData, error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
         p_agreement_id: agreement.id,
       })
       if (genError) {
         setError(`Agreement saved, but work order generation failed: ${genError.message}. Use the "Regenerate Work Orders" button on the agreement page to retry.`)
+        setSaving(false)
+        clearForm()
+        setDraftNotice(false)
+        onSaved()
+        return
+      }
+      if ((genData as { reason?: string } | null)?.reason === 'po_required') {
+        setError('Agreement saved. Work orders were not generated because this client requires a PO Number. Add the PO and regenerate.')
         setSaving(false)
         clearForm()
         setDraftNotice(false)
@@ -303,6 +314,20 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
           >
             <option value="">None</option>
             {members.filter((m) => m.role === 'pca').map((m) => (
+              <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium mb-1">Sales Rep</label>
+          <select
+            value={form.salesRepId}
+            onChange={(e) => update('salesRepId', e.target.value)}
+            className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm min-h-[44px]"
+          >
+            <option value="">None</option>
+            {members.map((m) => (
               <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
             ))}
           </select>

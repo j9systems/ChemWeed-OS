@@ -33,6 +33,7 @@ interface AgreementNewForm {
   contractValue: string
   billingMethod: string
   pcaId: string
+  salesRepId: string
   poNumber: string
   reason: string
   commentClient: string
@@ -54,6 +55,7 @@ const EMPTY_FORM: AgreementNewForm = {
   contractValue: '',
   billingMethod: '',
   pcaId: '',
+  salesRepId: '',
   poNumber: '',
   reason: '',
   commentClient: '',
@@ -200,6 +202,7 @@ export function AgreementNew() {
         contract_value: form.contractValue ? parseFloat(form.contractValue) : null,
         billing_method: form.billingMethod || null,
         pca_id: form.pcaId || null,
+        sales_rep_id: form.salesRepId || null,
         po_number: form.poNumber || null,
         boilerplate_template_id: defaultTemplateId,
         reason: form.reason || null,
@@ -278,9 +281,10 @@ export function AgreementNew() {
     }
 
     // Generate all work orders for this agreement upfront
-    const { error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
+    const { data: genData, error: genError } = await supabase.rpc('generate_work_orders_for_agreement', {
       p_agreement_id: sa.id
     })
+    const poGated = !genError && (genData as { reason?: string } | null)?.reason === 'po_required'
 
     if (form.isExternalImport) {
       await supabase.from('activities').insert({
@@ -295,7 +299,8 @@ export function AgreementNew() {
     clearForm()
     setDraftNotice(false)
     setSubmitting(false)
-    navigate(`/agreements/${sa.id}${genError ? '?wo_gen_failed=1' : ''}`)
+    const queryString = genError ? '?wo_gen_failed=1' : poGated ? '?wo_gen_po_required=1' : ''
+    navigate(`/agreements/${sa.id}${queryString}`)
   }
 
   return (
@@ -579,6 +584,23 @@ export function AgreementNew() {
                     <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
                   ))}
               </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Sales Rep</label>
+              <select
+                value={form.salesRepId}
+                onChange={(e) => update('salesRepId', e.target.value)}
+                className="w-full rounded-lg border border-surface-border bg-white px-3 py-2 text-sm min-h-[44px]"
+              >
+                <option value="">None</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>{m.first_name} {m.last_name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                Credit for this sale. Defaults to none; used for commission tracking.
+              </p>
             </div>
 
             <Input

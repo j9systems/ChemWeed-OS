@@ -137,6 +137,8 @@ export interface ServiceAgreement {
   pca_id: string | null
   pca?: TeamMember
   pca_rec_url: string | null
+  sales_rep_id: string | null
+  sales_rep?: TeamMember
   urgency_level_id: string | null
   urgency_level?: UrgencyLevel
   agreement_status: AgreementStatus
