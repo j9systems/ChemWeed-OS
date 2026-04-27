@@ -1,4 +1,4 @@
-import { Home, FileText, ClipboardList, CalendarDays, Building2, Users, Settings, User, type LucideIcon } from 'lucide-react'
+import { Home, FileText, ClipboardList, CalendarDays, Building2, Users, Settings, User, MessageSquare, type LucideIcon } from 'lucide-react'
 import type { Role } from '@/types/database'
 
 export interface NavItem {
@@ -16,5 +16,6 @@ export const NAV_ITEMS: NavItem[] = [
   { label: 'Clients', path: '/clients', icon: Building2, roles: ['admin', 'manager'] },
   { label: 'Team', path: '/team', icon: Users, roles: ['admin', 'manager'] },
   { label: 'Settings', path: '/settings', icon: Settings, roles: ['admin', 'manager'] },
+  { label: 'Feedback', path: '/feedback', icon: MessageSquare, roles: ['admin', 'manager', 'technician', 'pca'] },
   { label: 'Profile', path: '/profile', icon: User, roles: ['admin', 'manager', 'technician', 'pca'] },
 ]

@@ -380,6 +380,36 @@ export interface SiteObservationLog {
   photo_urls: string[]
 }
 
+export type FeedbackType = 'bug' | 'feature'
+export type FeedbackStatus = 'open' | 'in_progress' | 'resolved' | 'closed'
+export type FeedbackPriority = 'low' | 'medium' | 'high'
+
+export interface FeedbackItem {
+  id: string
+  type: FeedbackType
+  title: string
+  description: string | null
+  status: FeedbackStatus
+  priority: FeedbackPriority
+  submitted_by: string | null
+  resolved_at: string | null
+  resolved_by: string | null
+  notify_on_resolve: boolean
+  created_at: string
+  updated_at: string
+  attachments?: FeedbackAttachment[]
+}
+
+export interface FeedbackAttachment {
+  id: string
+  feedback_item_id: string
+  url: string
+  filename: string | null
+  mime_type: string | null
+  uploaded_by: string | null
+  created_at: string
+}
+
 // Supabase Database type for the client generic
 export interface Database {
   public: {
@@ -402,6 +432,8 @@ export interface Database {
       work_order_crew: { Row: WorkOrderCrewMember; Insert: Omit<WorkOrderCrewMember, 'id'>; Update: Partial<Omit<WorkOrderCrewMember, 'id'>> }
       team_unavailability: { Row: TeamUnavailability; Insert: Omit<TeamUnavailability, 'id' | 'created_at'>; Update: Partial<Omit<TeamUnavailability, 'id'>> }
       proposal_boilerplate_templates: { Row: ProposalBoilerplateTemplate; Insert: Omit<ProposalBoilerplateTemplate, 'id' | 'created_at' | 'updated_at'>; Update: Partial<Omit<ProposalBoilerplateTemplate, 'id'>> }
+      feedback_items: { Row: FeedbackItem; Insert: Omit<FeedbackItem, 'id' | 'created_at' | 'updated_at' | 'resolved_at' | 'resolved_by' | 'attachments'>; Update: Partial<Omit<FeedbackItem, 'id'>> }
+      feedback_attachments: { Row: FeedbackAttachment; Insert: Omit<FeedbackAttachment, 'id' | 'created_at'>; Update: Partial<Omit<FeedbackAttachment, 'id'>> }
     }
   }
 }
