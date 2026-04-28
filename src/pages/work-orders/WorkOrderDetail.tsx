@@ -15,11 +15,13 @@ import { TabBar } from './components/TabBar'
 import { AssignCrewModal } from '@/components/work-orders/AssignCrewModal'
 import { FieldTab } from './tabs/FieldTab'
 import { WORK_ORDER_STATUSES, formatPeriodLabel, getUrgencyColors, getServiceColor } from '@/lib/constants'
-import type { WorkOrder, Role } from '@/types/database'
+import { formatCurrency } from '@/lib/utils'
+import type { WorkOrder, Role, ServiceAgreementLineItem } from '@/types/database'
 
 const TABS = [
   { key: 'details', label: 'Details' },
   { key: 'field', label: 'Field' },
+  { key: 'proposal', label: 'Proposal' },
   { key: 'history', label: 'History' },
   { key: 'notes', label: 'Notes' },
 ]
@@ -550,6 +552,160 @@ function HistoryTab({ wo }: { wo: WorkOrder }) {
   )
 }
 
+function ProposalTab({ wo }: { wo: WorkOrder }) {
+  const [lineItems, setLineItems] = useState<ServiceAgreementLineItem[]>([])
+  const [agreementNotes, setAgreementNotes] = useState<{ notes_client: string | null; recommendation_notes: string | null; signed_pdf_url: string | null; proposal_pdf_url: string | null } | null>(null)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    async function fetchProposalData() {
+      const [lineItemsRes, agreementRes] = await Promise.all([
+        supabase
+          .from('service_agreement_line_items')
+          .select('*, service_type:service_types(*)')
+          .eq('agreement_id', wo.service_agreement_id)
+          .order('sort_order', { ascending: true }),
+        supabase
+          .from('service_agreements')
+          .select('notes_client, recommendation_notes, signed_pdf_url, proposal_pdf_url')
+          .eq('id', wo.service_agreement_id)
+          .single(),
+      ])
+
+      if (lineItemsRes.data) setLineItems(lineItemsRes.data as ServiceAgreementLineItem[])
+      if (agreementRes.data) setAgreementNotes(agreementRes.data as any)
+      setIsLoading(false)
+    }
+    fetchProposalData()
+  }, [wo.service_agreement_id])
+
+  if (isLoading) return <LoadingSpinner />
+
+  const frequencyLabels: Record<string, string> = {
+    one_time: 'One-Time',
+    annual: 'Annual',
+    monthly_seasonal: 'Monthly (Seasonal)',
+    weekly_seasonal: 'Weekly (Seasonal)',
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Line items */}
+      <div>
+        <h2 className="text-sm font-semibold mb-3">Proposal Line Items</h2>
+        {lineItems.length === 0 ? (
+          <p className="text-sm text-[var(--color-text-muted)]">No line items on this agreement.</p>
+        ) : (
+          <div className="space-y-4">
+            {lineItems.map((li, idx) => {
+              const sc = getServiceColor(li.service_type?.name)
+              return (
+                <div key={li.id} className="rounded-lg border border-surface-border p-3" style={{ borderLeft: `3px solid ${sc.border}` }}>
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <span className="text-xs text-[var(--color-text-muted)] mr-2">#{idx + 1}</span>
+                      <span className="text-sm font-semibold">
+                        {li.service_type?.name ?? li.description ?? 'Service'}
+                      </span>
+                    </div>
+                    <span className="text-sm font-semibold text-brand-green">
+                      {formatCurrency(li.amount)}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-[var(--color-text-muted)] mb-2">
+                    <span>Frequency: {frequencyLabels[li.frequency] ?? li.frequency}</span>
+                    {li.acreage != null && <span>Acreage: {li.acreage}</span>}
+                    {li.hours != null && <span>Hours: {li.hours}</span>}
+                    {li.unit_rate != null && <span>Rate: {formatCurrency(li.unit_rate)}</span>}
+                  </div>
+
+                  {/* Sub-line items */}
+                  {Array.isArray(li.line_items) && li.line_items.length > 0 && (
+                    <div className="mt-2 pl-4 border-l-2 border-surface-border space-y-1">
+                      {li.line_items.map((sub, i) => (
+                        <p key={i} className="text-xs text-[var(--color-text-primary)]">
+                          <span className="text-[var(--color-text-muted)] mr-1">{String.fromCharCode(65 + i)}.</span>
+                          {sub}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+
+            {/* Total */}
+            <div className="flex justify-end pt-2 border-t border-surface-border">
+              <p className="text-sm font-semibold">
+                Total: <span className="text-brand-green">{formatCurrency(lineItems.reduce((sum, li) => sum + (li.amount ?? 0), 0))}</span>
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Client notes */}
+      {agreementNotes?.notes_client && (
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Client Notes</h2>
+          <p className="text-sm whitespace-pre-wrap">{agreementNotes.notes_client}</p>
+        </div>
+      )}
+
+      {/* Recommendation notes */}
+      {agreementNotes?.recommendation_notes && (
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Recommendation / Warning</h2>
+          <p className="text-sm whitespace-pre-wrap bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
+            {agreementNotes.recommendation_notes}
+          </p>
+        </div>
+      )}
+
+      {/* Signed document link */}
+      {(agreementNotes?.signed_pdf_url || agreementNotes?.proposal_pdf_url) && (
+        <div>
+          <h2 className="text-sm font-semibold mb-2">Documents</h2>
+          <div className="flex flex-wrap gap-2">
+            {agreementNotes.signed_pdf_url && (
+              <a
+                href={agreementNotes.signed_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm hover:bg-surface transition-colors text-brand-green"
+              >
+                <CheckCircle size={14} />
+                View Signed Document
+              </a>
+            )}
+            {agreementNotes.proposal_pdf_url && (
+              <a
+                href={agreementNotes.proposal_pdf_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm hover:bg-surface transition-colors"
+              >
+                View Proposal PDF
+              </a>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Link to full agreement */}
+      <div className="pt-2 border-t border-surface-border">
+        <Link
+          to={`/agreements/${wo.service_agreement_id}`}
+          className="text-sm text-brand-green hover:underline"
+        >
+          View Full Agreement →
+        </Link>
+      </div>
+    </div>
+  )
+}
+
 interface WONote {
   id: string
   body: string
@@ -860,6 +1016,7 @@ export function WorkOrderDetail() {
         <div className="p-5">
           {activeTab === 'details' && <DetailsTab wo={workOrder} role={role ?? null} onAssignCrew={() => setShowAssignModal(true)} />}
           {activeTab === 'field' && <FieldTab wo={workOrder} teamMemberId={teamMember?.id ?? null} role={role ?? ''} onComplete={refetch} />}
+          {activeTab === 'proposal' && <ProposalTab wo={workOrder} />}
           {activeTab === 'history' && <HistoryTab wo={workOrder} />}
           {activeTab === 'notes' && <NotesTab wo={workOrder} />}
         </div>

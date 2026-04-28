@@ -40,8 +40,8 @@ function QueueCard({ wo, compact }: QueueCardProps) {
         className="flex-shrink-0 w-[200px] md:w-auto rounded-lg border border-surface-border bg-white p-2 cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow"
         style={{ borderLeft: `3px solid ${sc.border}` }}
       >
-        <p className="text-xs font-semibold truncate">{wo.client?.name ?? 'Client'}</p>
-        <p className="text-[10px] text-[var(--color-text-muted)] truncate">{wo.site?.name}</p>
+        <p className="text-xs font-semibold truncate">{wo.site?.name ?? 'Site'}</p>
+        <p className="text-[10px] text-[var(--color-text-muted)] truncate">{wo.client?.name ?? 'Client'}</p>
         <div className="flex items-center gap-1 mt-1">
           {wo.service_type?.name && (
             <span className={`inline-block rounded px-1 py-0.5 text-[10px] font-semibold ${sc.bg} ${sc.text}`}>
@@ -63,10 +63,10 @@ function QueueCard({ wo, compact }: QueueCardProps) {
       style={{ borderLeft: `3px solid ${sc.border}` }}
     >
       <div className="flex items-start justify-between gap-1">
-        <p className="text-sm font-semibold truncate">{wo.client?.name ?? 'Client'}</p>
+        <p className="text-sm font-semibold truncate">{wo.site?.name ?? 'Site'}</p>
         <DaysSincePill days={wo.days_since_last_service} />
       </div>
-      <p className="text-xs text-[var(--color-text-muted)] truncate">{wo.site?.name}</p>
+      <p className="text-xs text-[var(--color-text-muted)] truncate">{wo.client?.name ?? 'Client'}</p>
       <div className="flex items-center gap-1 mt-1">
         {wo.service_type?.name && (
           <span className={`inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${sc.bg} ${sc.text}`}>
@@ -83,7 +83,7 @@ function CalendarChip({ wo, onConfirm }: { wo: WorkOrder; onConfirm: (id: string
   const navigate = useNavigate()
   const sc = getServiceColor(wo.service_type?.name)
   const isTentative = wo.status === 'tentative'
-  const clientShort = wo.client?.name?.split(' ')[0] ?? ''
+  const siteShort = wo.site?.name?.split(' ').slice(0, 2).join(' ') ?? ''
 
   return (
     <div
@@ -92,7 +92,7 @@ function CalendarChip({ wo, onConfirm }: { wo: WorkOrder; onConfirm: (id: string
         isTentative ? 'border border-dashed border-gray-400 bg-gray-50 text-gray-600' : `${sc.bg} ${sc.text}`
       }`}
     >
-      <span className="truncate">{clientShort}{wo.service_type?.name ? ` – ${wo.service_type.name}` : ''}</span>
+      <span className="truncate">{siteShort}{wo.service_type?.name ? ` – ${wo.service_type.name}` : ''}</span>
       {isTentative && (
         <button
           type="button"
@@ -146,7 +146,7 @@ export function SchedulePage() {
       const da = a.days_since_last_service ?? -1
       const db = b.days_since_last_service ?? -1
       if (db !== da) return db - da
-      return (a.client?.name ?? '').localeCompare(b.client?.name ?? '')
+      return (a.site?.name ?? '').localeCompare(b.site?.name ?? '')
     })
 
   const calendarWOs = workOrders.filter(wo => {

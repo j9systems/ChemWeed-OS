@@ -272,6 +272,12 @@ export function SiteDetail() {
                   <dd className="inline capitalize">{site.property_type}</dd>
                 </div>
               )}
+              {(site.latitude != null && site.longitude != null) && (
+                <div>
+                  <dt className="text-[var(--color-text-muted)] inline">Coordinates: </dt>
+                  <dd className="inline">{site.latitude.toFixed(6)}, {site.longitude.toFixed(6)}</dd>
+                </div>
+              )}
               {site.total_acres != null && (
                 <div>
                   <dt className="text-[var(--color-text-muted)] inline">Acreage: </dt>

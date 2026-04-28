@@ -15,6 +15,7 @@ const PRICING_OPTIONS = [
   { value: 'per_acre', label: 'Per Acre' },
   { value: 'per_hour', label: 'Per Hour' },
   { value: 'flat_rate', label: 'Flat Rate' },
+  { value: 'per_visit', label: 'Per Visit' },
 ]
 
 const emptyService: Partial<ServiceType> = {
@@ -25,6 +26,7 @@ const emptyService: Partial<ServiceType> = {
   base_rate_high: null,
   default_scope_template: '',
   internal_notes: '',
+  sort_order: null,
   is_active: true,
 }
 
@@ -43,6 +45,7 @@ export function ServicesTab() {
     const { data, error } = await supabase
       .from('service_types')
       .select('*')
+      .order('sort_order', { ascending: true, nullsFirst: false })
       .order('name')
     if (error) {
       setToast({ message: error.message, type: 'error' })
@@ -100,14 +103,13 @@ export function ServicesTab() {
       name: editingService.name.trim(),
       description: editingService.description || null,
       pricing_model: editingService.pricing_model,
-      base_rate_low: editingService.pricing_model === 'flat_rate'
-        ? editingService.base_rate_low
-        : editingService.base_rate_low,
-      base_rate_high: editingService.pricing_model === 'flat_rate'
-        ? editingService.base_rate_low // flat rate uses single value
+      base_rate_low: editingService.base_rate_low,
+      base_rate_high: (editingService.pricing_model === 'flat_rate' || editingService.pricing_model === 'per_visit')
+        ? editingService.base_rate_low // flat rate and per visit use single value
         : editingService.base_rate_high,
       default_scope_template: editingService.default_scope_template || null,
       internal_notes: editingService.internal_notes || null,
+      sort_order: editingService.sort_order ?? null,
       is_active: editingService.is_active ?? true,
     }
 
@@ -131,6 +133,7 @@ export function ServicesTab() {
   const rateLabel = (model: PricingModel) => {
     if (model === 'per_acre') return '/ acre'
     if (model === 'per_hour') return '/ hour'
+    if (model === 'per_visit') return '/ visit'
     return 'flat'
   }
 
@@ -153,6 +156,7 @@ export function ServicesTab() {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-surface-border text-left text-[var(--color-text-muted)]">
+                <th className="pb-2 pr-4 font-medium w-10">#</th>
                 <th className="pb-2 pr-4 font-medium">Name</th>
                 <th className="pb-2 pr-4 font-medium">Pricing Model</th>
                 <th className="pb-2 pr-4 font-medium">Rate Low</th>
@@ -169,6 +173,7 @@ export function ServicesTab() {
                   className="border-b border-surface-border/50 hover:bg-surface/50 cursor-pointer"
                   onClick={() => { setEditingService({ ...s }); setIsNew(false) }}
                 >
+                  <td className="py-3 pr-4 text-[var(--color-text-muted)]">{s.sort_order ?? '—'}</td>
                   <td className="py-3 pr-4 font-medium">{s.name}</td>
                   <td className="py-3 pr-4">
                     {PRICING_OPTIONS.find(o => o.value === s.pricing_model)?.label ?? s.pricing_model}
@@ -177,7 +182,7 @@ export function ServicesTab() {
                     {s.base_rate_low != null ? `${formatCurrency(s.base_rate_low)} ${rateLabel(s.pricing_model)}` : '—'}
                   </td>
                   <td className="py-3 pr-4">
-                    {s.pricing_model === 'flat_rate'
+                    {(s.pricing_model === 'flat_rate' || s.pricing_model === 'per_visit')
                       ? '—'
                       : s.base_rate_high != null
                         ? `${formatCurrency(s.base_rate_high)} ${rateLabel(s.pricing_model)}`
@@ -209,7 +214,7 @@ export function ServicesTab() {
                 </tr>
               ))}
               {services.length === 0 && (
-                <tr><td colSpan={7} className="py-8 text-center text-[var(--color-text-muted)]">No services configured</td></tr>
+                <tr><td colSpan={8} className="py-8 text-center text-[var(--color-text-muted)]">No services configured</td></tr>
               )}
             </tbody>
           </table>
@@ -229,11 +234,20 @@ export function ServicesTab() {
               value={editingService.name ?? ''}
               onChange={(e) => setEditingService({ ...editingService, name: e.target.value })}
             />
-            <Input
-              label="Description"
-              value={editingService.description ?? ''}
-              onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
-            />
+            <div className="grid grid-cols-[1fr_80px] gap-3">
+              <Input
+                label="Description"
+                value={editingService.description ?? ''}
+                onChange={(e) => setEditingService({ ...editingService, description: e.target.value })}
+              />
+              <Input
+                label="Sort #"
+                type="number"
+                value={editingService.sort_order ?? ''}
+                onChange={(e) => setEditingService({ ...editingService, sort_order: e.target.value ? Number(e.target.value) : null })}
+                placeholder="#"
+              />
+            </div>
             <Select
               label="Pricing Model"
               options={PRICING_OPTIONS}
@@ -243,9 +257,9 @@ export function ServicesTab() {
                 pricing_model: e.target.value as PricingModel,
               })}
             />
-            {editingService.pricing_model === 'flat_rate' ? (
+            {(editingService.pricing_model === 'flat_rate' || editingService.pricing_model === 'per_visit') ? (
               <Input
-                label="Flat Rate ($)"
+                label={editingService.pricing_model === 'per_visit' ? 'Rate Per Visit ($)' : 'Flat Rate ($)'}
                 type="number"
                 step="0.01"
                 value={editingService.base_rate_low ?? ''}

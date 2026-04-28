@@ -192,6 +192,7 @@ Deno.serve(async (req) => {
         contract_type: wo.frequency_type ?? lineItems1[0]?.frequency ?? '1X',
         po_number: wo.po_number ?? '',
         closing_notes: wo.notes_client ?? '',
+        recommendation_notes: wo.recommendation_notes ?? '',
 
         line_items_1: lineItems1,
       },

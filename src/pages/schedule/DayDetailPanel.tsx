@@ -71,15 +71,18 @@ export function DayJobList({
             className="rounded-lg border border-surface-border bg-white hover:shadow-md transition-shadow cursor-pointer p-3"
             style={{ borderLeft: `4px solid ${sc.border}` }}
           >
-            {/* Client & service */}
-            <div className="flex items-start justify-between gap-2 mb-1.5">
-              <p className="text-sm font-semibold truncate">{wo.client?.name ?? 'Client'}</p>
+            {/* Site & service */}
+            <div className="flex items-start justify-between gap-2 mb-0.5">
+              <p className="text-sm font-semibold truncate">{wo.site?.name ?? 'Site'}</p>
               {wo.service_type?.name && (
                 <span className={`shrink-0 inline-block rounded px-1.5 py-0.5 text-[10px] font-semibold ${sc.bg} ${sc.text}`}>
                   {wo.service_type.name}
                 </span>
               )}
             </div>
+
+            {/* Client */}
+            <p className="text-xs text-[var(--color-text-muted)] truncate mb-1">{wo.client?.name ?? 'Client'}</p>
 
             {/* Address */}
             <div className="flex items-center gap-1.5 text-xs text-[var(--color-text-muted)] mb-1.5">

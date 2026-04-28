@@ -932,7 +932,7 @@ function WorkOrdersSection({ workOrders, lineItems }: { workOrders: WorkOrder[];
 }
 
 function NotesSection({ agreement }: { agreement: ServiceAgreement }) {
-  const hasAny = agreement.notes_client || agreement.notes_internal || agreement.notes_technician
+  const hasAny = agreement.notes_client || agreement.notes_internal || agreement.notes_technician || agreement.recommendation_notes
 
   if (!hasAny) {
     return <p className="text-sm text-[var(--color-text-muted)]">No notes for this agreement.</p>
@@ -952,6 +952,14 @@ function NotesSection({ agreement }: { agreement: ServiceAgreement }) {
         <h2 className="text-sm font-semibold mb-2">Tech Instructions</h2>
         <p className="text-sm whitespace-pre-wrap">{agreement.notes_technician || <span className="text-[var(--color-text-muted)]">—</span>}</p>
       </div>
+      {agreement.recommendation_notes && (
+        <div className="border-t border-surface-border pt-4">
+          <h2 className="text-sm font-semibold mb-2">Recommendation / Warning Notes</h2>
+          <p className="text-sm whitespace-pre-wrap bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
+            {agreement.recommendation_notes}
+          </p>
+        </div>
+      )}
     </div>
   )
 }

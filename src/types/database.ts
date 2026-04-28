@@ -11,7 +11,7 @@ export type PropertyType = 'commercial' | 'government' | 'residential'
 
 export type WindDirection = 'N' | 'NE' | 'E' | 'SE' | 'S' | 'SW' | 'W' | 'NW'
 
-export type PricingModel = 'per_acre' | 'per_hour' | 'flat_rate'
+export type PricingModel = 'per_acre' | 'per_hour' | 'flat_rate' | 'per_visit'
 
 export interface Client {
   id: string
@@ -145,6 +145,7 @@ export interface ServiceAgreement {
   notes_client: string | null
   notes_internal: string | null
   notes_technician: string | null
+  recommendation_notes: string | null
   signing_session_id?: string | null
   signing_status?: string | null
   client_signing_url?: string | null
@@ -249,6 +250,7 @@ export interface ServiceType {
   base_rate_high: number | null
   default_scope_template: string | null
   internal_notes: string | null
+  sort_order: number | null
   is_active: boolean
 }
 

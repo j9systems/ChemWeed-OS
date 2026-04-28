@@ -39,6 +39,7 @@ interface AgreementNewForm {
   commentClient: string
   commentInternal: string
   commentTech: string
+  recommendationNotes: string
   materials: MaterialRow[]
   lineItems: LineItemRow[]
   urgencyLevelId: string
@@ -61,6 +62,7 @@ const EMPTY_FORM: AgreementNewForm = {
   commentClient: '',
   commentInternal: '',
   commentTech: '',
+  recommendationNotes: '',
   materials: [],
   lineItems: [],
   urgencyLevelId: '',
@@ -210,6 +212,7 @@ export function AgreementNew() {
         notes_client: form.commentClient || null,
         notes_internal: form.commentInternal || null,
         notes_technician: form.commentTech || null,
+        recommendation_notes: form.recommendationNotes || null,
         created_by: user?.id ?? '',
       })
       .select('id')
@@ -663,6 +666,19 @@ export function AgreementNew() {
                 rows={2}
                 className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-[var(--color-text-muted)] mb-1">Recommendation / Warning Notes</label>
+              <textarea
+                value={form.recommendationNotes}
+                onChange={(e) => update('recommendationNotes', e.target.value)}
+                rows={3}
+                placeholder="e.g. This is a one-time treatment and does not guarantee long-term weed control..."
+                className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"
+              />
+              <p className="text-xs text-[var(--color-text-muted)] mt-1">
+                Appears on the proposal above the signature block.
+              </p>
             </div>
           </div>
         </Card>

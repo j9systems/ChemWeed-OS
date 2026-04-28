@@ -237,7 +237,7 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
         const marker = new google.maps.Marker({
           position: latLng,
           map: mapInstanceRef.current!,
-          title: `${wo.client?.name ?? 'Client'} – ${wo.site?.name ?? 'Site'}`,
+          title: `${wo.site?.name ?? 'Site'} – ${wo.client?.name ?? 'Client'}`,
           icon: {
             url: createMarkerSvg(colors, String(i + 1)),
             scaledSize: new google.maps.Size(28, 40),
@@ -254,8 +254,8 @@ export function DayMapPanel({ dateStr, workOrders, open, onClose, assigneeColorM
         const infoWindow = new google.maps.InfoWindow({
           content: `
             <div style="font-family:system-ui;max-width:220px">
-              <p style="font-weight:600;margin:0 0 2px">${wo.client?.name ?? 'Client'}</p>
-              <p style="font-size:12px;color:#6b7280;margin:0 0 2px">${wo.service_type?.name ?? ''}</p>
+              <p style="font-weight:600;margin:0 0 2px">${wo.site?.name ?? 'Site'}</p>
+              <p style="font-size:12px;color:#6b7280;margin:0 0 2px">${wo.client?.name ?? 'Client'}${wo.service_type?.name ? ` · ${wo.service_type.name}` : ''}</p>
               <p style="font-size:12px;color:#6b7280;margin:0 0 4px">${shortAddress}</p>
               <div style="display:flex;align-items:center;gap:4px;flex-wrap:wrap">
                 <span style="display:inline-flex;gap:2px">${swatchHtml}</span>

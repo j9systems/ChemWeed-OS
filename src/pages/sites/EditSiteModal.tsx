@@ -21,6 +21,8 @@ export function EditSiteModal({ open, site, onSuccess, onCancel }: EditSiteModal
   const [zip, setZip] = useState('')
   const [propertyType, setPropertyType] = useState<PropertyType | ''>('')
   const [acreage, setAcreage] = useState('')
+  const [latitude, setLatitude] = useState('')
+  const [longitude, setLongitude] = useState('')
   const [notes, setNotes] = useState('')
 
   const [saving, setSaving] = useState(false)
@@ -33,6 +35,8 @@ export function EditSiteModal({ open, site, onSuccess, onCancel }: EditSiteModal
     zip !== (site.zip ?? '') ||
     propertyType !== (site.property_type ?? '') ||
     acreage !== (site.total_acres != null ? String(site.total_acres) : '') ||
+    latitude !== (site.latitude != null ? String(site.latitude) : '') ||
+    longitude !== (site.longitude != null ? String(site.longitude) : '') ||
     notes !== (site.notes ?? '')
   useUnsavedChanges(isDirty)
 
@@ -44,6 +48,8 @@ export function EditSiteModal({ open, site, onSuccess, onCancel }: EditSiteModal
       setZip(site.zip ?? '')
       setPropertyType(site.property_type ?? '')
       setAcreage(site.total_acres != null ? String(site.total_acres) : '')
+      setLatitude(site.latitude != null ? String(site.latitude) : '')
+      setLongitude(site.longitude != null ? String(site.longitude) : '')
       setNotes(site.notes ?? '')
       setError(null)
       setSaving(false)
@@ -63,6 +69,8 @@ export function EditSiteModal({ open, site, onSuccess, onCancel }: EditSiteModal
         zip: zip.trim(),
         property_type: propertyType || null,
         total_acres: acreage ? parseFloat(acreage) : null,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
         notes: notes.trim() || null,
       })
       .eq('id', site.id)
@@ -134,6 +142,25 @@ export function EditSiteModal({ open, site, onSuccess, onCancel }: EditSiteModal
           min="0"
           step="0.01"
         />
+
+        <div className="grid grid-cols-2 gap-3">
+          <Input
+            label="Latitude"
+            type="number"
+            value={latitude}
+            onChange={(e) => setLatitude(e.target.value)}
+            placeholder="e.g. 38.2345"
+            step="0.000001"
+          />
+          <Input
+            label="Longitude"
+            type="number"
+            value={longitude}
+            onChange={(e) => setLongitude(e.target.value)}
+            placeholder="e.g. -121.4567"
+            step="0.000001"
+          />
+        </div>
 
         <div>
           <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">Notes</label>
