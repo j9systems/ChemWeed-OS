@@ -8,11 +8,14 @@ declare namespace google.maps {
     setCenter(latLng: LatLng | LatLngLiteral): void
     setZoom(zoom: number): void
     fitBounds(bounds: LatLngBounds, padding?: number | Padding): void
+    addListener(event: string, handler: (e?: MapMouseEvent) => void): MapsEventListener
   }
   class Marker {
     constructor(opts?: MarkerOptions)
     setMap(map: Map | null): void
-    addListener(event: string, handler: () => void): void
+    setPosition(latLng: LatLng | LatLngLiteral): void
+    getPosition(): LatLng | null
+    addListener(event: string, handler: (e?: MapMouseEvent) => void): MapsEventListener
   }
   class LatLngBounds {
     constructor()
@@ -53,10 +56,17 @@ declare namespace google.maps {
     streetViewControl?: boolean
     fullscreenControl?: boolean
   }
+  interface MapMouseEvent {
+    latLng?: LatLng
+  }
+  interface MapsEventListener {
+    remove(): void
+  }
   interface MarkerOptions {
     position?: LatLng | LatLngLiteral
     map?: Map
     title?: string
+    draggable?: boolean
     icon?: string | { url: string; scaledSize?: Size; anchor?: Point }
   }
 }
