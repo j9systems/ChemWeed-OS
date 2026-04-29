@@ -1,0 +1,3 @@
+-- Rename recommendation_notes to disclaimer on service_agreements
+ALTER TABLE public.service_agreements
+  RENAME COLUMN recommendation_notes TO disclaimer;

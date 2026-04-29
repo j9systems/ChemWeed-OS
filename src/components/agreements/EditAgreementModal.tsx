@@ -32,7 +32,7 @@ interface EditAgreementForm {
   poNumber: string
   boilerplateTemplateId: string
   reason: string
-  recommendationNotes: string
+  disclaimer: string
 }
 
 function formFromAgreement(a: ServiceAgreement): EditAgreementForm {
@@ -52,7 +52,7 @@ function formFromAgreement(a: ServiceAgreement): EditAgreementForm {
     poNumber: a.po_number ?? '',
     boilerplateTemplateId: a.boilerplate_template_id ?? '',
     reason: a.reason ?? '',
-    recommendationNotes: a.recommendation_notes ?? '',
+    disclaimer: a.disclaimer ?? '',
   }
 }
 
@@ -150,7 +150,7 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
         po_number: form.poNumber || null,
         boilerplate_template_id: form.boilerplateTemplateId || null,
         reason: form.reason || null,
-        recommendation_notes: form.recommendationNotes || null,
+        disclaimer: form.disclaimer || null,
       })
       .eq('id', agreement.id)
 
@@ -386,10 +386,10 @@ export function EditAgreementModal({ open, agreement, onClose, onSaved }: EditAg
         </div>
 
         <div>
-          <label className="block text-sm font-medium mb-1">Recommendation / Warning Notes</label>
+          <label className="block text-sm font-medium mb-1">Disclaimer</label>
           <textarea
-            value={form.recommendationNotes}
-            onChange={(e) => update('recommendationNotes', e.target.value)}
+            value={form.disclaimer}
+            onChange={(e) => update('disclaimer', e.target.value)}
             rows={3}
             placeholder="e.g. This is a one-time treatment and does not guarantee long-term weed control..."
             className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-green/30 focus:border-brand-green"

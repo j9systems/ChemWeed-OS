@@ -554,7 +554,7 @@ function HistoryTab({ wo }: { wo: WorkOrder }) {
 
 function ProposalTab({ wo }: { wo: WorkOrder }) {
   const [lineItems, setLineItems] = useState<ServiceAgreementLineItem[]>([])
-  const [agreementNotes, setAgreementNotes] = useState<{ notes_client: string | null; recommendation_notes: string | null; signed_pdf_url: string | null; proposal_pdf_url: string | null } | null>(null)
+  const [agreementNotes, setAgreementNotes] = useState<{ notes_client: string | null; disclaimer: string | null; signed_pdf_url: string | null; proposal_pdf_url: string | null } | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
@@ -567,7 +567,7 @@ function ProposalTab({ wo }: { wo: WorkOrder }) {
           .order('sort_order', { ascending: true }),
         supabase
           .from('service_agreements')
-          .select('notes_client, recommendation_notes, signed_pdf_url, proposal_pdf_url')
+          .select('notes_client, disclaimer, signed_pdf_url, proposal_pdf_url')
           .eq('id', wo.service_agreement_id)
           .single(),
       ])
@@ -654,11 +654,11 @@ function ProposalTab({ wo }: { wo: WorkOrder }) {
       )}
 
       {/* Recommendation notes */}
-      {agreementNotes?.recommendation_notes && (
+      {agreementNotes?.disclaimer && (
         <div>
-          <h2 className="text-sm font-semibold mb-2">Recommendation / Warning</h2>
+          <h2 className="text-sm font-semibold mb-2">Disclaimer</h2>
           <p className="text-sm whitespace-pre-wrap bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-amber-900">
-            {agreementNotes.recommendation_notes}
+            {agreementNotes.disclaimer}
           </p>
         </div>
       )}

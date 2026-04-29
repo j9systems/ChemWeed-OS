@@ -145,7 +145,7 @@ export interface ServiceAgreement {
   notes_client: string | null
   notes_internal: string | null
   notes_technician: string | null
-  recommendation_notes: string | null
+  disclaimer: string | null
   signing_session_id?: string | null
   signing_status?: string | null
   client_signing_url?: string | null

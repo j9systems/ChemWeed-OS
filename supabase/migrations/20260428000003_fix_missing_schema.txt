@@ -1,0 +1,28 @@
+-- Add any schema changes that may not have applied from the first migration
+
+-- sort_order on service_types
+ALTER TABLE public.service_types
+  ADD COLUMN IF NOT EXISTS sort_order integer;
+
+-- per_visit pricing model
+ALTER TABLE public.service_types
+  DROP CONSTRAINT IF EXISTS service_types_pricing_model_check;
+ALTER TABLE public.service_types
+  ADD CONSTRAINT service_types_pricing_model_check
+  CHECK (pricing_model IN ('per_acre', 'per_hour', 'flat_rate', 'per_visit'));
+
+-- recommendation_notes on service_agreements
+ALTER TABLE public.service_agreements
+  ADD COLUMN IF NOT EXISTS recommendation_notes text;
+
+-- Set sort_order values for active service types
+UPDATE public.service_types SET sort_order = 0 WHERE name ILIKE '%POWER STRIKE%';
+UPDATE public.service_types SET sort_order = 1 WHERE name ILIKE '%FOUNDATION TREATMENT%';
+UPDATE public.service_types SET sort_order = 2 WHERE name ILIKE '%KICK START%';
+UPDATE public.service_types SET sort_order = 3 WHERE name ILIKE '%QUALITY ASSURANCE%';
+UPDATE public.service_types SET sort_order = 4 WHERE name ILIKE '%QUALITY PERFECTION%';
+UPDATE public.service_types SET sort_order = 5 WHERE name ILIKE '%MECHANICAL CONTROL%';
+
+-- Update QAP and QPP to per_visit pricing
+UPDATE public.service_types SET pricing_model = 'per_visit'
+  WHERE name ILIKE '%QUALITY ASSURANCE%' OR name ILIKE '%QUALITY PERFECTION%';
