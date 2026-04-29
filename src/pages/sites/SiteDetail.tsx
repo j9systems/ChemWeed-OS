@@ -13,11 +13,13 @@ import {
   Navigation,
   AlertTriangle,
   Pencil,
+  Trash2,
 } from 'lucide-react'
 import { useAuth } from '@/hooks/useAuth'
 import { useSite } from '@/hooks/useSite'
 import { useSiteProfile } from '@/hooks/useSiteProfile'
 import { useSitePhotos } from '@/hooks/useSitePhotos'
+import { useFieldLogPhotos } from '@/hooks/useFieldLogPhotos'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { supabase } from '@/lib/supabase'
 import { getSupabaseErrorMessage, formatDate, formatDateTime } from '@/lib/utils'
@@ -54,6 +56,7 @@ export function SiteDetail() {
   const { site, isLoading, error, refetch: refetchSite } = useSite(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(id)
   const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(id)
+  const { groups: fieldLogGroups } = useFieldLogPhotos(id)
   const { workOrders } = useWorkOrders()
 
   const [newWeed, setNewWeed] = useState('')
@@ -61,6 +64,7 @@ export function SiteDetail() {
   const [weedError, setWeedError] = useState<string | null>(null)
   const [showAllLogs, setShowAllLogs] = useState(false)
   const [photoPage, setPhotoPage] = useState(0)
+  const [photoTab, setPhotoTab] = useState<'admin' | 'field_log'>('admin')
   const [uploading, setUploading] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -149,6 +153,7 @@ export function SiteDetail() {
         .insert({
           site_id: site.id,
           photo_url: urlData.publicUrl,
+          photo_type: 'admin',
           uploaded_by: user?.id ?? null,
         })
 
@@ -161,6 +166,26 @@ export function SiteDetail() {
     refetchPhotos()
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
+
+  async function handleDeletePhoto(photoId: string) {
+    setWeedError(null)
+    const { error: err } = await supabase
+      .from('site_photos')
+      .delete()
+      .eq('id', photoId)
+
+    if (err) {
+      setWeedError(getSupabaseErrorMessage(err))
+    } else {
+      refetchPhotos()
+    }
+  }
+
+  // Count field log photos across all groups
+  const fieldLogPhotoCount = fieldLogGroups.reduce(
+    (sum, g) => sum + g.beforeUrls.length + g.afterUrls.length + g.duringUrls.length,
+    0,
+  )
 
   return (
     <div>
@@ -401,78 +426,202 @@ export function SiteDetail() {
 
         {/* Right — Photos & Observation Log */}
         <div className="space-y-6">
-          {/* Site Photos */}
+          {/* Site Photos — Tabbed */}
           <Card>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-xs font-semibold uppercase text-[var(--color-text-muted)]">Site Photos</h3>
-              {canEdit(role) && (
-                <>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    onChange={handlePhotoUpload}
-                    className="hidden"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="inline-flex items-center gap-1 text-xs text-brand-green hover:underline min-h-[32px]"
-                  >
-                    <Upload size={14} />
-                    {uploading ? 'Uploading...' : 'Upload'}
-                  </button>
-                </>
-              )}
+            {/* Tab bar */}
+            <div className="flex items-center gap-0 border-b border-surface-border -mx-4 px-4 mb-3">
+              <button
+                type="button"
+                onClick={() => { setPhotoTab('admin'); setPhotoPage(0) }}
+                className={`px-3 py-2 text-xs font-semibold uppercase transition-colors min-h-[40px] ${
+                  photoTab === 'admin'
+                    ? 'text-brand-green border-b-2 border-brand-green'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                Admin Photos
+                {sitePhotos.length > 0 && (
+                  <span className="ml-1 text-[10px] font-normal">({sitePhotos.length})</span>
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setPhotoTab('field_log'); setPhotoPage(0) }}
+                className={`px-3 py-2 text-xs font-semibold uppercase transition-colors min-h-[40px] ${
+                  photoTab === 'field_log'
+                    ? 'text-brand-green border-b-2 border-brand-green'
+                    : 'text-[var(--color-text-muted)] hover:text-[var(--color-text-primary)]'
+                }`}
+              >
+                Field Log Photos
+                {fieldLogPhotoCount > 0 && (
+                  <span className="ml-1 text-[10px] font-normal">({fieldLogPhotoCount})</span>
+                )}
+              </button>
             </div>
 
-            {sitePhotos.length === 0 ? (
-              <div className="rounded-lg border border-surface-border bg-surface flex items-center justify-center h-[220px] text-sm text-[var(--color-text-muted)]">
-                <div className="flex flex-col items-center gap-1">
-                  <ImageIcon size={24} />
-                  <span>No photos yet</span>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div className="grid grid-cols-3 grid-rows-2 gap-2">
-                  {pagedPhotos.map((photo) => (
-                    <div key={photo.id} className="aspect-square rounded-lg overflow-hidden bg-surface-raised border border-surface-border">
-                      <img
-                        src={photo.photo_url}
-                        alt={photo.caption ?? 'Site photo'}
-                        className="w-full h-full object-cover"
-                      />
-                    </div>
-                  ))}
-                  {Array.from({ length: Math.max(0, PHOTOS_PER_PAGE - pagedPhotos.length) }).map((_, i) => (
-                    <div key={`empty-${i}`} className="aspect-square rounded-lg bg-surface-raised border border-surface-border" />
-                  ))}
-                </div>
-                {totalPages > 1 && (
-                  <div className="flex items-center justify-center gap-3 mt-2">
+            {/* Admin Photos tab */}
+            {photoTab === 'admin' && (
+              <>
+                {canEdit(role) && (
+                  <div className="flex justify-end mb-2">
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/*"
+                      multiple
+                      onChange={handlePhotoUpload}
+                      className="hidden"
+                    />
                     <button
-                      onClick={() => setPhotoPage((p) => Math.max(0, p - 1))}
-                      disabled={photoPage === 0}
-                      className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading}
+                      className="inline-flex items-center gap-1 text-xs text-brand-green hover:underline min-h-[32px]"
                     >
-                      <ChevronLeft size={18} />
-                    </button>
-                    <span className="text-xs text-[var(--color-text-muted)]">
-                      {photoPage + 1} / {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setPhotoPage((p) => Math.min(totalPages - 1, p + 1))}
-                      disabled={photoPage === totalPages - 1}
-                      className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
-                    >
-                      <ChevronRight size={18} />
+                      <Upload size={14} />
+                      {uploading ? 'Uploading...' : 'Upload'}
                     </button>
                   </div>
                 )}
-              </div>
+
+                {sitePhotos.length === 0 ? (
+                  <div className="rounded-lg border border-surface-border bg-surface flex items-center justify-center h-[220px] text-sm text-[var(--color-text-muted)]">
+                    <div className="flex flex-col items-center gap-1">
+                      <ImageIcon size={24} />
+                      <span>No admin photos yet</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div className="grid grid-cols-3 grid-rows-2 gap-2">
+                      {pagedPhotos.map((photo) => (
+                        <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden bg-surface-raised border border-surface-border group">
+                          <img
+                            src={photo.photo_url}
+                            alt={photo.caption ?? 'Site photo'}
+                            className="w-full h-full object-cover"
+                          />
+                          {canEdit(role) && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeletePhoto(photo.id)}
+                              className="absolute top-1 right-1 rounded-full bg-black/60 p-1 text-white hover:bg-red-600 opacity-0 group-hover:opacity-100 transition-opacity min-h-[28px] min-w-[28px] flex items-center justify-center"
+                              title="Delete photo"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                      {Array.from({ length: Math.max(0, PHOTOS_PER_PAGE - pagedPhotos.length) }).map((_, i) => (
+                        <div key={`empty-${i}`} className="aspect-square rounded-lg bg-surface-raised border border-surface-border" />
+                      ))}
+                    </div>
+                    {totalPages > 1 && (
+                      <div className="flex items-center justify-center gap-3 mt-2">
+                        <button
+                          onClick={() => setPhotoPage((p) => Math.max(0, p - 1))}
+                          disabled={photoPage === 0}
+                          className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        >
+                          <ChevronLeft size={18} />
+                        </button>
+                        <span className="text-xs text-[var(--color-text-muted)]">
+                          {photoPage + 1} / {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setPhotoPage((p) => Math.min(totalPages - 1, p + 1))}
+                          disabled={photoPage === totalPages - 1}
+                          className="p-1 rounded-lg hover:bg-surface-raised disabled:opacity-30 min-h-[32px] min-w-[32px] flex items-center justify-center"
+                        >
+                          <ChevronRight size={18} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </>
+            )}
+
+            {/* Field Log Photos tab */}
+            {photoTab === 'field_log' && (
+              <>
+                {fieldLogGroups.length === 0 ? (
+                  <div className="rounded-lg border border-surface-border bg-surface flex items-center justify-center h-[220px] text-sm text-[var(--color-text-muted)]">
+                    <div className="flex flex-col items-center gap-1">
+                      <ImageIcon size={24} />
+                      <span>No field log photos yet</span>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    {fieldLogGroups.map((group) => (
+                      <div key={group.workOrderId} className="border border-surface-border rounded-lg p-3">
+                        <div className="flex items-center justify-between mb-2">
+                          <div>
+                            <p className="text-sm font-medium">
+                              {group.serviceTypeName ?? 'Service'}
+                            </p>
+                            <p className="text-xs text-[var(--color-text-muted)]">
+                              {group.completionDate
+                                ? formatDate(group.completionDate)
+                                : group.scheduledDate
+                                  ? formatDate(group.scheduledDate)
+                                  : 'No date'}
+                            </p>
+                          </div>
+                          <Link
+                            to={`/work-orders/${group.workOrderId}`}
+                            className="text-xs text-brand-green hover:underline"
+                          >
+                            View Job
+                          </Link>
+                        </div>
+
+                        {group.beforeUrls.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[10px] font-semibold uppercase text-[var(--color-text-muted)] mb-1">Before</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {group.beforeUrls.map((url, i) => (
+                                <div key={url} className="aspect-square rounded overflow-hidden border border-surface-border">
+                                  <img src={url} alt={`Before ${i + 1}`} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {group.afterUrls.length > 0 && (
+                          <div className="mb-2">
+                            <p className="text-[10px] font-semibold uppercase text-[var(--color-text-muted)] mb-1">After</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {group.afterUrls.map((url, i) => (
+                                <div key={url} className="aspect-square rounded overflow-hidden border border-surface-border">
+                                  <img src={url} alt={`After ${i + 1}`} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+
+                        {group.duringUrls.length > 0 && (
+                          <div>
+                            <p className="text-[10px] font-semibold uppercase text-[var(--color-text-muted)] mb-1">During</p>
+                            <div className="grid grid-cols-4 gap-1.5">
+                              {group.duringUrls.map((url, i) => (
+                                <div key={url} className="aspect-square rounded overflow-hidden border border-surface-border">
+                                  <img src={url} alt={`During ${i + 1}`} className="w-full h-full object-cover" />
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </>
             )}
           </Card>
 

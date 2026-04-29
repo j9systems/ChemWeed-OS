@@ -6,6 +6,7 @@ import { useServiceAgreement } from '@/hooks/useServiceAgreement'
 import { useServiceAgreementMaterials } from '@/hooks/useServiceAgreementMaterials'
 import { useSiteProfile } from '@/hooks/useSiteProfile'
 import { useSitePhotos } from '@/hooks/useSitePhotos'
+import { useFieldLogPhotos } from '@/hooks/useFieldLogPhotos'
 import { useWorkOrders } from '@/hooks/useWorkOrders'
 import { canEdit } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
@@ -980,6 +981,7 @@ export function AgreementDetail() {
   const { materials, refetch: refetchMaterials } = useServiceAgreementMaterials(id)
   const { weedProfile, observationLogs, refetch: refetchSiteProfile } = useSiteProfile(agreement?.site_id)
   const { photos: sitePhotos, refetch: refetchPhotos } = useSitePhotos(agreement?.site_id)
+  const { groups: fieldLogGroups } = useFieldLogPhotos(agreement?.site_id)
   const { workOrders } = useWorkOrders()
   const [activeTab, setActiveTab] = useState('details')
   const [siteInfoOpen, setSiteInfoOpen] = useState(false)
@@ -1154,6 +1156,7 @@ export function AgreementDetail() {
           weedProfile={weedProfile}
           observationLogs={observationLogs}
           sitePhotos={sitePhotos}
+          fieldLogGroups={fieldLogGroups}
           isOpen={siteInfoOpen}
           onToggle={() => setSiteInfoOpen(!siteInfoOpen)}
           role={role}

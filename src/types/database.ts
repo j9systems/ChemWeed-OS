@@ -339,11 +339,14 @@ export interface SiteWeedProfile {
   added_by: string | null
 }
 
+export type SitePhotoType = 'admin' | 'field_log'
+
 export interface SitePhoto {
   id: string
   site_id: string
   photo_url: string
   caption: string | null
+  photo_type: SitePhotoType
   uploaded_at: string
   uploaded_by: string | null
 }
