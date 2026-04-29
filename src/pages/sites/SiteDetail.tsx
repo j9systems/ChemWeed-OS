@@ -30,6 +30,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ErrorMessage } from '@/components/ui/ErrorMessage'
+import { PhotoLightbox } from '@/components/ui/PhotoLightbox'
 import { EditSiteModal } from './EditSiteModal'
 
 const GOOGLE_MAPS_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY as string
@@ -67,6 +68,8 @@ export function SiteDetail() {
   const [photoTab, setPhotoTab] = useState<'admin' | 'field_log'>('admin')
   const [uploading, setUploading] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
+  const [lightboxUrls, setLightboxUrls] = useState<string[]>([])
+  const [lightboxIndex, setLightboxIndex] = useState(0)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   if (isLoading) return <LoadingSpinner />
@@ -495,8 +498,15 @@ export function SiteDetail() {
                 ) : (
                   <div>
                     <div className="grid grid-cols-3 grid-rows-2 gap-2">
-                      {pagedPhotos.map((photo) => (
-                        <div key={photo.id} className="relative aspect-square rounded-lg overflow-hidden bg-surface-raised border border-surface-border group">
+                      {pagedPhotos.map((photo, idx) => (
+                        <div
+                          key={photo.id}
+                          className="relative aspect-square rounded-lg overflow-hidden bg-surface-raised border border-surface-border group cursor-pointer"
+                          onClick={() => {
+                            setLightboxUrls(sitePhotos.map(p => p.photo_url))
+                            setLightboxIndex(photoPage * PHOTOS_PER_PAGE + idx)
+                          }}
+                        >
                           <img
                             src={photo.photo_url}
                             alt={photo.caption ?? 'Site photo'}
@@ -579,44 +589,38 @@ export function SiteDetail() {
                           </Link>
                         </div>
 
-                        {group.beforeUrls.length > 0 && (
-                          <div className="mb-2">
-                            <p className="text-[10px] font-semibold uppercase text-[var(--color-text-muted)] mb-1">Before</p>
-                            <div className="grid grid-cols-4 gap-1.5">
-                              {group.beforeUrls.map((url, i) => (
-                                <div key={url} className="aspect-square rounded overflow-hidden border border-surface-border">
-                                  <img src={url} alt={`Before ${i + 1}`} className="w-full h-full object-cover" />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                        {(() => {
+                          const allUrls = [...group.beforeUrls, ...group.afterUrls, ...group.duringUrls]
+                          let offset = 0
 
-                        {group.afterUrls.length > 0 && (
-                          <div className="mb-2">
-                            <p className="text-[10px] font-semibold uppercase text-[var(--color-text-muted)] mb-1">After</p>
-                            <div className="grid grid-cols-4 gap-1.5">
-                              {group.afterUrls.map((url, i) => (
-                                <div key={url} className="aspect-square rounded overflow-hidden border border-surface-border">
-                                  <img src={url} alt={`After ${i + 1}`} className="w-full h-full object-cover" />
+                          function renderBucket(label: string, urls: string[], startOffset: number) {
+                            if (urls.length === 0) return null
+                            return (
+                              <div className={label !== 'During' ? 'mb-2' : ''}>
+                                <p className="text-[10px] font-semibold uppercase text-[var(--color-text-muted)] mb-1">{label}</p>
+                                <div className="grid grid-cols-4 gap-1.5">
+                                  {urls.map((url, i) => (
+                                    <div
+                                      key={url}
+                                      className="aspect-square rounded overflow-hidden border border-surface-border cursor-pointer"
+                                      onClick={() => { setLightboxUrls(allUrls); setLightboxIndex(startOffset + i) }}
+                                    >
+                                      <img src={url} alt={`${label} ${i + 1}`} className="w-full h-full object-cover" />
+                                    </div>
+                                  ))}
                                 </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                              </div>
+                            )
+                          }
 
-                        {group.duringUrls.length > 0 && (
-                          <div>
-                            <p className="text-[10px] font-semibold uppercase text-[var(--color-text-muted)] mb-1">During</p>
-                            <div className="grid grid-cols-4 gap-1.5">
-                              {group.duringUrls.map((url, i) => (
-                                <div key={url} className="aspect-square rounded overflow-hidden border border-surface-border">
-                                  <img src={url} alt={`During ${i + 1}`} className="w-full h-full object-cover" />
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        )}
+                          const beforeEl = renderBucket('Before', group.beforeUrls, offset)
+                          offset += group.beforeUrls.length
+                          const afterEl = renderBucket('After', group.afterUrls, offset)
+                          offset += group.afterUrls.length
+                          const duringEl = renderBucket('During', group.duringUrls, offset)
+
+                          return <>{beforeEl}{afterEl}{duringEl}</>
+                        })()}
                       </div>
                     ))}
                   </div>
@@ -702,6 +706,16 @@ export function SiteDetail() {
           refetchSite()
         }}
       />
+
+      {/* Photo Lightbox */}
+      {lightboxUrls.length > 0 && (
+        <PhotoLightbox
+          urls={lightboxUrls}
+          currentIndex={lightboxIndex}
+          onClose={() => setLightboxUrls([])}
+          onChange={setLightboxIndex}
+        />
+      )}
     </div>
   )
 }
